@@ -1,0 +1,84 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+/// মেসের মাসিক স্থায়ী বিলের ধরন।
+enum MessBillType {
+  cook,
+  rent,
+  electricity,
+  water,
+  utility;
+
+  static MessBillType fromString(String? value) {
+    switch (value) {
+      case 'cook':
+      case 'khala':
+        return MessBillType.cook;
+      case 'rent':
+        return MessBillType.rent;
+      case 'electricity':
+        return MessBillType.electricity;
+      case 'water':
+        return MessBillType.water;
+      case 'utility':
+      default:
+        return MessBillType.utility;
+    }
+  }
+
+  String get firestoreValue => name;
+
+  String get bnLabel {
+    switch (this) {
+      case MessBillType.cook:
+        return 'খালা বিল';
+      case MessBillType.rent:
+        return 'বাসা ভাড়া';
+      case MessBillType.electricity:
+        return 'বিদ্যুৎ বিল';
+      case MessBillType.water:
+        return 'পানির বিল';
+      case MessBillType.utility:
+        return 'ইউটিলিটি বিল';
+    }
+  }
+}
+
+class MessBill {
+  const MessBill({
+    required this.id,
+    required this.type,
+    required this.amount,
+    required this.yearMonth,
+    this.note = '',
+    this.createdBy,
+    this.createdByName,
+    this.updatedAt,
+    this.createdAt,
+  });
+
+  final String id;
+  final MessBillType type;
+  final double amount;
+  final String yearMonth;
+  final String note;
+  final String? createdBy;
+  final String? createdByName;
+  final DateTime? updatedAt;
+  final DateTime? createdAt;
+
+  factory MessBill.fromMap(String id, Map<String, dynamic> data) {
+    final createdRaw = data['createdAt'];
+    final updatedRaw = data['updatedAt'];
+    return MessBill(
+      id: id,
+      type: MessBillType.fromString(data['type'] as String?),
+      amount: (data['amount'] as num?)?.toDouble() ?? 0,
+      yearMonth: data['yearMonth'] as String? ?? '',
+      note: data['note'] as String? ?? '',
+      createdBy: data['createdBy'] as String?,
+      createdByName: data['createdByName'] as String?,
+      createdAt: createdRaw is Timestamp ? createdRaw.toDate() : null,
+      updatedAt: updatedRaw is Timestamp ? updatedRaw.toDate() : null,
+    );
+  }
+}

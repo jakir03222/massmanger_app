@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "524958440002",
+    "firebase_url": "https://massmanager-ebfc8-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "massmanager-ebfc8",
+    "storage_bucket": "massmanager-ebfc8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:524958440002:android:faff277337403198f12bdb",
+        "android_client_info": {
+          "package_name": "com.example.massmanager"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "524958440002-dt7is0k295kqk1cst1887ai6v5tap91e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.massmanager",
+            "certificate_hash": "1dea06d6bd7105137408ebcf77a45594d327b69e"
+          }
+        },
+        {
+          "client_id": "524958440002-ju8uajfk1h38atj4dld6ck80bnisstel.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCAsIETvVQJtaGKlWcugZSNsKl4_CYsK-E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "524958440002-ju8uajfk1h38atj4dld6ck80bnisstel.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "524958440002-r5qpbiim0fe3tppdih5cljkde7ag86vr.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.massmanager"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

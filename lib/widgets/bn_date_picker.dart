@@ -1,0 +1,321 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+import '../theme/app_colors.dart';
+
+const _bnWeekdays = ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র', 'শনি'];
+
+const _bnMonths = [
+  'জানুয়ারি',
+  'ফেব্রুয়ারি',
+  'মার্চ',
+  'এপ্রিল',
+  'মে',
+  'জুন',
+  'জুলাই',
+  'আগস্ট',
+  'সেপ্টেম্বর',
+  'অক্টোবর',
+  'নভেম্বর',
+  'ডিসেম্বর',
+];
+
+/// English digits → বাংলা সংখ্যা
+String toBnDigits(String input) {
+  const en = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+  const bn = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+  var out = input;
+  for (var i = 0; i < 10; i++) {
+    out = out.replaceAll(en[i], bn[i]);
+  }
+  return out;
+}
+
+String formatBnDateFull(DateTime d) {
+  return toBnDigits('${d.day} ${_bnMonths[d.month - 1]} ${d.year}');
+}
+
+/// বাংলা ক্যালেন্ডার দিয়ে তারিখ সিলেক্ট।
+Future<DateTime?> showBnDatePicker({
+  required BuildContext context,
+  required DateTime initialDate,
+  DateTime? firstDate,
+  DateTime? lastDate,
+  String helpText = 'তারিখ সিলেক্ট করুন',
+}) {
+  final first = firstDate ?? DateTime(2024);
+  final last = lastDate ?? DateTime.now().add(const Duration(days: 1));
+  var initial = initialDate;
+  if (initial.isBefore(first)) initial = first;
+  if (initial.isAfter(last)) initial = last;
+
+  return showModalBottomSheet<DateTime>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+    ),
+    builder: (context) {
+      return _BnCalendarSheet(
+        initialDate: initial,
+        firstDate: first,
+        lastDate: last,
+        helpText: helpText,
+      );
+    },
+  );
+}
+
+class _BnCalendarSheet extends StatefulWidget {
+  const _BnCalendarSheet({
+    required this.initialDate,
+    required this.firstDate,
+    required this.lastDate,
+    required this.helpText,
+  });
+
+  final DateTime initialDate;
+  final DateTime firstDate;
+  final DateTime lastDate;
+  final String helpText;
+
+  @override
+  State<_BnCalendarSheet> createState() => _BnCalendarSheetState();
+}
+
+class _BnCalendarSheetState extends State<_BnCalendarSheet> {
+  late DateTime _visibleMonth;
+  late DateTime _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = DateTime(
+      widget.initialDate.year,
+      widget.initialDate.month,
+      widget.initialDate.day,
+    );
+    _visibleMonth = DateTime(_selected.year, _selected.month);
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  bool _inRange(DateTime d) {
+    final day = DateTime(d.year, d.month, d.day);
+    final first = DateTime(
+      widget.firstDate.year,
+      widget.firstDate.month,
+      widget.firstDate.day,
+    );
+    final last = DateTime(
+      widget.lastDate.year,
+      widget.lastDate.month,
+      widget.lastDate.day,
+    );
+    return !day.isBefore(first) && !day.isAfter(last);
+  }
+
+  void _prevMonth() {
+    final prev = DateTime(_visibleMonth.year, _visibleMonth.month - 1);
+    final firstMonth =
+        DateTime(widget.firstDate.year, widget.firstDate.month);
+    if (prev.isBefore(firstMonth)) return;
+    setState(() => _visibleMonth = prev);
+  }
+
+  void _nextMonth() {
+    final next = DateTime(_visibleMonth.year, _visibleMonth.month + 1);
+    final lastMonth = DateTime(widget.lastDate.year, widget.lastDate.month);
+    if (next.isAfter(lastMonth)) return;
+    setState(() => _visibleMonth = next);
+  }
+
+  List<DateTime?> _daysInGrid() {
+    final first = DateTime(_visibleMonth.year, _visibleMonth.month, 1);
+    final daysInMonth =
+        DateTime(_visibleMonth.year, _visibleMonth.month + 1, 0).day;
+    // Dart weekday: Mon=1 ... Sun=7 → grid starts Sunday
+    final leading = first.weekday % 7;
+    final cells = <DateTime?>[];
+    for (var i = 0; i < leading; i++) {
+      cells.add(null);
+    }
+    for (var d = 1; d <= daysInMonth; d++) {
+      cells.add(DateTime(_visibleMonth.year, _visibleMonth.month, d));
+    }
+    while (cells.length % 7 != 0) {
+      cells.add(null);
+    }
+    return cells;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cells = _daysInGrid();
+    final today = DateTime.now();
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.borderGrey,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              widget.helpText,
+              style: GoogleFonts.notoSansBengali(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              formatBnDateFull(_selected),
+              style: GoogleFonts.notoSansBengali(
+                fontSize: 14,
+                color: AppColors.primaryGreen,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                IconButton(
+                  onPressed: _prevMonth,
+                  icon: const Icon(Icons.chevron_left),
+                  color: AppColors.darkGreen,
+                ),
+                Expanded(
+                  child: Text(
+                    toBnDigits(
+                      '${_bnMonths[_visibleMonth.month - 1]} ${_visibleMonth.year}',
+                    ),
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.notoSansBengali(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: _nextMonth,
+                  icon: const Icon(Icons.chevron_right),
+                  color: AppColors.darkGreen,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: _bnWeekdays
+                  .map(
+                    (w) => Expanded(
+                      child: Center(
+                        child: Text(
+                          w,
+                          style: GoogleFonts.notoSansBengali(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textGrey,
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 6),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: cells.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 7,
+                mainAxisSpacing: 4,
+                crossAxisSpacing: 4,
+              ),
+              itemBuilder: (context, index) {
+                final day = cells[index];
+                if (day == null) return const SizedBox.shrink();
+                final enabled = _inRange(day);
+                final selected = _isSameDay(day, _selected);
+                final isToday = _isSameDay(day, today);
+
+                return Material(
+                  color: selected
+                      ? AppColors.primaryGreen
+                      : (isToday
+                          ? AppColors.featureGreenBg
+                          : Colors.transparent),
+                  borderRadius: BorderRadius.circular(10),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: enabled
+                        ? () => setState(() => _selected = day)
+                        : null,
+                    child: Center(
+                      child: Text(
+                        toBnDigits('${day.day}'),
+                        style: GoogleFonts.notoSansBengali(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: !enabled
+                              ? AppColors.borderGrey
+                              : (selected
+                                  ? Colors.white
+                                  : AppColors.textDark),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      'বাতিল',
+                      style: GoogleFonts.notoSansBengali(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(context, _selected),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryGreen,
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'ঠিক আছে',
+                      style: GoogleFonts.notoSansBengali(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

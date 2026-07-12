@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    match /users/{userId} {
+      allow read, write: if signedIn() && request.auth.uid == userId;
+    }
+
+    match /messes/{messId} {
+      allow read, create, update, delete: if signedIn();
+
+      match /members/{memberId} {
+        allow read, write: if signedIn();
+      }
+
+      match /meals/{day} {
+        allow read, write: if signedIn();
+        match /entries/{uid} {
+          allow read, write: if signedIn();
+        }
+      }
+
+      match /markets/{marketId} {
+        allow read, write: if signedIn();
+      }
+
+      match /bazaar_schedules/{scheduleId} {
+        allow read, write: if signedIn();
+      }
+
+      match /bills/{billId} {
+        allow read, write: if signedIn();
+      }
+    }
+
+    match /mess_codes/{code} {
+      allow read, create, update: if signedIn();
+      allow delete: if false;
+    }
+  }
+}
