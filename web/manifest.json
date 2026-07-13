@@ -1,11 +1,11 @@
 {
-    "name": "মেস ম্যানেজার",
-    "short_name": "মেস ম্যানেজার",
+    "name": "ম্যাস ম্যানেজার",
+    "short_name": "ম্যাস ম্যানেজার",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#22702E",
     "theme_color": "#22702E",
-    "description": "মেস ম্যানেজার — মেস খরচ, খাবার ও বিল ম্যানেজমেন্ট অ্যাপ",
+    "description": "ম্যাস ম্যানেজার — মেস খরচ, খাবার ও বিল ম্যানেজমেন্ট অ্যাপ",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

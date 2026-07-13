@@ -27,7 +27,7 @@ class MassManagerApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'মেস ম্যানেজার',
+      title: 'ম্যাস ম্যানেজার',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
