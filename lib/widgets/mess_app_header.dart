@@ -60,7 +60,17 @@ class MessAppHeader extends StatelessWidget {
                   ),
           ),
           IconButton(
-            onPressed: () {},
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'নতুন কোনো নোটিফিকেশন নেই',
+                    style: GoogleFonts.notoSansBengali(),
+                  ),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            },
             icon: const Icon(Icons.notifications_outlined, color: AppColors.headerIcon),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),

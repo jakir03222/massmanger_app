@@ -5,34 +5,86 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isMember(messId) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/messes/$(messId)/members/$(request.auth.uid));
+    }
+
+    function myRole(messId) {
+      return get(/databases/$(database)/documents/messes/$(messId)/members/$(request.auth.uid)).data.role;
+    }
+
+    // Admin powers: super_admin OR admin
+    function isAdmin(messId) {
+      return isMember(messId) &&
+        (myRole(messId) == 'admin' || myRole(messId) == 'super_admin');
+    }
+
+    function isSuperAdmin(messId) {
+      return isMember(messId) && myRole(messId) == 'super_admin';
+    }
+
     match /users/{userId} {
       allow read, write: if signedIn() && request.auth.uid == userId;
     }
 
     match /messes/{messId} {
-      allow read, create, update, delete: if signedIn();
+      allow read, create: if signedIn();
+      allow update, delete: if isAdmin(messId);
 
       match /members/{memberId} {
-        allow read, write: if signedIn();
+        allow read: if signedIn();
+
+        // Join as self (create own member doc)
+        allow create: if signedIn() && request.auth.uid == memberId;
+
+        // Leave as self
+        allow delete: if signedIn() && (
+          request.auth.uid == memberId ||
+          (isSuperAdmin(messId) && resource.data.role != 'super_admin') ||
+          (isAdmin(messId) && !isSuperAdmin(messId) && resource.data.role == 'member')
+        );
+
+        allow update: if signedIn() && (
+          // Self: name/room only — cannot change own role
+          (request.auth.uid == memberId &&
+            request.resource.data.role == resource.data.role) ||
+          // Super admin: can update anyone except stripping super_admin
+          // unless transferring (role becomes admin on self handled in batch
+          // with createdBy — client enforces transfer carefully)
+          (isSuperAdmin(messId) &&
+            (resource.data.role != 'super_admin' ||
+             request.resource.data.role == 'super_admin' ||
+             request.auth.uid == memberId)) ||
+          // Regular admin: only normal members, role stays member
+          (isAdmin(messId) &&
+            !isSuperAdmin(messId) &&
+            resource.data.role == 'member' &&
+            request.resource.data.role == 'member')
+        );
       }
 
       match /meals/{day} {
-        allow read, write: if signedIn();
+        allow read, write: if isMember(messId);
+        match /items/{itemId} {
+          allow read, write: if isMember(messId);
+        }
         match /entries/{uid} {
-          allow read, write: if signedIn();
+          allow read, write: if isMember(messId);
         }
       }
 
       match /markets/{marketId} {
-        allow read, write: if signedIn();
+        allow read, write: if isMember(messId);
       }
 
       match /bazaar_schedules/{scheduleId} {
-        allow read, write: if signedIn();
+        allow read, write: if isMember(messId);
       }
 
       match /bills/{billId} {
-        allow read, write: if signedIn();
+        allow read: if isMember(messId);
+        allow write: if isAdmin(messId);
       }
     }
 

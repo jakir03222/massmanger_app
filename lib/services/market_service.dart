@@ -74,6 +74,7 @@ class MarketService {
     required String yearMonth,
     required List<MarketItem> items,
     required bool asAdmin,
+    bool isDue = false,
   }) async {
     final status =
         asAdmin ? MarketStatus.approved : MarketStatus.pending;
@@ -86,6 +87,7 @@ class MarketService {
       'dateKey': dateKey,
       'yearMonth': yearMonth,
       'status': status.firestoreValue,
+      'isDue': isDue,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
       'createdBy': shopperUid,
@@ -98,6 +100,9 @@ class MarketService {
     required double amount,
     required String notes,
     required List<MarketItem> items,
+    bool? isDue,
+    String? dateKey,
+    String? yearMonth,
     String? editedByUid,
     String? editedByName,
   }) async {
@@ -107,6 +112,15 @@ class MarketService {
       'items': items.map((e) => e.toMap()).toList(),
       'updatedAt': FieldValue.serverTimestamp(),
     };
+    if (isDue != null) {
+      data['isDue'] = isDue;
+    }
+    if (dateKey != null) {
+      data['dateKey'] = dateKey;
+    }
+    if (yearMonth != null) {
+      data['yearMonth'] = yearMonth;
+    }
     if (editedByUid != null && editedByName != null) {
       data['editedByUid'] = editedByUid;
       data['editedByName'] = editedByName;

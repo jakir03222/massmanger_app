@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:printing/printing.dart';
 
 import '../models/mess.dart';
 import '../models/mess_bill.dart';
 import '../services/mess_bill_service.dart';
+import '../services/monthly_report_pdf_service.dart';
+import '../services/monthly_settlement_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/mess_session_builder.dart';
 
@@ -17,7 +20,10 @@ class MessBillsScreen extends StatefulWidget {
 
 class _MessBillsScreenState extends State<MessBillsScreen> {
   final _service = MessBillService();
+  final _settlementService = MonthlySettlementService();
+  final _pdfService = MonthlyReportPdfService();
   late DateTime _month;
+  bool _exporting = false;
 
   @override
   void initState() {
@@ -124,6 +130,41 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
     }
   }
 
+  Future<void> _exportPdf({
+    required Mess mess,
+    required List<MessMember> members,
+  }) async {
+    if (_exporting) return;
+    setState(() => _exporting = true);
+
+    try {
+      final report = await _settlementService.buildReport(
+        mess: mess,
+        members: members,
+        month: _month,
+      );
+      final bytes = await _pdfService.generate(report);
+      if (!mounted) return;
+
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: 'mess-hisab-$_yearMonth.pdf',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'PDF তৈরি ব্যর্থ — আবার চেষ্টা করুন',
+            style: GoogleFonts.notoSansBengali(),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
   Future<void> _delete(String messId, MessBill bill) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -197,6 +238,22 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
               'মাসিক বিল',
               style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
             ),
+            actions: [
+              if (isAdmin)
+                IconButton(
+                  onPressed: _exporting
+                      ? null
+                      : () => _exportPdf(mess: mess, members: members),
+                  tooltip: 'PDF ডাউনলোড',
+                  icon: _exporting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.picture_as_pdf_outlined),
+                ),
+            ],
           ),
           floatingActionButton: isAdmin && me != null
               ? FloatingActionButton.extended(
@@ -251,7 +308,7 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
                   isAdmin
-                      ? 'অ্যাডমিন বিল যোগ/সম্পাদনা/মুছতে পারবে · সব মেম্বার দেখতে পাবে'
+                      ? 'অ্যাডমিন বিল যোগ/সম্পাদনা করতে পারবে · মাস শেষে সব মেম্বারের হিসাব PDF এক্সপোর্ট'
                       : 'এই মাসের মেস বিল — অ্যাডমিন যোগ করেছে',
                   style: GoogleFonts.notoSansBengali(
                     fontSize: 12,
@@ -259,6 +316,41 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
                   ),
                 ),
               ),
+              if (isAdmin) ...[
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _exporting
+                          ? null
+                          : () => _exportPdf(mess: mess, members: members),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.darkGreen,
+                        side: const BorderSide(color: AppColors.primaryGreen),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      icon: _exporting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.download_outlined),
+                      label: Text(
+                        'মাস শেষ ক্লোজিং — সব মেম্বারের হিসাব PDF',
+                        style: GoogleFonts.notoSansBengali(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 8),
               Expanded(
                 child: StreamBuilder<List<MessBill>>(

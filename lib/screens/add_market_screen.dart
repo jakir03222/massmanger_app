@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/market_entry.dart';
+import '../models/mess.dart';
 import '../services/market_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/bn_date_picker.dart';
@@ -47,6 +48,13 @@ class _AddMarketScreenState extends State<AddMarketScreen> {
   bool _saving = false;
   bool _deleting = false;
 
+  /// বাকিতে বাজার — দোকানে টাকা এখনো বাকি।
+  bool _isDue = false;
+
+  /// Admin adding bazaar on behalf of a selected member (null = self).
+  String? _shopperUid;
+  String? _shopperName;
+
   bool get _isEdit => widget.existing != null;
 
   @override
@@ -54,6 +62,7 @@ class _AddMarketScreenState extends State<AddMarketScreen> {
     super.initState();
     final existing = widget.existing;
     _marketDate = _parseExistingDate(existing?.dateKey) ?? DateTime.now();
+    _isDue = existing?.isDue ?? false;
     if (existing != null && existing.items.isNotEmpty) {
       _items = existing.items
           .map(
@@ -92,7 +101,10 @@ class _AddMarketScreenState extends State<AddMarketScreen> {
   }
 
   Future<void> _pickMarketDate() async {
-    if (_isEdit) return;
+    FocusScope.of(context).unfocus();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    if (!mounted) return;
+
     final picked = await showBnDatePicker(
       context: context,
       initialDate: _marketDate,
@@ -100,7 +112,7 @@ class _AddMarketScreenState extends State<AddMarketScreen> {
       lastDate: DateTime.now().add(const Duration(days: 1)),
       helpText: 'বাজারের তারিখ সিলেক্ট করুন',
     );
-    if (picked == null) return;
+    if (!mounted || picked == null) return;
     setState(() => _marketDate = picked);
   }
 
@@ -207,6 +219,9 @@ class _AddMarketScreenState extends State<AddMarketScreen> {
           amount: total,
           notes: notes,
           items: parsed,
+          isDue: _isDue,
+          dateKey: dateKey(_marketDate),
+          yearMonth: yearMonthKey(_marketDate),
           editedByUid: asAdmin ? uid : null,
           editedByName: asAdmin ? name : null,
         );
@@ -221,6 +236,7 @@ class _AddMarketScreenState extends State<AddMarketScreen> {
           yearMonth: yearMonthKey(_marketDate),
           items: parsed,
           asAdmin: asAdmin,
+          isDue: _isDue,
         );
       }
       if (!mounted) return;
@@ -323,7 +339,12 @@ class _AddMarketScreenState extends State<AddMarketScreen> {
         final matched = members.where((m) => m.uid == appUser.uid);
         final me = matched.isNotEmpty ? matched.first : null;
         final isAdmin = me?.isAdmin ?? false;
-        final name = me?.name ?? (appUser.name ?? appUser.email);
+        final myName = me?.name ?? (appUser.name ?? appUser.email);
+
+        // Effective shopper: admin may pick another member when adding.
+        final canPickShopper = !_isEdit && isAdmin && members.isNotEmpty;
+        final shopperUid = _shopperUid ?? appUser.uid;
+        final shopperName = _shopperName ?? myName;
 
         return Scaffold(
           backgroundColor: AppColors.pageBackground,
@@ -369,69 +390,109 @@ class _AddMarketScreenState extends State<AddMarketScreen> {
                   ),
                   const SizedBox(height: 14),
                 ],
-                InkWell(
-                  onTap: _isEdit || busy ? null : _pickMarketDate,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.borderGrey),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.calendar_today_outlined,
-                          size: 18,
-                          color: AppColors.primaryGreen,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'বাজারের তারিখ',
-                                style: GoogleFonts.notoSansBengali(
-                                  fontSize: 11,
-                                  color: AppColors.textGrey,
-                                ),
-                              ),
-                              Text(
-                                formatBnDate(_marketDate),
-                                style: GoogleFonts.notoSansBengali(
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textDark,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (!_isEdit)
-                          Text(
-                            'পরিবর্তন',
-                            style: GoogleFonts.notoSansBengali(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                Material(
+                  color: AppColors.featureGreenBg,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: const BorderSide(color: AppColors.primaryGreen),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: busy ? null : _pickMarketDate,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 14,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.calendar_month_rounded,
+                              size: 22,
                               color: AppColors.primaryGreen,
                             ),
                           ),
-                      ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'বাজারের তারিখ সিলেক্ট করুন',
+                                  style: GoogleFonts.notoSansBengali(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.darkGreen,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  formatBnDate(_marketDate),
+                                  style: GoogleFonts.notoSansBengali(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.textDark,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryGreen,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              'তারিখ বাছুন',
+                              style: GoogleFonts.notoSansBengali(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 Text(
-                  'বাজারকারী: ${_isEdit ? widget.existing!.shopperName : name}',
+                  'তারিখে ট্যাপ করলেই সিলেক্ট হবে · তারপর বাজার সেভ করুন',
                   style: GoogleFonts.notoSansBengali(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
+                    fontSize: 11,
+                    color: AppColors.textGrey,
                   ),
                 ),
+                const SizedBox(height: 12),
+                if (canPickShopper)
+                  _ShopperSelector(
+                    members: members,
+                    selectedUid: shopperUid,
+                    onSelected: (m) => setState(() {
+                      _shopperUid = m.uid;
+                      _shopperName = m.name;
+                    }),
+                  )
+                else
+                  Text(
+                    'বাজারকারী: ${_isEdit ? widget.existing!.shopperName : shopperName}',
+                    style: GoogleFonts.notoSansBengali(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textDark,
+                    ),
+                  ),
                 if (_isEdit && widget.existing!.wasEditedByAdmin) ...[
                   const SizedBox(height: 4),
                   Text(
@@ -577,6 +638,48 @@ class _AddMarketScreenState extends State<AddMarketScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
+                Material(
+                  color: _isDue
+                      ? const Color(0xFFFFF3E0)
+                      : Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    side: BorderSide(
+                      color: _isDue
+                          ? AppColors.actionOrange
+                          : AppColors.borderGrey,
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: SwitchListTile(
+                    value: _isDue,
+                    onChanged: busy ? null : (v) => setState(() => _isDue = v),
+                    activeThumbColor: AppColors.actionOrange,
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                    title: Text(
+                      'বাকিতে বাজার',
+                      style: GoogleFonts.notoSansBengali(
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'দোকানে টাকা এখনো বাকি — পরে পরিশোধ হবে',
+                      style: GoogleFonts.notoSansBengali(
+                        fontSize: 12,
+                        color: AppColors.textGrey,
+                      ),
+                    ),
+                    secondary: Icon(
+                      Icons.account_balance_wallet_outlined,
+                      color: _isDue
+                          ? AppColors.actionOrange
+                          : AppColors.textGrey,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -586,7 +689,7 @@ class _AddMarketScreenState extends State<AddMarketScreen> {
                   child: Row(
                     children: [
                       Text(
-                        'মোট টাকা',
+                        _isDue ? 'মোট টাকা (বাকি)' : 'মোট টাকা',
                         style: GoogleFonts.notoSansBengali(
                           fontWeight: FontWeight.w600,
                         ),
@@ -611,8 +714,8 @@ class _AddMarketScreenState extends State<AddMarketScreen> {
                         ? null
                         : () => _save(
                               messId: mess.id,
-                              uid: appUser.uid,
-                              name: name,
+                              uid: shopperUid,
+                              name: shopperName,
                               asAdmin: isAdmin,
                             ),
                     style: ElevatedButton.styleFrom(
@@ -649,6 +752,73 @@ class _AddMarketScreenState extends State<AddMarketScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class _ShopperSelector extends StatelessWidget {
+  const _ShopperSelector({
+    required this.members,
+    required this.selectedUid,
+    required this.onSelected,
+  });
+
+  final List<MessMember> members;
+  final String selectedUid;
+  final ValueChanged<MessMember> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'বাজারকারী (মেম্বার সিলেক্ট করুন)',
+          style: GoogleFonts.notoSansBengali(
+            fontSize: 12,
+            color: AppColors.textGrey,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.borderGrey),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: members.any((m) => m.uid == selectedUid)
+                  ? selectedUid
+                  : null,
+              isExpanded: true,
+              icon: const Icon(Icons.arrow_drop_down,
+                  color: AppColors.primaryGreen),
+              hint: Text('মেম্বার', style: GoogleFonts.notoSansBengali()),
+              items: members
+                  .map(
+                    (m) => DropdownMenuItem<String>(
+                      value: m.uid,
+                      child: Text(
+                        m.name +
+                            (m.isSuperAdmin
+                                ? ' (সুপার অ্যাডমিন)'
+                                : (m.isRegularAdmin ? ' (অ্যাডমিন)' : '')),
+                        style: GoogleFonts.notoSansBengali(),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (uid) {
+                if (uid == null) return;
+                final picked = members.firstWhere((m) => m.uid == uid);
+                onSelected(picked);
+              },
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

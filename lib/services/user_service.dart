@@ -56,4 +56,12 @@ class UserService {
   Future<void> setMessId(String uid, String messId) async {
     await _users.doc(uid).set({'messId': messId}, SetOptions(merge: true));
   }
+
+  Future<void> clearMessId(String uid) async {
+    await _users.doc(uid).set({'messId': null}, SetOptions(merge: true));
+  }
+
+  Future<void> updateName(String uid, String name) async {
+    await _users.doc(uid).set({'name': name.trim()}, SetOptions(merge: true));
+  }
 }

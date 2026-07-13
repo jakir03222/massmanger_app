@@ -49,6 +49,77 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
     }
   }
 
+  Future<void> _forgotPassword() async {
+    final controller = TextEditingController(text: _emailController.text.trim());
+    final email = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'পাসওয়ার্ড রিসেট',
+          style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'আপনার ইমেইলে পাসওয়ার্ড রিসেট লিংক পাঠানো হবে।',
+              style: GoogleFonts.notoSansBengali(fontSize: 13),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              keyboardType: TextInputType.emailAddress,
+              autofocus: true,
+              style: GoogleFonts.notoSansBengali(),
+              decoration: InputDecoration(
+                labelText: 'ইমেইল',
+                labelStyle: GoogleFonts.notoSansBengali(),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('বাতিল', style: GoogleFonts.notoSansBengali()),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: Text(
+              'লিংক পাঠান',
+              style: GoogleFonts.notoSansBengali(
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryGreen,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (email == null || email.isEmpty || !mounted) return;
+    try {
+      await _authService.sendPasswordResetEmail(email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'রিসেট লিংক পাঠানো হয়েছে — ইমেইল চেক করুন',
+            style: GoogleFonts.notoSansBengali(),
+          ),
+        ),
+      );
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message, style: GoogleFonts.notoSansBengali())),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -113,7 +184,21 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 28),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: _loading ? null : _forgotPassword,
+                    child: Text(
+                      'পাসওয়ার্ড ভুলে গেছেন?',
+                      style: GoogleFonts.notoSansBengali(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.primaryGreen,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
                 SizedBox(
                   height: 52,
                   child: ElevatedButton(

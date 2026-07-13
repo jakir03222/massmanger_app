@@ -1,5 +1,4 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../config/google_sign_in_config.dart';
@@ -124,6 +123,20 @@ class AuthService {
       throw AuthException(_mapFirestoreError(e));
     } catch (_) {
       throw AuthException('কিছু ভুল হয়েছে। আবার চেষ্টা করুন।');
+    }
+  }
+
+  Future<void> sendPasswordResetEmail(String email) async {
+    final trimmed = email.trim();
+    if (trimmed.isEmpty || !trimmed.contains('@')) {
+      throw AuthException('সঠিক ইমেইল দিন।');
+    }
+    try {
+      await _auth.sendPasswordResetEmail(email: trimmed);
+    } on FirebaseAuthException catch (e) {
+      throw AuthException(_mapAuthError(e));
+    } catch (_) {
+      throw AuthException('রিসেট ইমেইল পাঠানো ব্যর্থ। আবার চেষ্টা করুন।');
     }
   }
 

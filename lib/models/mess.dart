@@ -24,6 +24,7 @@ class Mess {
   }
 }
 
+/// Roles: `super_admin` (mess creator) → `admin` → `member`.
 class MessMember {
   const MessMember({
     required this.uid,
@@ -34,16 +35,64 @@ class MessMember {
 
   final String uid;
   final String name;
+
+  /// `super_admin` | `admin` | `member`
   final String role;
   final String? room;
 
-  bool get isAdmin => role == 'admin';
+  bool get isSuperAdmin => role == 'super_admin';
 
-  factory MessMember.fromMap(String uid, Map<String, dynamic> data) {
+  /// Regular admin only (not super admin).
+  bool get isRegularAdmin => role == 'admin';
+
+  /// Has admin powers (super admin or admin) — bills, meals, bazaar, etc.
+  bool get isAdmin => isSuperAdmin || isRegularAdmin;
+
+  bool get isMemberOnly => !isAdmin;
+
+  String get roleBnLabel {
+    if (isSuperAdmin) return 'সুপার অ্যাডমিন';
+    if (isRegularAdmin) return 'অ্যাডমিন';
+    return 'মেম্বার';
+  }
+
+  /// Who [actor] can manage in settings.
+  bool canBeManagedBy(MessMember actor) {
+    if (uid == actor.uid) return false;
+    if (isSuperAdmin) return false;
+    if (actor.isSuperAdmin) return true;
+    if (actor.isRegularAdmin) return isMemberOnly;
+    return false;
+  }
+
+  /// Only super admin can promote/demote admin roles.
+  bool canChangeRoleOf(MessMember target) {
+    if (!isSuperAdmin) return false;
+    if (target.isSuperAdmin) return false;
+    if (target.uid == uid) return false;
+    return true;
+  }
+
+  factory MessMember.fromMap(
+    String uid,
+    Map<String, dynamic> data, {
+    String? messCreatedBy,
+  }) {
+    var role = data['role'] as String? ?? 'member';
+    // Legacy: mess creator stored as `admin` → treat as super_admin.
+    if (role == 'admin' &&
+        messCreatedBy != null &&
+        messCreatedBy.isNotEmpty &&
+        messCreatedBy == uid) {
+      role = 'super_admin';
+    }
+    if (role != 'super_admin' && role != 'admin' && role != 'member') {
+      role = 'member';
+    }
     return MessMember(
       uid: uid,
       name: data['name'] as String? ?? 'সদস্য',
-      role: data['role'] as String? ?? 'member',
+      role: role,
       room: data['room'] as String?,
     );
   }

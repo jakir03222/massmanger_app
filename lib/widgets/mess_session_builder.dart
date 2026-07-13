@@ -53,12 +53,69 @@ class MessSessionBuilder extends StatelessWidget {
               stream: messService.watchMembers(messId),
               builder: (context, membersSnap) {
                 final members = membersSnap.data ?? [];
+                // If the current user was removed from the mess, don't crash —
+                // show a friendly notice and let them leave cleanly.
+                final removed = membersSnap.hasData &&
+                    members.isNotEmpty &&
+                    !members.any((m) => m.uid == uid);
+                if (removed) {
+                  return _RemovedFromMessView(uid: uid);
+                }
                 return builder(context, appUser, mess, members);
               },
             );
           },
         );
       },
+    );
+  }
+}
+
+class _RemovedFromMessView extends StatelessWidget {
+  const _RemovedFromMessView({required this.uid});
+
+  final String uid;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.info_outline,
+                color: AppColors.primaryGreen, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              'আপনি আর এই মেসে নেই',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textDark,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'অ্যাডমিন আপনাকে রিমুভ করেছেন অথবা আপনি মেস ছেড়েছেন। নতুন মেসে যোগ দিতে নিচে ট্যাপ করুন।',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textGrey, height: 1.5),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () => UserService().clearMessId(uid),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryGreen,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: const Text('মেস সেটআপে যান'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

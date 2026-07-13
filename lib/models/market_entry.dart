@@ -69,6 +69,7 @@ class MarketEntry {
     required this.yearMonth,
     this.items = const [],
     this.status = MarketStatus.approved,
+    this.isDue = false,
     this.createdAt,
     this.updatedAt,
     this.editedByUid,
@@ -84,6 +85,9 @@ class MarketEntry {
   final String yearMonth;
   final List<MarketItem> items;
   final MarketStatus status;
+
+  /// বাকিতে বাজার — দোকানে টাকা এখনো পরিশোধ করা হয়নি।
+  final bool isDue;
   final DateTime? createdAt;
   final DateTime? updatedAt;
   final String? editedByUid;
@@ -120,6 +124,7 @@ class MarketEntry {
       yearMonth: data['yearMonth'] as String? ?? '',
       items: items,
       status: MarketStatus.fromString(data['status'] as String?),
+      isDue: data['isDue'] as bool? ?? false,
       createdAt: createdAtRaw is Timestamp ? createdAtRaw.toDate() : null,
       updatedAt: updatedAtRaw is Timestamp ? updatedAtRaw.toDate() : null,
       editedByUid: data['editedByUid'] as String?,

@@ -45,23 +45,30 @@ Future<DateTime?> showBnDatePicker({
 }) {
   final first = firstDate ?? DateTime(2024);
   final last = lastDate ?? DateTime.now().add(const Duration(days: 1));
-  var initial = initialDate;
-  if (initial.isBefore(first)) initial = first;
-  if (initial.isAfter(last)) initial = last;
+  var initial = DateTime(initialDate.year, initialDate.month, initialDate.day);
+  final firstDay = DateTime(first.year, first.month, first.day);
+  final lastDay = DateTime(last.year, last.month, last.day);
+  if (initial.isBefore(firstDay)) initial = firstDay;
+  if (initial.isAfter(lastDay)) initial = lastDay;
 
   return showModalBottomSheet<DateTime>(
     context: context,
     isScrollControlled: true,
+    useSafeArea: true,
     backgroundColor: Colors.white,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
     ),
     builder: (context) {
-      return _BnCalendarSheet(
-        initialDate: initial,
-        firstDate: first,
-        lastDate: last,
-        helpText: helpText,
+      final maxH = MediaQuery.sizeOf(context).height * 0.75;
+      return ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxH),
+        child: _BnCalendarSheet(
+          initialDate: initial,
+          firstDate: firstDay,
+          lastDate: lastDay,
+          helpText: helpText,
+        ),
       );
     },
   );
@@ -104,17 +111,7 @@ class _BnCalendarSheetState extends State<_BnCalendarSheet> {
 
   bool _inRange(DateTime d) {
     final day = DateTime(d.year, d.month, d.day);
-    final first = DateTime(
-      widget.firstDate.year,
-      widget.firstDate.month,
-      widget.firstDate.day,
-    );
-    final last = DateTime(
-      widget.lastDate.year,
-      widget.lastDate.month,
-      widget.lastDate.day,
-    );
-    return !day.isBefore(first) && !day.isAfter(last);
+    return !day.isBefore(widget.firstDate) && !day.isAfter(widget.lastDate);
   }
 
   void _prevMonth() {
@@ -132,11 +129,16 @@ class _BnCalendarSheetState extends State<_BnCalendarSheet> {
     setState(() => _visibleMonth = next);
   }
 
+  void _confirm([DateTime? day]) {
+    final value = day ?? _selected;
+    if (!_inRange(value)) return;
+    Navigator.pop(context, DateTime(value.year, value.month, value.day));
+  }
+
   List<DateTime?> _daysInGrid() {
     final first = DateTime(_visibleMonth.year, _visibleMonth.month, 1);
     final daysInMonth =
         DateTime(_visibleMonth.year, _visibleMonth.month + 1, 0).day;
-    // Dart weekday: Mon=1 ... Sun=7 → grid starts Sunday
     final leading = first.weekday % 7;
     final cells = <DateTime?>[];
     for (var i = 0; i < leading; i++) {
@@ -178,6 +180,14 @@ class _BnCalendarSheetState extends State<_BnCalendarSheet> {
                 fontWeight: FontWeight.w700,
               ),
             ),
+            const SizedBox(height: 4),
+            Text(
+              'তারিখে ট্যাপ করলেই সিলেক্ট হবে',
+              style: GoogleFonts.notoSansBengali(
+                fontSize: 12,
+                color: AppColors.textGrey,
+              ),
+            ),
             const SizedBox(height: 6),
             Text(
               formatBnDateFull(_selected),
@@ -187,7 +197,7 @@ class _BnCalendarSheetState extends State<_BnCalendarSheet> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
             Row(
               children: [
                 IconButton(
@@ -214,7 +224,7 @@ class _BnCalendarSheetState extends State<_BnCalendarSheet> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             Row(
               children: _bnWeekdays
                   .map(
@@ -234,53 +244,58 @@ class _BnCalendarSheetState extends State<_BnCalendarSheet> {
                   .toList(),
             ),
             const SizedBox(height: 6),
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: cells.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 7,
-                mainAxisSpacing: 4,
-                crossAxisSpacing: 4,
-              ),
-              itemBuilder: (context, index) {
-                final day = cells[index];
-                if (day == null) return const SizedBox.shrink();
-                final enabled = _inRange(day);
-                final selected = _isSameDay(day, _selected);
-                final isToday = _isSameDay(day, today);
+            Flexible(
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const ClampingScrollPhysics(),
+                itemCount: cells.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 7,
+                  mainAxisSpacing: 4,
+                  crossAxisSpacing: 4,
+                ),
+                itemBuilder: (context, index) {
+                  final day = cells[index];
+                  if (day == null) return const SizedBox.shrink();
+                  final enabled = _inRange(day);
+                  final selected = _isSameDay(day, _selected);
+                  final isToday = _isSameDay(day, today);
 
-                return Material(
-                  color: selected
-                      ? AppColors.primaryGreen
-                      : (isToday
-                          ? AppColors.featureGreenBg
-                          : Colors.transparent),
-                  borderRadius: BorderRadius.circular(10),
-                  child: InkWell(
+                  return Material(
+                    color: selected
+                        ? AppColors.primaryGreen
+                        : (isToday
+                            ? AppColors.featureGreenBg
+                            : Colors.transparent),
                     borderRadius: BorderRadius.circular(10),
-                    onTap: enabled
-                        ? () => setState(() => _selected = day)
-                        : null,
-                    child: Center(
-                      child: Text(
-                        toBnDigits('${day.day}'),
-                        style: GoogleFonts.notoSansBengali(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: !enabled
-                              ? AppColors.borderGrey
-                              : (selected
-                                  ? Colors.white
-                                  : AppColors.textDark),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(10),
+                      onTap: enabled
+                          ? () {
+                              setState(() => _selected = day);
+                              _confirm(day);
+                            }
+                          : null,
+                      child: Center(
+                        child: Text(
+                          toBnDigits('${day.day}'),
+                          style: GoogleFonts.notoSansBengali(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: !enabled
+                                ? AppColors.borderGrey
+                                : (selected
+                                    ? Colors.white
+                                    : AppColors.textDark),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -297,7 +312,7 @@ class _BnCalendarSheetState extends State<_BnCalendarSheet> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => Navigator.pop(context, _selected),
+                    onPressed: _confirm,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryGreen,
                       elevation: 0,

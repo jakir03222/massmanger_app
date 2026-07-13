@@ -385,6 +385,9 @@ class _MarketListScreenState extends State<MarketListScreen> {
                     items = _filterByDate(items);
                     final total =
                         items.fold<double>(0, (s, e) => s + e.amount);
+                    final dueTotal = items
+                        .where((e) => e.isDue)
+                        .fold<double>(0, (s, e) => s + e.amount);
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -395,26 +398,61 @@ class _MarketListScreenState extends State<MarketListScreen> {
                             color: AppColors.featureGreenBg,
                             borderRadius: BorderRadius.circular(14),
                           ),
-                          child: Row(
+                          child: Column(
                             children: [
-                              Expanded(
-                                child: Text(
-                                  isAdmin
-                                      ? 'অনুমোদিত বাজার (সবাই দেখতে পাবে)'
-                                      : 'আমার বাজার (অনুমোদিত)',
-                                  style: GoogleFonts.notoSansBengali(
-                                    fontWeight: FontWeight.w600,
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      isAdmin
+                                          ? 'অনুমোদিত বাজার (সবাই দেখতে পাবে)'
+                                          : 'আমার বাজার (অনুমোদিত)',
+                                      style: GoogleFonts.notoSansBengali(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  Text(
+                                    formatTaka(total),
+                                    style: GoogleFonts.notoSansBengali(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.primaryGreen,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                formatTaka(total),
-                                style: GoogleFonts.notoSansBengali(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.primaryGreen,
+                              if (dueTotal > 0) ...[
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.account_balance_wallet_outlined,
+                                      size: 16,
+                                      color: AppColors.marketOrangeDark,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        'এর মধ্যে বাকি',
+                                        style: GoogleFonts.notoSansBengali(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.marketOrangeDark,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      formatTaka(dueTotal),
+                                      style: GoogleFonts.notoSansBengali(
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.marketOrangeDark,
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                              ),
+                              ],
                             ],
                           ),
                         ),
@@ -483,12 +521,20 @@ class _MarketListScreenState extends State<MarketListScreen> {
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
                                           children: [
-                                            Text(
-                                              e.shopperName,
-                                              style:
-                                                  GoogleFonts.notoSansBengali(
-                                                fontWeight: FontWeight.w700,
-                                              ),
+                                            Row(
+                                              children: [
+                                                Flexible(
+                                                  child: Text(
+                                                    e.shopperName,
+                                                    style: GoogleFonts
+                                                        .notoSansBengali(
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                                  ),
+                                                ),
+                                                if (e.isDue) const _DueBadge(),
+                                              ],
                                             ),
                                             if (e.items.isNotEmpty)
                                               Text(
@@ -620,6 +666,31 @@ class _MarketListScreenState extends State<MarketListScreen> {
   }
 }
 
+class _DueBadge extends StatelessWidget {
+  const _DueBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(left: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3E0),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.actionOrange),
+      ),
+      child: Text(
+        'বাকি',
+        style: GoogleFonts.notoSansBengali(
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          color: AppColors.marketOrangeDark,
+        ),
+      ),
+    );
+  }
+}
+
 class _MarketTimes extends StatelessWidget {
   const _MarketTimes({required this.entry});
 
@@ -683,11 +754,18 @@ class _PendingRequestCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(
-                  entry.shopperName,
-                  style: GoogleFonts.notoSansBengali(
-                    fontWeight: FontWeight.w700,
-                  ),
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        entry.shopperName,
+                        style: GoogleFonts.notoSansBengali(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (entry.isDue) const _DueBadge(),
+                  ],
                 ),
               ),
               Text(
@@ -801,11 +879,18 @@ class _MyRequestCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      entry.shopperName,
-                      style: GoogleFonts.notoSansBengali(
-                        fontWeight: FontWeight.w700,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            entry.shopperName,
+                            style: GoogleFonts.notoSansBengali(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        if (entry.isDue) const _DueBadge(),
+                      ],
                     ),
                     if (entry.items.isNotEmpty)
                       Text(

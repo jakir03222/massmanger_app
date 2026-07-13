@@ -343,8 +343,304 @@ class _MembersTab extends StatelessWidget {
     );
   }
 
+  Future<void> _manageMember(
+    BuildContext context,
+    MessMember actor,
+    MessMember member,
+  ) async {
+    if (!member.canBeManagedBy(actor) && member.uid != actor.uid) {
+      _toast(context, 'এই মেম্বার ম্যানেজ করার অনুমতি নেই।');
+      return;
+    }
+
+    final canEditRoom =
+        member.uid == actor.uid || member.canBeManagedBy(actor);
+    final canChangeRole = actor.canChangeRoleOf(member);
+    final canRemove = member.canBeManagedBy(actor);
+    final canTransfer =
+        actor.isSuperAdmin && member.uid != actor.uid && !member.isSuperAdmin;
+
+    if (!canEditRoom && !canChangeRole && !canRemove && !canTransfer) {
+      return;
+    }
+
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Text(
+              member.name,
+              style: GoogleFonts.notoSansBengali(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text(
+              member.roleBnLabel,
+              style: GoogleFonts.notoSansBengali(
+                fontSize: 12,
+                color: AppColors.textGrey,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (canEditRoom)
+              ListTile(
+                leading: const Icon(Icons.meeting_room_outlined,
+                    color: AppColors.primaryGreen),
+                title: Text('রুম নম্বর সম্পাদনা',
+                    style: GoogleFonts.notoSansBengali()),
+                onTap: () => Navigator.pop(context, 'room'),
+              ),
+            if (canChangeRole)
+              ListTile(
+                leading: Icon(
+                  member.isRegularAdmin
+                      ? Icons.person_outline
+                      : Icons.admin_panel_settings_outlined,
+                  color: AppColors.primaryGreen,
+                ),
+                title: Text(
+                  member.isRegularAdmin
+                      ? 'অ্যাডমিন থেকে সরান'
+                      : 'অ্যাডমিন বানান',
+                  style: GoogleFonts.notoSansBengali(),
+                ),
+                subtitle: Text(
+                  'শুধু সুপার অ্যাডমিন করতে পারে',
+                  style: GoogleFonts.notoSansBengali(
+                    fontSize: 11,
+                    color: AppColors.textGrey,
+                  ),
+                ),
+                onTap: () => Navigator.pop(context, 'role'),
+              ),
+            if (canTransfer)
+              ListTile(
+                leading: const Icon(Icons.swap_horiz_rounded,
+                    color: AppColors.darkGreen),
+                title: Text(
+                  'সুপার অ্যাডমিন হস্তান্তর',
+                  style: GoogleFonts.notoSansBengali(),
+                ),
+                subtitle: Text(
+                  'মেসের মালিকানা এঁকে দিবেন',
+                  style: GoogleFonts.notoSansBengali(
+                    fontSize: 11,
+                    color: AppColors.textGrey,
+                  ),
+                ),
+                onTap: () => Navigator.pop(context, 'transfer'),
+              ),
+            if (canRemove)
+              ListTile(
+                leading: const Icon(Icons.person_remove_outlined,
+                    color: Color(0xFFC62828)),
+                title: Text(
+                  'মেস থেকে রিমুভ',
+                  style: GoogleFonts.notoSansBengali(
+                      color: const Color(0xFFC62828)),
+                ),
+                onTap: () => Navigator.pop(context, 'remove'),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (action == null || !context.mounted) return;
+    try {
+      switch (action) {
+        case 'room':
+          await _editRoom(context, member);
+        case 'role':
+          await _confirmRole(context, member);
+        case 'transfer':
+          await _confirmTransfer(context, member);
+        case 'remove':
+          await _confirmRemove(context, member);
+      }
+    } on MessException catch (e) {
+      if (context.mounted) _toast(context, e.message);
+    }
+  }
+
+  Future<void> _confirmRole(BuildContext context, MessMember member) async {
+    final makeAdmin = !member.isRegularAdmin;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          makeAdmin ? 'অ্যাডমিন বানাবেন?' : 'অ্যাডমিন থেকে সরাবেন?',
+          style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          makeAdmin
+              ? '${member.name} কে অ্যাডমিন করা হবে। অ্যাডমিন মেম্বার ম্যানেজ করতে পারবে, কিন্তু সুপার অ্যাডমিনের রোল বদলাতে পারবে না।'
+              : '${member.name} কে সাধারণ মেম্বার করা হবে।',
+          style: GoogleFonts.notoSansBengali(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('বাতিল', style: GoogleFonts.notoSansBengali()),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              makeAdmin ? 'অ্যাডমিন বানান' : 'সরান',
+              style: GoogleFonts.notoSansBengali(
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryGreen,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    await messService.setMemberRole(
+      messId: messId,
+      uid: member.uid,
+      makeAdmin: makeAdmin,
+    );
+    if (context.mounted) {
+      _toast(context, makeAdmin ? 'অ্যাডমিন করা হয়েছে' : 'অ্যাডমিন সরানো হয়েছে');
+    }
+  }
+
+  Future<void> _confirmTransfer(
+    BuildContext context,
+    MessMember member,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          'সুপার অ্যাডমিন হস্তান্তর?',
+          style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          '${member.name} সুপার অ্যাডমিন হবেন। আপনি অ্যাডমিন হয়ে যাবেন। '
+          'এই কাজ পরে আর উল্টানো যায় না সহজে।',
+          style: GoogleFonts.notoSansBengali(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('বাতিল', style: GoogleFonts.notoSansBengali()),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              'হস্তান্তর করুন',
+              style: GoogleFonts.notoSansBengali(
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFFC62828),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    await messService.transferSuperAdmin(
+      messId: messId,
+      newSuperAdminUid: member.uid,
+    );
+    if (context.mounted) {
+      _toast(context, 'সুপার অ্যাডমিন হস্তান্তর হয়েছে');
+    }
+  }
+
+  Future<void> _editRoom(BuildContext context, MessMember member) async {
+    final controller = TextEditingController(text: member.room ?? '');
+    final room = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('রুম নম্বর',
+            style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: GoogleFonts.notoSansBengali(),
+          decoration: InputDecoration(
+            hintText: 'যেমন: A-১',
+            hintStyle: GoogleFonts.notoSansBengali(),
+            border:
+                OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('বাতিল', style: GoogleFonts.notoSansBengali()),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
+            child: Text('সেভ',
+                style: GoogleFonts.notoSansBengali(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryGreen)),
+          ),
+        ],
+      ),
+    );
+    if (room == null || !context.mounted) return;
+    await messService.updateMemberRoom(
+      messId: messId,
+      uid: member.uid,
+      room: room,
+    );
+    if (context.mounted) _toast(context, 'রুম হালনাগাদ হয়েছে');
+  }
+
+  Future<void> _confirmRemove(BuildContext context, MessMember member) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('মেম্বার রিমুভ?',
+            style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700)),
+        content: Text(
+          '${member.name} কে মেস থেকে রিমুভ করা হবে।',
+          style: GoogleFonts.notoSansBengali(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('না', style: GoogleFonts.notoSansBengali()),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('রিমুভ',
+                style: GoogleFonts.notoSansBengali(
+                    color: const Color(0xFFC62828),
+                    fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    await messService.removeMember(messId: messId, uid: member.uid);
+    if (context.mounted) _toast(context, 'মেম্বার রিমুভ হয়েছে');
+  }
+
+  void _toast(BuildContext context, String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg, style: GoogleFonts.notoSansBengali())),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final myUid = FirebaseAuth.instance.currentUser?.uid;
     return StreamBuilder<List<MessMember>>(
       stream: messService.watchMembers(messId),
       builder: (context, snap) {
@@ -358,6 +654,8 @@ class _MembersTab extends StatelessWidget {
         }
 
         final members = snap.data ?? [];
+        final meList = members.where((m) => m.uid == myUid);
+        final me = meList.isNotEmpty ? meList.first : null;
 
         return Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -381,20 +679,42 @@ class _MembersTab extends StatelessWidget {
                       : '?';
                   final textColor =
                       color == AppColors.primaryGreen ? Colors.white : AppColors.textDark;
+                  final actor = me;
+                  final manageable = actor != null &&
+                      (m.canBeManagedBy(actor) ||
+                          (m.uid == actor.uid && actor.isAdmin));
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 10),
                     child: _MemberCard(
                       letter: letter,
-                      name: m.name,
+                      name: m.name + (m.uid == myUid ? ' (আপনি)' : ''),
                       room: m.room?.isNotEmpty == true ? m.room! : 'রুম —',
                       color: color,
                       textColor: textColor,
-                      isAdmin: m.isAdmin,
+                      member: m,
+                      canManage: manageable,
+                      onTap: manageable
+                          ? () => _manageMember(context, actor, m)
+                          : null,
                     ),
                   );
                 }),
               const SizedBox(height: 6),
               _InviteMemberButton(onTap: () => _shareCode(context)),
+              if (me != null && me.isAdmin)
+                Padding(
+                  padding: const EdgeInsets.only(top: 10),
+                  child: Text(
+                    me.isSuperAdmin
+                        ? 'সুপার অ্যাডমিন: মেম্বারকে অ্যাডমিন বানান · অ্যাডমিন ও মেম্বার নিয়ন্ত্রণ করুন'
+                        : 'অ্যাডমিন: শুধু সাধারণ মেম্বার ম্যানেজ করতে পারবেন · সুপার অ্যাডমিনের রোল বদলানো যায় না',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.notoSansBengali(
+                      fontSize: 11,
+                      color: AppColors.textGrey,
+                    ),
+                  ),
+                ),
             ],
           ),
         );
@@ -410,7 +730,9 @@ class _MemberCard extends StatelessWidget {
     required this.room,
     required this.color,
     required this.textColor,
-    required this.isAdmin,
+    required this.member,
+    this.canManage = false,
+    this.onTap,
   });
 
   final String letter;
@@ -418,11 +740,22 @@ class _MemberCard extends StatelessWidget {
   final String room;
   final Color color;
   final Color textColor;
-  final bool isAdmin;
+  final MessMember member;
+  final bool canManage;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final badgeColor = member.isSuperAdmin
+        ? const Color(0xFF6A1B9A)
+        : AppColors.primaryGreen;
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -466,16 +799,16 @@ class _MemberCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (isAdmin) ...[
+                    if (member.isAdmin) ...[
                       const SizedBox(width: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryGreen,
+                          color: badgeColor,
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
-                          'অ্যাডমিন',
+                          member.roleBnLabel,
                           style: GoogleFonts.notoSansBengali(
                             fontSize: 9,
                             fontWeight: FontWeight.w700,
@@ -498,8 +831,14 @@ class _MemberCard extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.chevron_right_rounded, color: Color(0xFFB0B5B0), size: 22),
+          Icon(
+            canManage ? Icons.more_vert_rounded : Icons.chevron_right_rounded,
+            color: const Color(0xFFB0B5B0),
+            size: 22,
+          ),
         ],
+      ),
+        ),
       ),
     );
   }
@@ -589,6 +928,73 @@ class _DashedBorderPainter extends CustomPainter {
 class _SettingsTabContent extends StatelessWidget {
   const _SettingsTabContent();
 
+  void _showInfo(BuildContext context, String title, String body) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title,
+            style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700)),
+        content: SingleChildScrollView(
+          child: Text(
+            body,
+            style: GoogleFonts.notoSansBengali(fontSize: 14, height: 1.5),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('বন্ধ করুন',
+                style: GoogleFonts.notoSansBengali(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryGreen)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _leaveMess(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('মেস ছাড়বেন?',
+            style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700)),
+        content: Text(
+          'আপনি এই মেস থেকে বের হয়ে যাবেন। পরে আবার কোড দিয়ে যোগ দিতে পারবেন।',
+          style: GoogleFonts.notoSansBengali(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('না', style: GoogleFonts.notoSansBengali()),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('হ্যাঁ, ছাড়ুন',
+                style: GoogleFonts.notoSansBengali(
+                    color: const Color(0xFFC62828),
+                    fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await MessService().leaveMess();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text('মেস ছেড়ে দেওয়া হয়েছে', style: GoogleFonts.notoSansBengali())),
+      );
+    } on MessException catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message, style: GoogleFonts.notoSansBengali())),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -605,13 +1011,56 @@ class _SettingsTabContent extends StatelessWidget {
               );
             },
           ),
-          const _SettingsTile(
+          _SettingsTile(
             icon: Icons.notifications_outlined,
             title: 'নোটিফিকেশন',
+            subtitle: 'অনুমোদন ও আপডেট',
+            onTap: () => _showInfo(
+              context,
+              'নোটিফিকেশন',
+              'রিয়েল-টাইম নোটিফিকেশন শীঘ্রই আসছে। এখন অনুমোদন অপেক্ষমাণ থাকলে মিল ও বাজার স্ক্রিনে দেখা যায়।',
+            ),
           ),
-          const _SettingsTile(icon: Icons.lock_outline, title: 'প্রাইভেসি'),
-          const _SettingsTile(icon: Icons.help_outline, title: 'সাহায্য'),
-          const _SettingsTile(icon: Icons.info_outline, title: 'অ্যাপ সম্পর্কে'),
+          _SettingsTile(
+            icon: Icons.lock_outline,
+            title: 'প্রাইভেসি',
+            onTap: () => _showInfo(
+              context,
+              'প্রাইভেসি',
+              'আপনার তথ্য শুধুমাত্র আপনার মেসের হিসাব পরিচালনার জন্য ব্যবহৃত হয়। মেসের ডেটা শুধু মেসের মেম্বাররাই দেখতে পারে। আমরা কোনো তথ্য তৃতীয় পক্ষের কাছে বিক্রি করি না।',
+            ),
+          ),
+          _SettingsTile(
+            icon: Icons.help_outline,
+            title: 'সাহায্য',
+            onTap: () => _showInfo(
+              context,
+              'সাহায্য',
+              '• মিল: প্রতিদিন সকাল/বিকাল/রাতের মিল যোগ করুন।\n'
+                  '• বাজার: বাজার এন্ট্রি দিন — অ্যাডমিন অনুমোদন করবে।\n'
+                  '• রিপোর্ট: মাসিক/দৈনিক হিসাব দেখুন।\n'
+                  '• মাসিক বিল: অ্যাডমিন বিল যোগ করে মাস শেষে PDF এক্সপোর্ট করতে পারে।\n'
+                  '• মেম্বার যোগ: মেস কোড শেয়ার করুন।',
+            ),
+          ),
+          _SettingsTile(
+            icon: Icons.info_outline,
+            title: 'অ্যাপ সম্পর্কে',
+            subtitle: 'মেস ম্যানেজার · সংস্করণ ১.০.০',
+            onTap: () => _showInfo(
+              context,
+              'মেস ম্যানেজার',
+              'সংস্করণ ১.০.০\n\nমেস/হোস্টেলের মিল, বাজার, বিল ও মাসিক হিসাব সহজে পরিচালনার অ্যাপ। সব মেম্বারের হিসাব এক জায়গায়, স্বচ্ছভাবে।',
+            ),
+          ),
+          const SizedBox(height: 6),
+          _SettingsTile(
+            icon: Icons.exit_to_app_rounded,
+            title: 'মেস ছাড়ুন',
+            subtitle: 'এই মেস থেকে বের হয়ে যান',
+            danger: true,
+            onTap: () => _leaveMess(context),
+          ),
         ],
       ),
     );
@@ -709,15 +1158,18 @@ class _SettingsTile extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.onTap,
+    this.danger = false,
   });
 
   final IconData icon;
   final String title;
   final String? subtitle;
   final VoidCallback? onTap;
+  final bool danger;
 
   @override
   Widget build(BuildContext context) {
+    final accent = danger ? const Color(0xFFC62828) : AppColors.primaryGreen;
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
@@ -729,11 +1181,13 @@ class _SettingsTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.borderGrey),
+            border: Border.all(
+              color: danger ? const Color(0xFFFFCDD2) : AppColors.borderGrey,
+            ),
           ),
           child: Row(
             children: [
-              Icon(icon, color: AppColors.primaryGreen, size: 22),
+              Icon(icon, color: accent, size: 22),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -744,7 +1198,7 @@ class _SettingsTile extends StatelessWidget {
                       style: GoogleFonts.notoSansBengali(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
-                        color: AppColors.textDark,
+                        color: danger ? accent : AppColors.textDark,
                       ),
                     ),
                     if (subtitle != null)

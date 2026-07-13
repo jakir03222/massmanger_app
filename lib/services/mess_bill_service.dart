@@ -11,6 +11,17 @@ class MessBillService {
   CollectionReference<Map<String, dynamic>> _col(String messId) =>
       _firestore.collection('messes').doc(messId).collection('bills');
 
+  Future<List<MessBill>> getByMonth(String messId, String yearMonth) async {
+    final snap = await _col(messId)
+        .where('yearMonth', isEqualTo: yearMonth)
+        .get();
+    final list = snap.docs
+        .map((d) => MessBill.fromMap(d.id, d.data()))
+        .toList()
+      ..sort((a, b) => a.type.index.compareTo(b.type.index));
+    return list;
+  }
+
   Stream<List<MessBill>> watchByMonth(String messId, String yearMonth) {
     return _col(messId)
         .where('yearMonth', isEqualTo: yearMonth)
