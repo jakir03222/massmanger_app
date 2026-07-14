@@ -107,7 +107,11 @@ class MessService {
       await batch.commit();
 
       if (linkUser) {
-        await _userService.setMessId(user.uid, doc.id);
+        await _userService.setMessId(
+          user.uid,
+          doc.id,
+          messName: trimmedName,
+        );
       }
 
       return Mess(
@@ -132,7 +136,12 @@ class MessService {
       throw MessException('আগে লগইন করুন।');
     }
     await _userService.ensureUserDoc(user);
-    await _userService.setMessId(user.uid, messId);
+    final mess = await getMess(messId);
+    await _userService.setMessId(
+      user.uid,
+      messId,
+      messName: mess?.name,
+    );
   }
 
   /// Member joins an existing mess using the admin's 6-digit code.
@@ -209,9 +218,14 @@ class MessService {
         await memberRef.set({'name': memberName}, SetOptions(merge: true));
       }
 
-      await _userService.setMessId(user.uid, messId);
+      final joined = Mess.fromMap(messId, messSnap.data()!);
+      await _userService.setMessId(
+        user.uid,
+        messId,
+        messName: joined.name,
+      );
 
-      return Mess.fromMap(messId, messSnap.data()!);
+      return joined;
     } on MessException {
       rethrow;
     } on FirebaseException catch (e) {
@@ -332,7 +346,20 @@ class MessService {
               : 'এই মেম্বার রিমুভ করার অনুমতি নেই।',
         );
       }
-      await _messes.doc(messId).collection('members').doc(uid).delete();
+      // Atomic: delete member + clear users.messId in one batch.
+      final batch = _firestore.batch();
+      batch.delete(_messes.doc(messId).collection('members').doc(uid));
+      final userRef = _firestore.collection('users').doc(uid);
+      final userSnap = await userRef.get();
+      final currentMessId = userSnap.data()?['messId'];
+      if (currentMessId is String && currentMessId == messId) {
+        batch.set(
+          userRef,
+          {'messId': null, 'messName': null},
+          SetOptions(merge: true),
+        );
+      }
+      await batch.commit();
     } on MessException {
       rethrow;
     } on FirebaseException catch (e) {

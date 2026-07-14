@@ -77,8 +77,8 @@ class _MonthlyReportScreenState extends State<MonthlyReportScreen> {
                 ? members
                 : members.where((m) => m.uid == appUser.uid).toList();
 
-            return FutureBuilder<Map<String, double>>(
-              future: _monthMealCounts(_mealService, mess.id, _month),
+            return StreamBuilder<Map<String, double>>(
+              stream: _mealService.watchMonthMealCounts(mess.id, _month),
               builder: (context, mealCountSnap) {
                 final mealCounts = mealCountSnap.data ?? {};
                 final totalMeals =
@@ -231,27 +231,6 @@ class _MonthlyReportScreenState extends State<MonthlyReportScreen> {
         );
       },
     );
-  }
-
-  Future<Map<String, double>> _monthMealCounts(
-    MealService mealService,
-    String messId,
-    DateTime month,
-  ) async {
-    final counts = <String, double>{};
-    final now = DateTime.now();
-    final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
-    final isCurrentMonth = month.year == now.year && month.month == now.month;
-    for (var d = 1; d <= daysInMonth; d++) {
-      final dayDate = DateTime(month.year, month.month, d);
-      if (isCurrentMonth && dayDate.isAfter(now)) break;
-      final entries =
-          await mealService.watchDayMeals(messId, dateKey(dayDate)).first;
-      for (final e in entries) {
-        counts[e.uid] = (counts[e.uid] ?? 0) + e.mealCount;
-      }
-    }
-    return counts;
   }
 
   Widget _kv(String k, String v) {

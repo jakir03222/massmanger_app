@@ -14,7 +14,6 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/messes/$(messId)/members/$(request.auth.uid)).data.role;
     }
 
-    // Admin powers: super_admin OR admin
     function isAdmin(messId) {
       return isMember(messId) &&
         (myRole(messId) == 'admin' || myRole(messId) == 'super_admin');
@@ -24,8 +23,51 @@ service cloud.firestore {
       return isMember(messId) && myRole(messId) == 'super_admin';
     }
 
+    function myUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasMess() {
+      return signedIn() &&
+        myUser().messId is string &&
+        myUser().messId.size() > 0;
+    }
+
+    function friendshipId(a, b) {
+      return a < b ? a + '_' + b : b + '_' + a;
+    }
+
+    function areFriends(a, b) {
+      return exists(/databases/$(database)/documents/friendships/$(friendshipId(a, b)));
+    }
+
+    function isMonthLocked(messId, yearMonth) {
+      return yearMonth is string &&
+        yearMonth.size() >= 7 &&
+        exists(/databases/$(database)/documents/messes/$(messId)/month_locks/$(yearMonth)) &&
+        get(/databases/$(database)/documents/messes/$(messId)/month_locks/$(yearMonth)).data.locked == true;
+    }
+
     match /users/{userId} {
-      allow read, write: if signedIn() && request.auth.uid == userId;
+      allow read: if signedIn();
+      allow create: if signedIn() && request.auth.uid == userId;
+      allow delete: if signedIn() && request.auth.uid == userId;
+      allow update: if signedIn() && (
+        request.auth.uid == userId ||
+        // Admin cleared messId after removing the member from that mess.
+        (
+          resource.data.messId is string &&
+          isAdmin(resource.data.messId) &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['messId', 'messName']) &&
+          request.resource.data.messId == null
+        )
+      );
+
+      match /notifications/{notifId} {
+        allow read, update, delete: if signedIn() && request.auth.uid == userId;
+        allow create: if signedIn();
+      }
     }
 
     match /messes/{messId} {
@@ -35,10 +77,8 @@ service cloud.firestore {
       match /members/{memberId} {
         allow read: if signedIn();
 
-        // Join as self (create own member doc)
         allow create: if signedIn() && request.auth.uid == memberId;
 
-        // Leave as self
         allow delete: if signedIn() && (
           request.auth.uid == memberId ||
           (isSuperAdmin(messId) && resource.data.role != 'super_admin') ||
@@ -46,17 +86,12 @@ service cloud.firestore {
         );
 
         allow update: if signedIn() && (
-          // Self: name/room only — cannot change own role
           (request.auth.uid == memberId &&
             request.resource.data.role == resource.data.role) ||
-          // Super admin: can update anyone except stripping super_admin
-          // unless transferring (role becomes admin on self handled in batch
-          // with createdBy — client enforces transfer carefully)
           (isSuperAdmin(messId) &&
             (resource.data.role != 'super_admin' ||
              request.resource.data.role == 'super_admin' ||
              request.auth.uid == memberId)) ||
-          // Regular admin: only normal members, role stays member
           (isAdmin(messId) &&
             !isSuperAdmin(messId) &&
             resource.data.role == 'member' &&
@@ -65,32 +100,227 @@ service cloud.firestore {
       }
 
       match /meals/{day} {
-        allow read, write: if isMember(messId);
+        allow read: if isMember(messId);
+        allow write: if isAdmin(messId);
+
         match /items/{itemId} {
-          allow read, write: if isMember(messId);
+          allow read: if isMember(messId);
+          allow create: if isMember(messId) && (
+            (isAdmin(messId) &&
+              request.resource.data.status in ['approved', 'pending']) ||
+            (!isAdmin(messId) &&
+              request.resource.data.uid == request.auth.uid &&
+              request.resource.data.status == 'pending')
+          );
+          allow update: if isMember(messId) && (
+            isAdmin(messId) ||
+            (
+              resource.data.uid == request.auth.uid &&
+              resource.data.status == 'pending' &&
+              request.resource.data.uid == resource.data.uid &&
+              request.resource.data.status == 'pending'
+            )
+          );
+          allow delete: if isMember(messId) && (
+            isAdmin(messId) ||
+            (resource.data.uid == request.auth.uid &&
+              resource.data.status == 'pending')
+          );
         }
+
         match /entries/{uid} {
-          allow read, write: if isMember(messId);
+          allow read: if isMember(messId);
+          allow write: if isAdmin(messId);
         }
       }
 
       match /markets/{marketId} {
-        allow read, write: if isMember(messId);
+        allow read: if isMember(messId);
+        allow create: if isMember(messId) &&
+          !isMonthLocked(messId, request.resource.data.yearMonth) && (
+          (isAdmin(messId) &&
+            request.resource.data.status in ['approved', 'pending']) ||
+          (!isAdmin(messId) &&
+            request.resource.data.shopperUid == request.auth.uid &&
+            request.resource.data.status == 'pending')
+        );
+        allow update: if isMember(messId) &&
+          !isMonthLocked(messId, resource.data.yearMonth) && (
+          isAdmin(messId) ||
+          (
+            resource.data.shopperUid == request.auth.uid &&
+            resource.data.status == 'pending' &&
+            request.resource.data.shopperUid == resource.data.shopperUid &&
+            request.resource.data.status == 'pending'
+          )
+        );
+        allow delete: if isMember(messId) &&
+          !isMonthLocked(messId, resource.data.yearMonth) && (
+          isAdmin(messId) ||
+          (resource.data.shopperUid == request.auth.uid &&
+            resource.data.status == 'pending')
+        );
       }
 
       match /bazaar_schedules/{scheduleId} {
-        allow read, write: if isMember(messId);
+        allow read: if isMember(messId);
+        allow create: if isMember(messId) && (
+          (isAdmin(messId) &&
+            request.resource.data.status in ['approved', 'pending']) ||
+          (!isAdmin(messId) &&
+            request.resource.data.uid == request.auth.uid &&
+            request.resource.data.status == 'pending')
+        );
+        allow update: if isMember(messId) && (
+          isAdmin(messId) ||
+          (
+            resource.data.uid == request.auth.uid &&
+            resource.data.status == 'pending' &&
+            request.resource.data.uid == resource.data.uid &&
+            request.resource.data.status == 'pending'
+          )
+        );
+        allow delete: if isMember(messId) && (
+          isAdmin(messId) ||
+          (resource.data.uid == request.auth.uid &&
+            resource.data.status == 'pending')
+        );
       }
 
       match /bills/{billId} {
         allow read: if isMember(messId);
-        allow write: if isAdmin(messId);
+        allow create: if isAdmin(messId) &&
+          !isMonthLocked(messId, request.resource.data.yearMonth);
+        allow update, delete: if isAdmin(messId) &&
+          !isMonthLocked(messId, resource.data.yearMonth);
+      }
+
+      match /month_locks/{yearMonth} {
+        allow read: if isMember(messId);
+        allow create, update, delete: if isAdmin(messId);
       }
     }
 
     match /mess_codes/{code} {
       allow read, create, update: if signedIn();
       allow delete: if false;
+    }
+
+    // Counters may be bumped by any signed-in user (like / comment).
+    function onlyPostCountersChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['likeCount', 'commentCount']);
+    }
+
+    // ---- Community ----
+    match /community_posts/{postId} {
+      allow read: if signedIn();
+      allow create: if signedIn() &&
+        hasMess() &&
+        request.resource.data.authorId == request.auth.uid &&
+        request.resource.data.messId == myUser().messId;
+      allow update: if signedIn() && (
+        resource.data.authorId == request.auth.uid ||
+        onlyPostCountersChanged()
+      );
+      allow delete: if signedIn() &&
+        resource.data.authorId == request.auth.uid;
+
+      match /likes/{uid} {
+        allow read: if signedIn();
+        allow create, delete: if signedIn() && request.auth.uid == uid;
+      }
+
+      match /comments/{commentId} {
+        allow read: if signedIn();
+        allow create: if signedIn() &&
+          request.resource.data.authorId == request.auth.uid;
+        allow update, delete: if signedIn() &&
+          resource.data.authorId == request.auth.uid;
+      }
+    }
+
+    match /follows/{followId} {
+      allow read: if signedIn();
+      allow create: if signedIn() &&
+        request.resource.data.followerId == request.auth.uid &&
+        request.resource.data.followingId is string &&
+        request.resource.data.followerId != request.resource.data.followingId;
+      allow delete: if signedIn() &&
+        resource.data.followerId == request.auth.uid;
+    }
+
+    match /friend_requests/{requestId} {
+      // Missing docs must allow get (profile UI listens before a request exists).
+      allow get: if signedIn() && (
+        resource == null ||
+        resource.data.fromUid == request.auth.uid ||
+        resource.data.toUid == request.auth.uid
+      );
+      allow list: if signedIn() && (
+        resource.data.fromUid == request.auth.uid ||
+        resource.data.toUid == request.auth.uid
+      );
+      allow create: if signedIn() &&
+        request.resource.data.fromUid == request.auth.uid &&
+        request.resource.data.toUid is string &&
+        request.resource.data.fromUid != request.resource.data.toUid &&
+        request.resource.data.status == 'pending';
+      allow update: if signedIn() &&
+        resource.data.toUid == request.auth.uid &&
+        resource.data.status == 'pending' &&
+        (request.resource.data.status == 'accepted' ||
+         request.resource.data.status == 'rejected');
+      allow delete: if signedIn() && (
+        resource.data.fromUid == request.auth.uid ||
+        resource.data.toUid == request.auth.uid
+      );
+    }
+
+    match /friendships/{friendshipId} {
+      // Any signed-in user can check friendship existence (needed for chat gate).
+      allow read: if signedIn();
+      allow create: if signedIn() &&
+        request.auth.uid in request.resource.data.uids &&
+        request.resource.data.uids.size() == 2;
+      allow delete: if signedIn() &&
+        request.auth.uid in resource.data.uids;
+    }
+
+    match /conversations/{convId} {
+      // Allow get on missing docs when convId includes this user (create + first listen race).
+      allow get: if signedIn() && (
+        resource == null
+          ? (convId.matches('^' + request.auth.uid + '_.+') ||
+             convId.matches('.+_' + request.auth.uid + '$'))
+          : request.auth.uid in resource.data.memberIds
+      );
+      allow list: if signedIn() &&
+        request.auth.uid in resource.data.memberIds;
+      allow create: if signedIn() &&
+        request.auth.uid in request.resource.data.memberIds &&
+        request.resource.data.memberIds.size() == 2 &&
+        areFriends(
+          request.resource.data.memberIds[0],
+          request.resource.data.memberIds[1]
+        );
+      allow update: if signedIn() &&
+        request.auth.uid in resource.data.memberIds &&
+        request.resource.data.memberIds == resource.data.memberIds;
+
+      match /messages/{messageId} {
+        allow read: if signedIn() &&
+          exists(/databases/$(database)/documents/conversations/$(convId)) &&
+          request.auth.uid in
+            get(/databases/$(database)/documents/conversations/$(convId)).data.memberIds;
+        allow create: if signedIn() &&
+          request.resource.data.senderId == request.auth.uid &&
+          request.resource.data.text is string &&
+          request.resource.data.text.size() > 0 &&
+          exists(/databases/$(database)/documents/conversations/$(convId)) &&
+          request.auth.uid in
+            get(/databases/$(database)/documents/conversations/$(convId)).data.memberIds;
+      }
     }
   }
 }

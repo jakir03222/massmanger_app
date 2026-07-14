@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../config/feature_flags.dart';
 import '../theme/app_colors.dart';
 
 class HomeBottomNav extends StatelessWidget {
@@ -18,7 +19,9 @@ class HomeBottomNav extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: AppColors.borderGrey.withValues(alpha: 0.8))),
+        border: Border(
+          top: BorderSide(color: AppColors.borderGrey.withValues(alpha: 0.8)),
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
@@ -52,17 +55,26 @@ class HomeBottomNav extends StatelessWidget {
                 selected: currentIndex == 2,
                 onTap: () => onTap(2),
               ),
+              if (FeatureFlags.communityEnabled)
+                _NavItem(
+                  label: 'কমিউনিটি',
+                  icon: Icons.groups_rounded,
+                  selected: currentIndex == 3,
+                  onTap: () => onTap(3),
+                ),
               _NavItem(
                 label: 'রিপোর্ট',
                 icon: Icons.bar_chart_rounded,
-                selected: currentIndex == 3,
-                onTap: () => onTap(3),
+                selected: currentIndex ==
+                    (FeatureFlags.communityEnabled ? 4 : 3),
+                onTap: () => onTap(FeatureFlags.communityEnabled ? 4 : 3),
               ),
               _NavItem(
                 label: 'সেটিংস',
                 icon: Icons.settings_outlined,
-                selected: currentIndex == 4,
-                onTap: () => onTap(4),
+                selected: currentIndex ==
+                    (FeatureFlags.communityEnabled ? 5 : 4),
+                onTap: () => onTap(FeatureFlags.communityEnabled ? 5 : 4),
               ),
             ],
           ),
@@ -113,6 +125,8 @@ class _NavItem extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.notoSansBengali(
                 fontSize: 10,
                 fontWeight: selected ? FontWeight.w600 : FontWeight.w400,

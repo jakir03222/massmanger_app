@@ -1,12 +1,21 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/market_entry.dart';
+import 'month_lock_service.dart';
+import 'notification_service.dart';
 
 class MarketService {
-  MarketService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  MarketService({
+    FirebaseFirestore? firestore,
+    MonthLockService? monthLockService,
+    NotificationService? notificationService,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _locks = monthLockService ?? MonthLockService(),
+        _notifications = notificationService ?? NotificationService();
 
   final FirebaseFirestore _firestore;
+  final MonthLockService _locks;
+  final NotificationService _notifications;
 
   CollectionReference<Map<String, dynamic>> _markets(String messId) =>
       _firestore.collection('messes').doc(messId).collection('markets');
@@ -76,6 +85,7 @@ class MarketService {
     required bool asAdmin,
     bool isDue = false,
   }) async {
+    await _locks.assertUnlocked(messId, yearMonth);
     final status =
         asAdmin ? MarketStatus.approved : MarketStatus.pending;
     await _markets(messId).add({
@@ -92,6 +102,15 @@ class MarketService {
       'updatedAt': FieldValue.serverTimestamp(),
       'createdBy': shopperUid,
     });
+    if (!asAdmin) {
+      await _notifications.notifyAdminsOfMess(
+        messId: messId,
+        title: 'নতুন বাজার অনুমোদন',
+        body: '$shopperName — ৳${amount.toStringAsFixed(0)} ($dateKey)',
+        type: 'market_pending',
+        data: {'messId': messId, 'dateKey': dateKey},
+      );
+    }
   }
 
   Future<void> updateMarket({
@@ -106,6 +125,13 @@ class MarketService {
     String? editedByUid,
     String? editedByName,
   }) async {
+    if (yearMonth != null) {
+      await _locks.assertUnlocked(messId, yearMonth);
+    } else {
+      final snap = await _markets(messId).doc(marketId).get();
+      final ym = snap.data()?['yearMonth'] as String?;
+      if (ym != null) await _locks.assertUnlocked(messId, ym);
+    }
     final data = <String, dynamic>{
       'amount': amount,
       'notes': notes.trim(),
@@ -133,12 +159,26 @@ class MarketService {
     required String marketId,
     required String adminUid,
   }) async {
+    final snap = await _markets(messId).doc(marketId).get();
+    final ym = snap.data()?['yearMonth'] as String?;
+    if (ym != null) await _locks.assertUnlocked(messId, ym);
     await _markets(messId).doc(marketId).update({
       'status': MarketStatus.approved.firestoreValue,
       'reviewedBy': adminUid,
       'reviewedAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    final shopperUid = snap.data()?['shopperUid'] as String?;
+    final shopperName = snap.data()?['shopperName'] as String? ?? 'মেম্বার';
+    if (shopperUid != null && shopperUid != adminUid) {
+      await _notifications.notifyUsers(
+        uids: [shopperUid],
+        title: 'বাজার অনুমোদিত',
+        body: '$shopperName — আপনার বাজার এন্ট্রি অনুমোদন হয়েছে',
+        type: 'market_approved',
+        data: {'messId': messId, 'marketId': marketId},
+      );
+    }
   }
 
   Future<void> rejectMarket({
@@ -146,19 +186,48 @@ class MarketService {
     required String marketId,
     required String adminUid,
   }) async {
+    final snap = await _markets(messId).doc(marketId).get();
+    final ym = snap.data()?['yearMonth'] as String?;
+    if (ym != null) await _locks.assertUnlocked(messId, ym);
     await _markets(messId).doc(marketId).update({
       'status': MarketStatus.rejected.firestoreValue,
       'reviewedBy': adminUid,
       'reviewedAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+    final shopperUid = snap.data()?['shopperUid'] as String?;
+    if (shopperUid != null && shopperUid != adminUid) {
+      await _notifications.notifyUsers(
+        uids: [shopperUid],
+        title: 'বাজার বাতিল',
+        body: 'আপনার বাজার রিকোয়েস্ট বাতিল হয়েছে',
+        type: 'market_rejected',
+        data: {'messId': messId, 'marketId': marketId},
+      );
+    }
   }
 
   Future<void> deleteMarket({
     required String messId,
     required String marketId,
   }) async {
+    final snap = await _markets(messId).doc(marketId).get();
+    final ym = snap.data()?['yearMonth'] as String?;
+    if (ym != null) await _locks.assertUnlocked(messId, ym);
     await _markets(messId).doc(marketId).delete();
+  }
+
+  /// Live approved markets for a single day.
+  Stream<List<MarketEntry>> watchMarketsForDay(String messId, String day) {
+    return _markets(messId)
+        .where('dateKey', isEqualTo: day)
+        .snapshots()
+        .map(
+          (snap) => snap.docs
+              .map((d) => MarketEntry.fromMap(d.id, d.data()))
+              .where((e) => e.isApproved)
+              .toList(),
+        );
   }
 
   Future<List<MarketEntry>> marketsForDay(String messId, String day) async {

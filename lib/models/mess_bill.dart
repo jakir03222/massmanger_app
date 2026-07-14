@@ -6,7 +6,8 @@ enum MessBillType {
   rent,
   electricity,
   water,
-  utility;
+  utility,
+  eidBonus;
 
   static MessBillType fromString(String? value) {
     switch (value) {
@@ -19,6 +20,10 @@ enum MessBillType {
         return MessBillType.electricity;
       case 'water':
         return MessBillType.water;
+      case 'eidBonus':
+      case 'eid_bonus':
+      case 'eid':
+        return MessBillType.eidBonus;
       case 'utility':
       default:
         return MessBillType.utility;
@@ -39,8 +44,13 @@ enum MessBillType {
         return 'পানির বিল';
       case MessBillType.utility:
         return 'ইউটিলিটি বিল';
+      case MessBillType.eidBonus:
+        return 'ঈদ বোনাস';
     }
   }
+
+  /// Cook-cost share excludes eid bonus (applied as Eid Bonus column).
+  bool get countsAsCookCost => this != MessBillType.eidBonus;
 }
 
 class MessBill {

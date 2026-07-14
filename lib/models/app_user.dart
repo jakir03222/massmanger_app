@@ -6,7 +6,9 @@ class AppUser {
     required this.email,
     this.name,
     this.photoUrl,
+    this.bio,
     this.messId,
+    this.messName,
     this.createdAt,
   });
 
@@ -14,7 +16,9 @@ class AppUser {
   final String email;
   final String? name;
   final String? photoUrl;
+  final String? bio;
   final String? messId;
+  final String? messName;
   final DateTime? createdAt;
 
   bool get hasMess {
@@ -37,7 +41,9 @@ class AppUser {
       email: data['email'] as String? ?? '',
       name: data['name'] as String?,
       photoUrl: data['photoUrl'] as String?,
+      bio: data['bio'] as String?,
       messId: (messId == null || messId.isEmpty) ? null : messId,
+      messName: data['messName'] as String?,
       createdAt: createdAt,
     );
   }
@@ -47,7 +53,9 @@ class AppUser {
       'email': email,
       'name': name,
       'photoUrl': photoUrl,
+      'bio': bio,
       'messId': messId,
+      'messName': messName,
       'createdAt': createdAt,
     };
   }
@@ -55,7 +63,9 @@ class AppUser {
   AppUser copyWith({
     String? name,
     String? photoUrl,
+    String? bio,
     String? messId,
+    String? messName,
     bool clearMessId = false,
   }) {
     return AppUser(
@@ -63,7 +73,9 @@ class AppUser {
       email: email,
       name: name ?? this.name,
       photoUrl: photoUrl ?? this.photoUrl,
+      bio: bio ?? this.bio,
       messId: clearMessId ? null : (messId ?? this.messId),
+      messName: clearMessId ? null : (messName ?? this.messName),
       createdAt: createdAt,
     );
   }

@@ -1,12 +1,21 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/mess_bill.dart';
+import 'month_lock_service.dart';
+import 'notification_service.dart';
 
 class MessBillService {
-  MessBillService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+  MessBillService({
+    FirebaseFirestore? firestore,
+    MonthLockService? monthLockService,
+    NotificationService? notificationService,
+  })  : _firestore = firestore ?? FirebaseFirestore.instance,
+        _locks = monthLockService ?? MonthLockService(),
+        _notifications = notificationService ?? NotificationService();
 
   final FirebaseFirestore _firestore;
+  final MonthLockService _locks;
+  final NotificationService _notifications;
 
   CollectionReference<Map<String, dynamic>> _col(String messId) =>
       _firestore.collection('messes').doc(messId).collection('bills');
@@ -44,6 +53,7 @@ class MessBillService {
     required String adminName,
     String note = '',
   }) async {
+    await _locks.assertUnlocked(messId, yearMonth);
     await _col(messId).add({
       'type': type.firestoreValue,
       'amount': amount,
@@ -54,6 +64,20 @@ class MessBillService {
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+
+    final members = await _firestore
+        .collection('messes')
+        .doc(messId)
+        .collection('members')
+        .get();
+    final uids = members.docs.map((d) => d.id).where((id) => id != adminUid);
+    await _notifications.notifyUsers(
+      uids: uids.toList(),
+      title: 'নতুন বিল',
+      body: '${type.bnLabel}: ৳${amount.toStringAsFixed(0)} ($yearMonth)',
+      type: 'bill_added',
+      data: {'messId': messId, 'yearMonth': yearMonth},
+    );
   }
 
   Future<void> updateBill({
@@ -64,6 +88,7 @@ class MessBillService {
     required String yearMonth,
     String note = '',
   }) async {
+    await _locks.assertUnlocked(messId, yearMonth);
     await _col(messId).doc(billId).update({
       'type': type.firestoreValue,
       'amount': amount,
@@ -77,6 +102,9 @@ class MessBillService {
     required String messId,
     required String billId,
   }) async {
+    final snap = await _col(messId).doc(billId).get();
+    final ym = snap.data()?['yearMonth'] as String?;
+    if (ym != null) await _locks.assertUnlocked(messId, ym);
     await _col(messId).doc(billId).delete();
   }
 }

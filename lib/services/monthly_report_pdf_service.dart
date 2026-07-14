@@ -20,25 +20,44 @@ class MonthlyReportPdfService {
     'December',
   ];
 
-  static pw.Font? _regular;
-  static pw.Font? _bold;
+  static pw.Font? _latinRegular;
+  static pw.Font? _latinBold;
+  static pw.Font? _bnRegular;
+  static pw.Font? _bnBold;
 
-  /// Loads bundled Noto Sans Bengali so Unicode Bangla renders offline
-  /// without falling back to Helvetica (which breaks glyphs).
+  /// Latin (Noto Sans) + Bangla (Noto Sans Bengali) so mixed text
+  /// doesn't fall back to Helvetica tofu boxes.
   Future<void> _ensureFonts() async {
-    if (_regular != null && _bold != null) return;
-    final regularData =
-        await rootBundle.load('assets/fonts/NotoSansBengali-Regular.ttf');
-    final boldData =
-        await rootBundle.load('assets/fonts/NotoSansBengali-Bold.ttf');
-    _regular = pw.Font.ttf(regularData);
-    _bold = pw.Font.ttf(boldData);
+    if (_latinRegular != null) return;
+    final results = await Future.wait([
+      rootBundle.load('assets/fonts/NotoSans-Regular.ttf'),
+      rootBundle.load('assets/fonts/NotoSans-Bold.ttf'),
+      rootBundle.load('assets/fonts/NotoSansBengali-Regular.ttf'),
+      rootBundle.load('assets/fonts/NotoSansBengali-Bold.ttf'),
+    ]);
+    _latinRegular = pw.Font.ttf(results[0]);
+    _latinBold = pw.Font.ttf(results[1]);
+    _bnRegular = pw.Font.ttf(results[2]);
+    _bnBold = pw.Font.ttf(results[3]);
+  }
+
+  List<pw.Font> get _fallback => [_bnRegular!, _bnBold!, _latinRegular!, _latinBold!];
+
+  pw.TextStyle _style({
+    required bool bold,
+    double fontSize = 8,
+    PdfColor? color,
+  }) {
+    return pw.TextStyle(
+      font: bold ? _latinBold : _latinRegular,
+      fontFallback: _fallback,
+      fontSize: fontSize,
+      color: color,
+    );
   }
 
   Future<Uint8List> generate(MonthlySettlementReport report) async {
     await _ensureFonts();
-    final regular = _regular!;
-    final bold = _bold!;
 
     final doc = pw.Document();
     final monthLabel =
@@ -49,9 +68,9 @@ class MonthlyReportPdfService {
         pageFormat: PdfPageFormat.a4.landscape,
         margin: const pw.EdgeInsets.all(22),
         theme: pw.ThemeData.withFont(
-          base: regular,
-          bold: bold,
-          fontFallback: [regular, bold],
+          base: _latinRegular!,
+          bold: _latinBold!,
+          fontFallback: _fallback,
         ),
         header: (context) => context.pageNumber == 1
             ? pw.SizedBox()
@@ -59,22 +78,22 @@ class MonthlyReportPdfService {
                 padding: const pw.EdgeInsets.only(bottom: 8),
                 child: pw.Text(
                   '${report.mess.name} — $monthLabel',
-                  style: pw.TextStyle(font: bold, fontSize: 10),
+                  style: _style(bold: true, fontSize: 10),
                 ),
               ),
         footer: (context) => pw.Align(
           alignment: pw.Alignment.centerRight,
           child: pw.Text(
             'Page ${context.pageNumber}/${context.pagesCount}',
-            style: pw.TextStyle(font: regular, fontSize: 8),
+            style: _style(bold: false, fontSize: 8),
           ),
         ),
         build: (context) => [
-          _buildTitle(report, monthLabel, regular, bold),
+          _buildTitle(report, monthLabel),
           pw.SizedBox(height: 10),
-          _buildStatementTable(report, regular, bold),
+          _buildStatementTable(report),
           pw.SizedBox(height: 12),
-          _buildNote(report, regular, bold),
+          _buildNote(report),
         ],
       ),
     );
@@ -85,19 +104,13 @@ class MonthlyReportPdfService {
   pw.Widget _buildTitle(
     MonthlySettlementReport report,
     String monthLabel,
-    pw.Font regular,
-    pw.Font bold,
   ) {
     return pw.Column(
       children: [
         pw.Center(
           child: pw.Text(
             '${report.mess.name} — Mess Statement for the Month of $monthLabel',
-            style: pw.TextStyle(
-              font: bold,
-              fontSize: 14,
-              color: PdfColors.red800,
-            ),
+            style: _style(bold: true, fontSize: 14, color: PdfColors.red800),
           ),
         ),
         if (report.mess.location.isNotEmpty) ...[
@@ -105,7 +118,7 @@ class MonthlyReportPdfService {
           pw.Center(
             child: pw.Text(
               report.mess.location,
-              style: pw.TextStyle(font: regular, fontSize: 9),
+              style: _style(bold: false, fontSize: 9),
             ),
           ),
         ],
@@ -113,11 +126,7 @@ class MonthlyReportPdfService {
     );
   }
 
-  pw.Widget _buildStatementTable(
-    MonthlySettlementReport report,
-    pw.Font regular,
-    pw.Font bold,
-  ) {
+  pw.Widget _buildStatementTable(MonthlySettlementReport report) {
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey600, width: 0.6),
       columnWidths: {
@@ -135,17 +144,17 @@ class MonthlyReportPdfService {
         11: const pw.FlexColumnWidth(1.0),
       },
       children: [
-        _headerRow(bold),
-        ...report.members.map((row) => _memberRow(row, regular, bold)),
-        _totalRow(report, bold),
+        _headerRow(),
+        ...report.members.map(_memberRow),
+        _totalRow(report),
       ],
     );
   }
 
-  pw.TableRow _headerRow(pw.Font bold) {
+  pw.TableRow _headerRow() {
     pw.Widget h(String text) => _cell(
           text,
-          bold,
+          bold: true,
           align: pw.TextAlign.center,
           fontSize: 8,
         );
@@ -168,81 +177,84 @@ class MonthlyReportPdfService {
     );
   }
 
-  pw.TableRow _memberRow(
-    MemberMonthlySettlement row,
-    pw.Font regular,
-    pw.Font bold,
-  ) {
+  pw.TableRow _memberRow(MemberMonthlySettlement row) {
     final net = row.netPayableReceivable;
     final isPayable = net < 0;
     return pw.TableRow(
       children: [
-        _cell('${row.serial}', regular, align: pw.TextAlign.center),
-        _cell(row.member.name, regular),
-        _cell(_meals(row.consumeMeal), regular, align: pw.TextAlign.center),
-        _cell(_money(row.mealRate), regular, align: pw.TextAlign.right),
-        _cell(_money(row.costOfMeal), regular, align: pw.TextAlign.right),
-        _cell(_money(row.cookCost), regular, align: pw.TextAlign.right),
-        _cell(_money(row.totalDue), regular, align: pw.TextAlign.right),
-        _cell(_money(row.depositMoney), regular, align: pw.TextAlign.right),
+        _cell('${row.serial}', align: pw.TextAlign.center),
+        _cell(row.member.name),
+        _cell(_meals(row.consumeMeal), align: pw.TextAlign.center),
+        _cell(_money(row.mealRate), align: pw.TextAlign.right),
+        _cell(_money(row.costOfMeal), align: pw.TextAlign.right),
+        _cell(_money(row.cookCost), align: pw.TextAlign.right),
+        _cell(_money(row.totalDue), align: pw.TextAlign.right),
+        _cell(_money(row.depositMoney), align: pw.TextAlign.right),
         _cell(
           row.eidBonus == 0 ? '' : _money(row.eidBonus),
-          regular,
           align: pw.TextAlign.right,
         ),
-        _cell(
-          _money(row.totalCost),
-          bold,
-          align: pw.TextAlign.right,
-        ),
+        _cell(_money(row.totalCost), bold: true, align: pw.TextAlign.right),
         _cell(
           _money(net),
-          bold,
+          bold: true,
           align: pw.TextAlign.right,
           color: isPayable ? PdfColors.red800 : PdfColors.green800,
           background: isPayable
               ? const PdfColor.fromInt(0xFFFCE4E4)
               : const PdfColor.fromInt(0xFFE6F4EA),
         ),
-        _cell('', regular),
+        _cell(''),
       ],
     );
   }
 
-  pw.TableRow _totalRow(MonthlySettlementReport report, pw.Font bold) {
+  pw.TableRow _totalRow(MonthlySettlementReport report) {
     return pw.TableRow(
       decoration: const pw.BoxDecoration(color: PdfColor.fromInt(0xFFFCE5CD)),
       children: [
-        _cell('', bold),
-        _cell('Total', bold, align: pw.TextAlign.center),
-        _cell(_meals(report.totalConsumeMeal), bold, align: pw.TextAlign.center),
-        _cell('', bold),
-        _cell(_money(report.totalCostOfMeal), bold, align: pw.TextAlign.right),
-        _cell(_money(report.totalCookCost), bold, align: pw.TextAlign.right),
-        _cell(_money(report.totalDue), bold, align: pw.TextAlign.right),
-        _cell(_money(report.totalDeposit), bold, align: pw.TextAlign.right),
+        _cell('', bold: true),
+        _cell('Total', bold: true, align: pw.TextAlign.center),
         _cell(
-          report.totalEidBonus == 0 ? '' : _money(report.totalEidBonus),
-          bold,
+          _meals(report.totalConsumeMeal),
+          bold: true,
+          align: pw.TextAlign.center,
+        ),
+        _cell('', bold: true),
+        _cell(
+          _money(report.totalCostOfMeal),
+          bold: true,
           align: pw.TextAlign.right,
         ),
-        _cell(_money(report.totalCost), bold, align: pw.TextAlign.right),
+        _cell(
+          _money(report.totalCookCost),
+          bold: true,
+          align: pw.TextAlign.right,
+        ),
+        _cell(_money(report.totalDue), bold: true, align: pw.TextAlign.right),
+        _cell(
+          _money(report.totalDeposit),
+          bold: true,
+          align: pw.TextAlign.right,
+        ),
+        _cell(
+          report.totalEidBonus == 0 ? '' : _money(report.totalEidBonus),
+          bold: true,
+          align: pw.TextAlign.right,
+        ),
+        _cell(_money(report.totalCost), bold: true, align: pw.TextAlign.right),
         _cell(
           _money(report.totalNet),
-          bold,
+          bold: true,
           align: pw.TextAlign.right,
           color: report.totalNet < 0 ? PdfColors.red800 : PdfColors.green800,
         ),
-        _cell('', bold),
+        _cell('', bold: true),
       ],
     );
   }
 
-  pw.Widget _buildNote(
-    MonthlySettlementReport report,
-    pw.Font regular,
-    pw.Font bold,
-  ) {
+  pw.Widget _buildNote(MonthlySettlementReport report) {
     final billLines = report.fixedBills
         .map((b) => '${b.type.bnLabel}: ${_money(b.amount)}')
         .join('  •  ');
@@ -252,40 +264,38 @@ class MonthlyReportPdfService {
       children: [
         pw.Text(
           'হিসাবের নিয়ম (Calculation)',
-          style: pw.TextStyle(font: bold, fontSize: 9),
+          style: _style(bold: true, fontSize: 9),
         ),
         pw.SizedBox(height: 3),
         pw.Text(
           'Meal rate = মোট বাজার (${_money(report.totalCostOfMeal)}) ÷ মোট মিল (${_meals(report.totalConsumeMeal)}) = ${_money(report.mealRate)} টাকা।',
-          style: pw.TextStyle(font: regular, fontSize: 8),
+          style: _style(bold: false, fontSize: 8),
         ),
         pw.Text(
-          'Cost of meal = মিল × রেট।  Cook cost = মাসিক বিলের সমান ভাগ।  Total Due = Cost of meal + Cook cost।',
-          style: pw.TextStyle(font: regular, fontSize: 8),
+          'Cost of meal = মিল × রেট।  Cook cost = মাসিক বিলের সমান ভাগ (ঈদ বোনাস ছাড়া)।  Total Due = Cost of meal + Cook cost।',
+          style: _style(bold: false, fontSize: 8),
         ),
         pw.Text(
-          'Deposit Money = মেম্বারের অনুমোদিত বাজার জমা।  Net = Deposit − Total Cost।  ধনাত্মক = পাবে, ঋণাত্মক = দিবে।',
-          style: pw.TextStyle(font: regular, fontSize: 8),
+          'Deposit Money = মেম্বারের অনুমোদিত বাজার জমা।  Eid Bonus = ঈদ বোনাস বিলের সমান ভাগ।  Net = Deposit − (Total Due − Eid Bonus)।  ধনাত্মক = পাবে, ঋণাত্মক = দিবে।',
+          style: _style(bold: false, fontSize: 8),
         ),
         if (billLines.isNotEmpty) ...[
           pw.SizedBox(height: 4),
           pw.Text(
             'এই মাসের মাসিক বিল — $billLines  (মোট: ${_money(report.totalCookCost)})',
-            style: pw.TextStyle(font: regular, fontSize: 8),
+            style: _style(bold: false, fontSize: 8),
           ),
         ],
       ],
     );
   }
 
-  /// Never set [pw.FontWeight.bold] on Bangla text — that forces a Latin
-  /// fallback font and garbles Unicode. Pass the real bold TTF instead.
   pw.Widget _cell(
-    String text,
-    pw.Font font, {
+    String text, {
     pw.TextAlign align = pw.TextAlign.left,
     PdfColor? color,
     PdfColor? background,
+    bool bold = false,
     double fontSize = 8,
   }) {
     return pw.Container(
@@ -294,12 +304,7 @@ class MonthlyReportPdfService {
       child: pw.Text(
         text,
         textAlign: align,
-        style: pw.TextStyle(
-          font: font,
-          fontFallback: [_regular!, _bold!],
-          fontSize: fontSize,
-          color: color,
-        ),
+        style: _style(bold: bold, fontSize: fontSize, color: color),
       ),
     );
   }

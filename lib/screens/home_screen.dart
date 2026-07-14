@@ -1,19 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:printing/printing.dart';
 
 import '../models/market_entry.dart';
 import '../models/meal_entry.dart';
 import '../models/mess.dart';
 import '../models/monthly_settlement.dart';
+import '../config/feature_flags.dart';
 import '../services/market_service.dart';
 import '../services/meal_service.dart';
 import '../services/monthly_report_pdf_service.dart';
 import '../services/monthly_settlement_service.dart';
+import '../services/pdf_download_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/home_bottom_nav.dart';
 import '../widgets/mess_app_header.dart';
 import '../widgets/mess_session_builder.dart';
+import 'community/community_hub_screen.dart';
 import 'market_hub_screen.dart';
 import 'meal_screen.dart';
 import 'mess_bills_screen.dart';
@@ -30,19 +32,34 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _navIndex = 0;
 
+  Widget _tabForIndex(int index) {
+    if (FeatureFlags.communityEnabled) {
+      return switch (index) {
+        0 => const _HomeTab(),
+        1 => const MealScreen(),
+        2 => const MarketHubScreen(),
+        3 => const CommunityHubScreen(embedded: true),
+        4 => const ReportScreen(),
+        5 => const SettingsScreen(),
+        _ => const _HomeTab(),
+      };
+    }
+    return switch (index) {
+      0 => const _HomeTab(),
+      1 => const MealScreen(),
+      2 => const MarketHubScreen(),
+      3 => const ReportScreen(),
+      4 => const SettingsScreen(),
+      _ => const _HomeTab(),
+    };
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
       body: SafeArea(
-        child: switch (_navIndex) {
-          0 => const _HomeTab(),
-          1 => const MealScreen(),
-          2 => const MarketHubScreen(),
-          3 => const ReportScreen(),
-          4 => const SettingsScreen(),
-          _ => const _HomeTab(),
-        },
+        child: _tabForIndex(_navIndex),
       ),
       bottomNavigationBar: HomeBottomNav(
         currentIndex: _navIndex,
@@ -64,11 +81,10 @@ class _HomeTabState extends State<_HomeTab> {
   final _marketService = MarketService();
   final _settlementService = MonthlySettlementService();
   final _pdfService = MonthlyReportPdfService();
+  final _pdfDownload = PdfDownloadService();
 
   bool _exporting = false;
   late final DateTime _month;
-  Future<MonthlySettlementReport>? _reportFuture;
-  String? _reportKey;
 
   @override
   void initState() {
@@ -98,25 +114,6 @@ class _HomeTabState extends State<_HomeTab> {
   String _fmtMeals(double n) =>
       n % 1 == 0 ? n.toInt().toString() : n.toStringAsFixed(1);
 
-  void _ensureReport(Mess mess, List<MessMember> members) {
-    final key =
-        '${mess.id}-${yearMonthKey(_month)}-${members.map((m) => m.uid).join(',')}';
-    if (_reportKey == key && _reportFuture != null) return;
-    _reportKey = key;
-    _reportFuture = _settlementService.buildReport(
-      mess: mess,
-      members: members,
-      month: _month,
-    );
-  }
-
-  Future<void> _reloadReport(Mess mess, List<MessMember> members) async {
-    _reportKey = null;
-    _ensureReport(mess, members);
-    setState(() {});
-    await _reportFuture;
-  }
-
   Future<void> _exportMonthPdf({
     required Mess mess,
     required List<MessMember> members,
@@ -131,9 +128,20 @@ class _HomeTabState extends State<_HomeTab> {
       );
       final bytes = await _pdfService.generate(report);
       if (!mounted) return;
-      await Printing.sharePdf(
+      final result = await _pdfDownload.saveAndOpen(
         bytes: bytes,
         filename: 'mess-hisab-${yearMonthKey(_month)}.pdf',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.savedToDownloads
+                ? 'PDF ডাউনলোড ফোল্ডারে সেভ হয়েছে'
+                : 'PDF সেভ হয়েছে',
+            style: GoogleFonts.notoSansBengali(),
+          ),
+        ),
       );
     } catch (_) {
       if (!mounted) return;
@@ -161,8 +169,6 @@ class _HomeTabState extends State<_HomeTab> {
         final displayName = matched.isNotEmpty
             ? matched.first.name
             : (appUser.name ?? appUser.email);
-
-        _ensureReport(mess, members);
 
         return StreamBuilder<List<MealEntry>>(
           stream: _mealService.watchDayMeals(mess.id, today),
@@ -192,8 +198,12 @@ class _HomeTabState extends State<_HomeTab> {
                     : todaySpend / todayMealTotal;
                 final recent = markets.isEmpty ? null : markets.first;
 
-                return FutureBuilder<MonthlySettlementReport>(
-                  future: _reportFuture,
+                return StreamBuilder<MonthlySettlementReport>(
+                  stream: _settlementService.watchReport(
+                    mess: mess,
+                    members: members,
+                    month: _month,
+                  ),
                   builder: (context, reportSnap) {
                     final report = reportSnap.data;
                     final loadingReport = reportSnap.connectionState ==
@@ -202,7 +212,7 @@ class _HomeTabState extends State<_HomeTab> {
 
                     return RefreshIndicator(
                       color: AppColors.primaryGreen,
-                      onRefresh: () => _reloadReport(mess, members),
+                      onRefresh: () async {},
                       child: ListView(
                         padding: const EdgeInsets.only(bottom: 24),
                         children: [

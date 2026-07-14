@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import '../models/market_entry.dart';
 import '../models/mess.dart';
+import '../models/mess_bill.dart';
 import '../models/monthly_settlement.dart';
-import '../widgets/mess_session_builder.dart';
+import '../widgets/mess_session_builder.dart' show yearMonthKey;
 import 'market_service.dart';
 import 'meal_service.dart';
 import 'mess_bill_service.dart';
@@ -19,19 +22,52 @@ class MonthlySettlementService {
   final MarketService _marketService;
   final MealService _mealService;
 
+  /// Live settlement — updates when bills, markets, or meals change.
+  Stream<MonthlySettlementReport> watchReport({
+    required Mess mess,
+    required List<MessMember> members,
+    required DateTime month,
+  }) {
+    final yearMonth = yearMonthKey(month);
+    return _combineLatest3(
+      _billService.watchByMonth(mess.id, yearMonth),
+      _marketService.watchApprovedMarkets(mess.id, yearMonth: yearMonth),
+      _mealService.watchMonthMealCounts(mess.id, month),
+      (bills, markets, mealCounts) => _buildReportFromData(
+        mess: mess,
+        members: members,
+        month: month,
+        bills: bills,
+        markets: markets,
+        mealCounts: mealCounts,
+      ),
+    );
+  }
+
   Future<MonthlySettlementReport> buildReport({
     required Mess mess,
     required List<MessMember> members,
     required DateTime month,
-  }) async {
-    final yearMonth = yearMonthKey(month);
+  }) {
+    return watchReport(mess: mess, members: members, month: month).first;
+  }
 
-    final bills = await _billService.getByMonth(mess.id, yearMonth);
-    final markets = await _fetchApprovedMarkets(mess.id, yearMonth);
-    final mealCounts = await _monthMealCounts(mess.id, month);
+  MonthlySettlementReport _buildReportFromData({
+    required Mess mess,
+    required List<MessMember> members,
+    required DateTime month,
+    required List<MessBill> bills,
+    required List<MarketEntry> markets,
+    required Map<String, double> mealCounts,
+  }) {
+    final cookBills = bills.where((b) => b.type.countsAsCookCost).toList();
+    final eidBills =
+        bills.where((b) => b.type == MessBillType.eidBonus).toList();
 
     final totalFixedBills =
-        bills.fold<double>(0, (sum, bill) => sum + bill.amount);
+        cookBills.fold<double>(0, (sum, bill) => sum + bill.amount);
+    final totalEidPool =
+        eidBills.fold<double>(0, (sum, bill) => sum + bill.amount);
     final totalMarketSpend =
         markets.fold<double>(0, (sum, entry) => sum + entry.amount);
     final totalMeals =
@@ -40,6 +76,7 @@ class MonthlySettlementService {
 
     final memberCount = members.isEmpty ? 1 : members.length;
     final cookShare = totalFixedBills / memberCount;
+    final eidShare = totalEidPool / memberCount;
 
     final sortedMembers = [...members]
       ..sort((a, b) => a.name.compareTo(b.name));
@@ -63,7 +100,7 @@ class MonthlySettlementService {
       final depositMoney = markets
           .where((entry) => entry.shopperUid == member.uid)
           .fold<double>(0, (sum, entry) => sum + entry.amount);
-      const eidBonus = 0.0;
+      final eidBonus = eidShare;
       final cost = due - eidBonus;
       final net = depositMoney - cost;
 
@@ -109,36 +146,57 @@ class MonthlySettlementService {
       totalNet: totalNet,
     );
   }
+}
 
-  Future<List<MarketEntry>> _fetchApprovedMarkets(
-    String messId,
-    String yearMonth,
-  ) {
-    return _marketService
-        .watchApprovedMarkets(messId, yearMonth: yearMonth)
-        .first;
+Stream<R> _combineLatest3<A, B, C, R>(
+  Stream<A> streamA,
+  Stream<B> streamB,
+  Stream<C> streamC,
+  R Function(A, B, C) combiner,
+) {
+  A? latestA;
+  B? latestB;
+  C? latestC;
+  late StreamSubscription<A> subA;
+  late StreamSubscription<B> subB;
+  late StreamSubscription<C> subC;
+
+  final controller = StreamController<R>.broadcast();
+
+  void emitIfReady() {
+    if (latestA == null || latestB == null || latestC == null) return;
+    controller.add(combiner(latestA as A, latestB as B, latestC as C));
   }
 
-  Future<Map<String, double>> _monthMealCounts(
-    String messId,
-    DateTime month,
-  ) async {
-    final counts = <String, double>{};
-    final now = DateTime.now();
-    final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
-    final isCurrentMonth = month.year == now.year && month.month == now.month;
+  controller.onListen = () {
+    subA = streamA.listen(
+      (v) {
+        latestA = v;
+        emitIfReady();
+      },
+      onError: controller.addError,
+    );
+    subB = streamB.listen(
+      (v) {
+        latestB = v;
+        emitIfReady();
+      },
+      onError: controller.addError,
+    );
+    subC = streamC.listen(
+      (v) {
+        latestC = v;
+        emitIfReady();
+      },
+      onError: controller.addError,
+    );
+  };
 
-    for (var day = 1; day <= daysInMonth; day++) {
-      final dayDate = DateTime(month.year, month.month, day);
-      if (isCurrentMonth && dayDate.isAfter(now)) break;
+  controller.onCancel = () async {
+    await subA.cancel();
+    await subB.cancel();
+    await subC.cancel();
+  };
 
-      final entries =
-          await _mealService.watchDayMeals(messId, dateKey(dayDate)).first;
-      for (final entry in entries) {
-        counts[entry.uid] = (counts[entry.uid] ?? 0) + entry.mealCount;
-      }
-    }
-
-    return counts;
-  }
+  return controller.stream;
 }

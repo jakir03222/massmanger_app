@@ -3,12 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../l10n/app_strings.dart';
+import '../l10n/locale_controller.dart';
 import '../models/mess.dart';
 import '../services/auth_service.dart';
 import '../services/mess_service.dart';
+import '../services/month_lock_service.dart';
 import '../services/user_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/mess_app_header.dart';
+import '../widgets/mess_session_builder.dart' show yearMonthKey;
 import 'mess_bills_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -80,7 +84,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             avatarColors: _avatarColors,
                           )
                         else
-                          const _SettingsTabContent(),
+                          _SettingsTabContent(messId: messId),
                         const SizedBox(height: 20),
                         const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 20),
@@ -926,9 +930,12 @@ class _DashedBorderPainter extends CustomPainter {
 }
 
 class _SettingsTabContent extends StatelessWidget {
-  const _SettingsTabContent();
+  const _SettingsTabContent({required this.messId});
+
+  final String messId;
 
   void _showInfo(BuildContext context, String title, String body) {
+    final s = AppStrings.of(context);
     showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -943,7 +950,7 @@ class _SettingsTabContent extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('বন্ধ করুন',
+            child: Text(s.close,
                 style: GoogleFonts.notoSansBengali(
                     fontWeight: FontWeight.w600,
                     color: AppColors.primaryGreen)),
@@ -954,10 +961,11 @@ class _SettingsTabContent extends StatelessWidget {
   }
 
   Future<void> _leaveMess(BuildContext context) async {
+    final s = AppStrings.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('মেস ছাড়বেন?',
+        title: Text(s.leaveMess,
             style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700)),
         content: Text(
           'আপনি এই মেস থেকে বের হয়ে যাবেন। পরে আবার কোড দিয়ে যোগ দিতে পারবেন।',
@@ -966,11 +974,11 @@ class _SettingsTabContent extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('না', style: GoogleFonts.notoSansBengali()),
+            child: Text(s.cancel, style: GoogleFonts.notoSansBengali()),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: Text('হ্যাঁ, ছাড়ুন',
+            child: Text(s.leaveMess,
                 style: GoogleFonts.notoSansBengali(
                     color: const Color(0xFFC62828),
                     fontWeight: FontWeight.w600)),
@@ -995,47 +1003,120 @@ class _SettingsTabContent extends StatelessWidget {
     }
   }
 
+  Future<void> _toggleMonthLock({
+    required BuildContext context,
+    required bool currentlyLocked,
+    required String yearMonth,
+  }) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final s = AppStrings.of(context);
+    try {
+      await MonthLockService().setLocked(
+        messId: messId,
+        yearMonth: yearMonth,
+        locked: !currentlyLocked,
+        adminUid: uid,
+      );
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            currentlyLocked ? s.unlockMonth : s.lockMonth,
+            style: GoogleFonts.notoSansBengali(),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$e', style: GoogleFonts.notoSansBengali()),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+    final locale = LocaleScope.maybeOf(context);
+    final yearMonth = yearMonthKey(DateTime.now());
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         children: [
+          if (locale != null)
+            _SettingsTile(
+              icon: Icons.translate_rounded,
+              title: s.language,
+              subtitle: locale.isBengali ? s.languageBn : s.languageEn,
+              onTap: () async {
+                await locale.toggle();
+              },
+            ),
           _SettingsTile(
             icon: Icons.receipt_long_outlined,
-            title: 'মাসিক বিল',
-            subtitle: 'খালা · ভাড়া · বিদ্যুৎ · পানি · ইউটিলিটি',
+            title: s.monthlyBills,
+            subtitle: s.monthlyBillsSubtitle,
             onTap: () {
               Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const MessBillsScreen()),
               );
             },
           ),
+          StreamBuilder<List<MessMember>>(
+            stream: MessService().watchMembers(messId),
+            builder: (context, memberSnap) {
+              final members = memberSnap.data ?? [];
+              final me = members.where((m) => m.uid == uid);
+              final isAdmin = me.isNotEmpty && me.first.isAdmin;
+              if (!isAdmin) return const SizedBox.shrink();
+              return StreamBuilder<bool>(
+                stream: MonthLockService().watchLocked(messId, yearMonth),
+                builder: (context, lockSnap) {
+                  final locked = lockSnap.data ?? false;
+                  return _SettingsTile(
+                    icon: locked ? Icons.lock_rounded : Icons.lock_open_rounded,
+                    title: locked ? s.unlockMonth : s.lockMonth,
+                    subtitle: locked ? s.monthLocked : s.monthLockedHint,
+                    onTap: () => _toggleMonthLock(
+                      context: context,
+                      currentlyLocked: locked,
+                      yearMonth: yearMonth,
+                    ),
+                  );
+                },
+              );
+            },
+          ),
           _SettingsTile(
             icon: Icons.notifications_outlined,
-            title: 'নোটিফিকেশন',
-            subtitle: 'অনুমোদন ও আপডেট',
+            title: s.notifications,
+            subtitle: s.notificationsSubtitle,
             onTap: () => _showInfo(
               context,
-              'নোটিফিকেশন',
-              'রিয়েল-টাইম নোটিফিকেশন শীঘ্রই আসছে। এখন অনুমোদন অপেক্ষমাণ থাকলে মিল ও বাজার স্ক্রিনে দেখা যায়।',
+              s.notifications,
+              'মিল/বাজার অনুমোদন ও বিল যোগ হলে নোটিফিকেশন পাবেন। ডিভাইস পারমিশন চালু রাখুন।',
             ),
           ),
           _SettingsTile(
             icon: Icons.lock_outline,
-            title: 'প্রাইভেসি',
+            title: s.privacy,
             onTap: () => _showInfo(
               context,
-              'প্রাইভেসি',
+              s.privacy,
               'আপনার তথ্য শুধুমাত্র আপনার মেসের হিসাব পরিচালনার জন্য ব্যবহৃত হয়। মেসের ডেটা শুধু মেসের মেম্বাররাই দেখতে পারে। আমরা কোনো তথ্য তৃতীয় পক্ষের কাছে বিক্রি করি না।',
             ),
           ),
           _SettingsTile(
             icon: Icons.help_outline,
-            title: 'সাহায্য',
+            title: s.help,
             onTap: () => _showInfo(
               context,
-              'সাহায্য',
+              s.help,
               '• মিল: প্রতিদিন সকাল/বিকাল/রাতের মিল যোগ করুন।\n'
                   '• বাজার: বাজার এন্ট্রি দিন — অ্যাডমিন অনুমোদন করবে।\n'
                   '• রিপোর্ট: মাসিক/দৈনিক হিসাব দেখুন।\n'
@@ -1045,19 +1126,19 @@ class _SettingsTabContent extends StatelessWidget {
           ),
           _SettingsTile(
             icon: Icons.info_outline,
-            title: 'অ্যাপ সম্পর্কে',
+            title: s.about,
             subtitle: 'মেস ম্যানেজার · সংস্করণ ১.০.০',
             onTap: () => _showInfo(
               context,
-              'মেস ম্যানেজার',
+              s.appTitle,
               'সংস্করণ ১.০.০\n\nমেস/হোস্টেলের মিল, বাজার, বিল ও মাসিক হিসাব সহজে পরিচালনার অ্যাপ। সব মেম্বারের হিসাব এক জায়গায়, স্বচ্ছভাবে।',
             ),
           ),
           const SizedBox(height: 6),
           _SettingsTile(
             icon: Icons.exit_to_app_rounded,
-            title: 'মেস ছাড়ুন',
-            subtitle: 'এই মেস থেকে বের হয়ে যান',
+            title: s.leaveMess,
+            subtitle: s.leaveMessSubtitle,
             danger: true,
             onTap: () => _leaveMess(context),
           ),

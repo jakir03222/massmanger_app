@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/market_entry.dart';
 import '../models/meal_entry.dart';
 import '../services/market_service.dart';
 import '../services/meal_service.dart';
@@ -78,8 +79,8 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
             final allMembersMealTotal =
                 allMeals.fold<double>(0, (s, e) => s + e.mealCount);
 
-            return FutureBuilder(
-              future: _marketService.marketsForDay(mess.id, day),
+            return StreamBuilder<List<MarketEntry>>(
+              stream: _marketService.watchMarketsForDay(mess.id, day),
               builder: (context, marketSnap) {
                 final allMarkets = marketSnap.data ?? [];
                 final markets = isAdmin

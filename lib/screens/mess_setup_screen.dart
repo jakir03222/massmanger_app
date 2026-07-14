@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/mess.dart';
+import '../config/feature_flags.dart';
 import '../services/mess_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/mess_setup_banner.dart';
+import 'community/community_hub_screen.dart';
 
 enum MessSetupMode { create, join }
 
@@ -225,6 +227,41 @@ class _MessSetupScreenState extends State<MessSetupScreen> {
                       onSubmit: _loading ? null : _submit,
                     ),
                     const SizedBox(height: 16),
+                    if (FeatureFlags.communityEnabled) ...[
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const CommunityHubScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(
+                            Icons.groups_rounded,
+                            color: AppColors.primaryGreen,
+                          ),
+                          label: Text(
+                            'কমিউনিটি দেখুন — মেস খুঁজুন',
+                            style: GoogleFonts.notoSansBengali(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primaryGreen,
+                            ),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(
+                              color: AppColors.primaryGreen,
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     const _InfoFooter(),
                   ],
                 ),

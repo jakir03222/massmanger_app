@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:printing/printing.dart';
 
 import '../models/mess.dart';
 import '../models/mess_bill.dart';
 import '../services/mess_bill_service.dart';
 import '../services/monthly_report_pdf_service.dart';
 import '../services/monthly_settlement_service.dart';
+import '../services/pdf_download_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/mess_session_builder.dart';
 
@@ -22,6 +22,7 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
   final _service = MessBillService();
   final _settlementService = MonthlySettlementService();
   final _pdfService = MonthlyReportPdfService();
+  final _pdfDownload = PdfDownloadService();
   late DateTime _month;
   bool _exporting = false;
 
@@ -146,9 +147,20 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
       final bytes = await _pdfService.generate(report);
       if (!mounted) return;
 
-      await Printing.sharePdf(
+      final result = await _pdfDownload.saveAndOpen(
         bytes: bytes,
         filename: 'mess-hisab-$_yearMonth.pdf',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.savedToDownloads
+                ? 'PDF ডাউনলোড ফোল্ডারে সেভ হয়েছে'
+                : 'PDF সেভ হয়েছে',
+            style: GoogleFonts.notoSansBengali(),
+          ),
+        ),
       );
     } catch (_) {
       if (!mounted) return;
@@ -217,6 +229,8 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
         return Icons.water_drop_outlined;
       case MessBillType.utility:
         return Icons.wifi_outlined;
+      case MessBillType.eidBonus:
+        return Icons.card_giftcard_rounded;
     }
   }
 

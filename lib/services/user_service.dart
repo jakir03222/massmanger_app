@@ -26,6 +26,8 @@ class UserService {
       name: name ?? user.displayName,
       photoUrl: user.photoURL,
       messId: null,
+      messName: null,
+      bio: null,
       createdAt: DateTime.now(),
     );
 
@@ -33,7 +35,9 @@ class UserService {
       'email': appUser.email,
       'name': appUser.name,
       'photoUrl': appUser.photoUrl,
+      'bio': null,
       'messId': null,
+      'messName': null,
       'createdAt': FieldValue.serverTimestamp(),
     });
 
@@ -53,15 +57,52 @@ class UserService {
     });
   }
 
-  Future<void> setMessId(String uid, String messId) async {
-    await _users.doc(uid).set({'messId': messId}, SetOptions(merge: true));
+  Future<void> setMessId(
+    String uid,
+    String messId, {
+    String? messName,
+  }) async {
+    await _users.doc(uid).set({
+      'messId': messId,
+      if (messName != null) 'messName': messName,
+    }, SetOptions(merge: true));
   }
 
   Future<void> clearMessId(String uid) async {
-    await _users.doc(uid).set({'messId': null}, SetOptions(merge: true));
+    await _users.doc(uid).set({
+      'messId': null,
+      'messName': null,
+    }, SetOptions(merge: true));
+  }
+
+  /// Clears mess link only if the user still points at [messId].
+  Future<void> clearMessIdIfMess(String uid, String messId) async {
+    final snap = await _users.doc(uid).get();
+    if (!snap.exists || snap.data() == null) return;
+    final current = snap.data()!['messId'];
+    if (current is String && current == messId) {
+      await clearMessId(uid);
+    }
   }
 
   Future<void> updateName(String uid, String name) async {
     await _users.doc(uid).set({'name': name.trim()}, SetOptions(merge: true));
+  }
+
+  Future<void> updateBio(String uid, String bio) async {
+    await _users.doc(uid).set({'bio': bio.trim()}, SetOptions(merge: true));
+  }
+
+  Future<void> updatePublicProfile({
+    required String uid,
+    String? name,
+    String? bio,
+    String? photoUrl,
+  }) async {
+    await _users.doc(uid).set({
+      if (name != null) 'name': name.trim(),
+      if (bio != null) 'bio': bio.trim(),
+      if (photoUrl != null) 'photoUrl': photoUrl,
+    }, SetOptions(merge: true));
   }
 }
