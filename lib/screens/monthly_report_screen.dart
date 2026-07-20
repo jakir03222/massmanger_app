@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/market_entry.dart';
+import '../models/mess.dart';
 import '../services/market_service.dart';
 import '../services/meal_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/mess_app_header.dart';
 import '../widgets/mess_session_builder.dart';
+import 'meal_chart_screen.dart';
 
 class MonthlyReportScreen extends StatefulWidget {
   const MonthlyReportScreen({super.key});
@@ -37,6 +39,23 @@ class _MonthlyReportScreenState extends State<MonthlyReportScreen> {
     setState(() {
       _month = DateTime(_month.year, _month.month + delta);
     });
+  }
+
+  void _openMealChart({
+    required Mess mess,
+    required List<MessMember> members,
+    required bool canDownload,
+  }) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => MealChartScreen(
+          mess: mess,
+          members: members,
+          month: _month,
+          canDownload: canDownload,
+        ),
+      ),
+    );
   }
 
   static const _months = [
@@ -104,6 +123,47 @@ class _MonthlyReportScreenState extends State<MonthlyReportScreen> {
                       label: _monthLabel,
                       onPrev: () => _shiftMonth(-1),
                       onNext: _isCurrentOrFuture ? null : () => _shiftMonth(1),
+                    ),
+                    const SizedBox(height: 12),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: FilledButton.icon(
+                        onPressed: () => _openMealChart(
+                          mess: mess,
+                          members: visibleMembers,
+                          canDownload: isAdmin,
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primaryGreen,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size(double.infinity, 48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: const Icon(Icons.grid_on_rounded, size: 20),
+                        label: Text(
+                          isAdmin
+                              ? 'Smart মিল চার্ট দেখুন / ডাউনলোড'
+                              : 'আমার মিল চার্ট দেখুন',
+                          style: GoogleFonts.notoSansBengali(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
+                      child: Text(
+                        isAdmin
+                            ? 'Excel / PDF মিল চার্ট · সকাল / বিকাল / রাত · স্ক্রল করে দেখুন'
+                            : 'আপনার প্রতিদিনের সকাল / বিকাল / রাত মিল শিট',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.notoSansBengali(
+                          fontSize: 12,
+                          color: AppColors.textGrey,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Padding(

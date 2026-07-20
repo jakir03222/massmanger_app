@@ -64,7 +64,7 @@ class UserService {
   }) async {
     await _users.doc(uid).set({
       'messId': messId,
-      if (messName != null) 'messName': messName,
+      'messName': ?messName,
     }, SetOptions(merge: true));
   }
 
@@ -102,7 +102,7 @@ class UserService {
     await _users.doc(uid).set({
       if (name != null) 'name': name.trim(),
       if (bio != null) 'bio': bio.trim(),
-      if (photoUrl != null) 'photoUrl': photoUrl,
+      'photoUrl': ?photoUrl,
     }, SetOptions(merge: true));
   }
 }

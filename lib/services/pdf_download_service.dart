@@ -15,22 +15,50 @@ class PdfDownloadResult {
   final bool savedToDownloads;
 }
 
-/// Saves monthly statement PDF to the device Downloads/Files location.
+/// Saves report files to the device Downloads/Files location.
 class PdfDownloadService {
   Future<PdfDownloadResult> saveAndOpen({
     required Uint8List bytes,
     required String filename,
+  }) {
+    return saveAndOpenFile(
+      bytes: bytes,
+      filename: filename,
+      fileExtension: 'pdf',
+      mimeType: MimeType.pdf,
+    );
+  }
+
+  Future<PdfDownloadResult> saveExcelAndOpen({
+    required Uint8List bytes,
+    required String filename,
+  }) {
+    return saveAndOpenFile(
+      bytes: bytes,
+      filename: filename,
+      fileExtension: 'xlsx',
+      mimeType: MimeType.microsoftExcel,
+    );
+  }
+
+  Future<PdfDownloadResult> saveAndOpenFile({
+    required Uint8List bytes,
+    required String filename,
+    required String fileExtension,
+    required MimeType mimeType,
   }) async {
-    final safeName = filename.toLowerCase().endsWith('.pdf')
-        ? filename.substring(0, filename.length - 4)
+    final ext = fileExtension.toLowerCase().replaceAll('.', '');
+    final lower = filename.toLowerCase();
+    final safeName = lower.endsWith('.$ext')
+        ? filename.substring(0, filename.length - ext.length - 1)
         : filename;
 
     // Saves into public Downloads on Android; Files/Documents on iOS/desktop.
     final savedPath = await FileSaver.instance.saveFile(
       name: safeName,
       bytes: bytes,
-      fileExtension: 'pdf',
-      mimeType: MimeType.pdf,
+      fileExtension: ext,
+      mimeType: mimeType,
     );
 
     var path = savedPath.trim();
@@ -39,7 +67,7 @@ class PdfDownloadService {
     // Fallback: app documents directory if plugin returns empty.
     if (path.isEmpty) {
       final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/$safeName.pdf');
+      final file = File('${dir.path}/$safeName.$ext');
       await file.writeAsBytes(bytes, flush: true);
       path = file.path;
       savedToDownloads = false;

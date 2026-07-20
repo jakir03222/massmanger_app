@@ -294,7 +294,7 @@ class _HomeTabState extends State<_HomeTab> {
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 20),
                               child: Text(
-                                'PDF-এ প্রতি মেম্বারের মিল, বাজার, বিল ভাগ ও পাবে/দিবে দেখা যাবে',
+                                'Smart PDF — প্রতি মেম্বারের মিল, বাজার, বিল ভাগ ও পাবে/দিবে',
                                 style: GoogleFonts.notoSansBengali(
                                   fontSize: 12,
                                   color: AppColors.textGrey,
@@ -340,7 +340,7 @@ class _HomeTabState extends State<_HomeTab> {
                                               Icons.picture_as_pdf_outlined,
                                             ),
                                       label: Text(
-                                        'মাসিক হিসাব PDF',
+                                        'Smart মাসিক হিসাব PDF',
                                         style: GoogleFonts.notoSansBengali(
                                           fontWeight: FontWeight.w700,
                                         ),
