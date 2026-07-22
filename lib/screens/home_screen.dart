@@ -84,6 +84,7 @@ class _HomeTabState extends State<_HomeTab> {
   final _pdfDownload = PdfDownloadService();
 
   bool _exporting = false;
+  int _refreshTick = 0;
   late final DateTime _month;
 
   @override
@@ -196,9 +197,10 @@ class _HomeTabState extends State<_HomeTab> {
                 final todayMealRate = todayMealTotal == 0
                     ? 0.0
                     : todaySpend / todayMealTotal;
-                final recent = markets.isEmpty ? null : markets.first;
+                final recentList = markets.take(3).toList();
 
                 return StreamBuilder<MonthlySettlementReport>(
+                  key: ValueKey('home-report-$_refreshTick'),
                   stream: _settlementService.watchReport(
                     mess: mess,
                     members: members,
@@ -212,8 +214,14 @@ class _HomeTabState extends State<_HomeTab> {
 
                     return RefreshIndicator(
                       color: AppColors.primaryGreen,
-                      onRefresh: () async {},
+                      onRefresh: () async {
+                        setState(() => _refreshTick++);
+                        await Future<void>.delayed(
+                          const Duration(milliseconds: 450),
+                        );
+                      },
                       child: ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.only(bottom: 24),
                         children: [
                           MessAppHeader(
@@ -419,34 +427,91 @@ class _HomeTabState extends State<_HomeTab> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          if (recent == null)
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 20),
-                              child: Text(
-                                'এখনো কোনো আপডেট নেই',
-                                style: GoogleFonts.notoSansBengali(
-                                  color: AppColors.textGrey,
-                                ),
-                              ),
-                            )
-                          else
+                          if (recentList.isEmpty)
                             Container(
                               margin:
                                   const EdgeInsets.symmetric(horizontal: 20),
-                              padding: const EdgeInsets.all(14),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 20,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(14),
                                 border:
                                     Border.all(color: AppColors.borderGrey),
                               ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.featureOrangeBg,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.shopping_bag_outlined,
+                                      color: AppColors.featureOrangeIcon,
+                                      size: 20,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'এই মাসে এখনো কোনো বাজার এন্ট্রি নেই',
+                                      style: GoogleFonts.notoSansBengali(
+                                        color: AppColors.textGrey,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            ...recentList.map(
+                              (entry) => Container(
+                                margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border:
+                                      Border.all(color: AppColors.borderGrey),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '${entry.shopperName} · ${formatTaka(entry.amount)}',
+                                        style: GoogleFonts.notoSansBengali(
+                                          height: 1.35,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.textDark,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      entry.dateKey,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 11,
+                                        color: AppColors.textGrey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          if (!isAdmin && recentList.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
                               child: Text(
-                                isAdmin
-                                    ? '${recent.shopperName} ${formatTaka(recent.amount)} বাজার যোগ করেছে'
-                                    : 'আপনি ${formatTaka(myMarketTotal)} বাজার করেছেন এই মাসে',
-                                style:
-                                    GoogleFonts.notoSansBengali(height: 1.4),
+                                'এই মাসে আপনার মোট বাজার: ${formatTaka(myMarketTotal)}',
+                                style: GoogleFonts.notoSansBengali(
+                                  fontSize: 12,
+                                  color: AppColors.textGrey,
+                                ),
                               ),
                             ),
                         ],

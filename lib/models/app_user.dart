@@ -9,6 +9,7 @@ class AppUser {
     this.bio,
     this.messId,
     this.messName,
+    this.authProvider,
     this.createdAt,
   });
 
@@ -19,11 +20,24 @@ class AppUser {
   final String? bio;
   final String? messId;
   final String? messName;
+
+  /// `google` | `email` — how the account was created / signs in.
+  final String? authProvider;
   final DateTime? createdAt;
 
   bool get hasMess {
     final id = messId?.trim();
     return id != null && id.isNotEmpty;
+  }
+
+  bool get isGoogleAuth => authProvider == 'google';
+
+  bool get isEmailAuth => authProvider == 'email';
+
+  String get authProviderBnLabel {
+    if (isGoogleAuth) return 'Google';
+    if (isEmailAuth) return 'ইমেইল';
+    return '—';
   }
 
   factory AppUser.fromMap(String uid, Map<String, dynamic> data) {
@@ -35,6 +49,10 @@ class AppUser {
 
     final rawMessId = data['messId'];
     final messId = rawMessId is String ? rawMessId.trim() : null;
+    final rawProvider = data['authProvider'] as String?;
+    final authProvider = (rawProvider == 'google' || rawProvider == 'email')
+        ? rawProvider
+        : null;
 
     return AppUser(
       uid: uid,
@@ -44,6 +62,7 @@ class AppUser {
       bio: data['bio'] as String?,
       messId: (messId == null || messId.isEmpty) ? null : messId,
       messName: data['messName'] as String?,
+      authProvider: authProvider,
       createdAt: createdAt,
     );
   }
@@ -56,6 +75,7 @@ class AppUser {
       'bio': bio,
       'messId': messId,
       'messName': messName,
+      'authProvider': authProvider,
       'createdAt': createdAt,
     };
   }
@@ -66,6 +86,7 @@ class AppUser {
     String? bio,
     String? messId,
     String? messName,
+    String? authProvider,
     bool clearMessId = false,
   }) {
     return AppUser(
@@ -76,6 +97,7 @@ class AppUser {
       bio: bio ?? this.bio,
       messId: clearMessId ? null : (messId ?? this.messId),
       messName: clearMessId ? null : (messName ?? this.messName),
+      authProvider: authProvider ?? this.authProvider,
       createdAt: createdAt,
     );
   }

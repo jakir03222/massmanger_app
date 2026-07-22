@@ -2,7 +2,9 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 
+import '../firebase_options.dart';
 import '../models/mess.dart';
 import 'user_service.dart';
 
@@ -94,6 +96,7 @@ class MessService {
         'name': memberName,
         'role': 'super_admin',
         'room': null,
+        'authProvider': UserService.detectAuthProvider(user),
         'joinedAt': FieldValue.serverTimestamp(),
       });
 
@@ -142,6 +145,120 @@ class MessService {
       messId,
       messName: mess?.name,
     );
+  }
+
+  static const _secondaryAuthAppName = 'SecondaryAuth';
+
+  Future<FirebaseApp> _secondaryApp() async {
+    try {
+      return Firebase.app(_secondaryAuthAppName);
+    } catch (_) {
+      return Firebase.initializeApp(
+        name: _secondaryAuthAppName,
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    }
+  }
+
+  /// Super admin creates email/password account and joins them to this mess.
+  /// Uses a secondary Firebase Auth app so the super admin stays signed in.
+  Future<void> createMemberWithEmail({
+    required String messId,
+    required String name,
+    required String email,
+    required String password,
+  }) async {
+    final trimmedName = name.trim();
+    final trimmedEmail = email.trim();
+    if (trimmedName.isEmpty) {
+      throw MessException('মেম্বারের নাম দিন।');
+    }
+    if (trimmedEmail.isEmpty || !trimmedEmail.contains('@')) {
+      throw MessException('সঠিক ইমেইল দিন।');
+    }
+    if (password.length < 6) {
+      throw MessException('পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।');
+    }
+
+    final actor = await _requireActor(messId);
+    if (!actor.isSuperAdmin) {
+      throw MessException('শুধু সুপার অ্যাডমিন নতুন মেম্বার অ্যাকাউন্ট তৈরি করতে পারে।');
+    }
+
+    final mess = await getMess(messId);
+    if (mess == null) {
+      throw MessException('মেস পাওয়া যায়নি।');
+    }
+
+    final secondaryApp = await _secondaryApp();
+    final secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
+    final secondaryDb = FirebaseFirestore.instanceFor(app: secondaryApp);
+
+    User? createdUser;
+    try {
+      final credential = await secondaryAuth.createUserWithEmailAndPassword(
+        email: trimmedEmail,
+        password: password,
+      );
+      createdUser = credential.user;
+      if (createdUser == null) {
+        throw MessException('অ্যাকাউন্ট তৈরি ব্যর্থ হয়েছে। আবার চেষ্টা করুন।');
+      }
+
+      await createdUser.updateDisplayName(trimmedName);
+
+      final uid = createdUser.uid;
+      final batch = secondaryDb.batch();
+      final userRef = secondaryDb.collection('users').doc(uid);
+      final memberRef =
+          secondaryDb.collection('messes').doc(messId).collection('members').doc(uid);
+
+      batch.set(userRef, {
+        'email': trimmedEmail,
+        'name': trimmedName,
+        'photoUrl': null,
+        'bio': null,
+        'messId': messId,
+        'messName': mess.name,
+        'authProvider': 'email',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      batch.set(memberRef, {
+        'name': trimmedName,
+        'role': 'member',
+        'room': null,
+        'authProvider': 'email',
+        'joinedAt': FieldValue.serverTimestamp(),
+      });
+      await batch.commit();
+    } on MessException {
+      if (createdUser != null) {
+        try {
+          await createdUser.delete();
+        } catch (_) {}
+      }
+      rethrow;
+    } on FirebaseAuthException catch (e) {
+      throw MessException(_mapAuthError(e));
+    } on FirebaseException catch (e) {
+      if (createdUser != null) {
+        try {
+          await createdUser.delete();
+        } catch (_) {}
+      }
+      throw MessException(_mapError(e));
+    } catch (_) {
+      if (createdUser != null) {
+        try {
+          await createdUser.delete();
+        } catch (_) {}
+      }
+      throw MessException('মেম্বার যোগ করতে ব্যর্থ। আবার চেষ্টা করুন।');
+    } finally {
+      try {
+        await secondaryAuth.signOut();
+      } catch (_) {}
+    }
   }
 
   /// Member joins an existing mess using the admin's 6-digit code.
@@ -207,15 +324,20 @@ class MessService {
 
       final memberRef = messRef.collection('members').doc(user.uid);
       final existingMember = await memberRef.get();
+      final authProvider = UserService.detectAuthProvider(user);
       if (!existingMember.exists) {
         await memberRef.set({
           'name': memberName,
           'role': 'member',
           'room': null,
+          'authProvider': authProvider,
           'joinedAt': FieldValue.serverTimestamp(),
         });
       } else {
-        await memberRef.set({'name': memberName}, SetOptions(merge: true));
+        await memberRef.set({
+          'name': memberName,
+          'authProvider': authProvider,
+        }, SetOptions(merge: true));
       }
 
       final joined = Mess.fromMap(messId, messSnap.data()!);
@@ -499,6 +621,25 @@ class MessService {
         return members;
       },
     );
+  }
+
+  String _mapAuthError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'invalid-email':
+        return 'ইমেইল ঠিকানা সঠিক নয়।';
+      case 'email-already-in-use':
+        return 'এই ইমেইলে ইতিমধ্যে অ্যাকাউন্ট আছে।';
+      case 'weak-password':
+        return 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।';
+      case 'network-request-failed':
+        return 'ইন্টারনেট সংযোগ নেই। আবার চেষ্টা করুন।';
+      case 'too-many-requests':
+        return 'অনেকবার চেষ্টা হয়েছে। একটু পরে আবার চেষ্টা করুন।';
+      case 'operation-not-allowed':
+        return 'ইমেইল/পাসওয়ার্ড সাইন-আপ চালু নেই।';
+      default:
+        return e.message ?? 'অ্যাকাউন্ট তৈরি ব্যর্থ। আবার চেষ্টা করুন।';
+    }
   }
 
   String _mapError(FirebaseException e) {

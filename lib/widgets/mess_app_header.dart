@@ -60,6 +60,7 @@ class MessAppHeader extends StatelessWidget {
                   ),
           ),
           IconButton(
+            tooltip: 'নোটিফিকেশন',
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -71,9 +72,14 @@ class MessAppHeader extends StatelessWidget {
                 ),
               );
             },
-            icon: const Icon(Icons.notifications_outlined, color: AppColors.headerIcon),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
+            icon: const Icon(
+              Icons.notifications_outlined,
+              color: AppColors.headerIcon,
+            ),
+            style: IconButton.styleFrom(
+              minimumSize: const Size(44, 44),
+              tapTargetSize: MaterialTapTargetSize.padded,
+            ),
           ),
         ],
       ),

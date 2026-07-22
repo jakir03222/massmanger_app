@@ -40,7 +40,7 @@ class LoginScreen extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Text(
-                  'গুগল বা ইমেইল দিয়ে লগইন করুন',
+                  'মিল, বাজার ও হিসাব — এক জায়গায় সহজে ম্যানেজ করুন',
                   style: GoogleFonts.notoSansBengali(
                     fontSize: 15,
                     fontWeight: FontWeight.w400,
@@ -51,13 +51,13 @@ class LoginScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               const _LoginCard(),
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
               const _FeatureBadges(),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
+                padding: const EdgeInsets.symmetric(horizontal: 28),
                 child: Text(
-                  'লগইন করে আপনি শর্তাবলী এবং গোপনীয়তা নীতি মেনে নিচ্ছেন',
+                  'লগইন করে আপনি শর্তাবলী এবং গোপনীয়তা নীতি মেনে নিচ্ছেন',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.notoSansBengali(
                     fontSize: 12,

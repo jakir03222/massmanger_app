@@ -12,12 +12,81 @@ class UserService {
   CollectionReference<Map<String, dynamic>> get _users =>
       _firestore.collection('users');
 
+  /// Detects sign-in method from Firebase Auth provider data.
+  static String detectAuthProvider(User user) {
+    final ids = user.providerData.map((p) => p.providerId).toSet();
+    if (ids.contains('google.com')) return 'google';
+    if (ids.contains('password')) return 'email';
+    // Fallback: Google photo URLs often appear after Google sign-in.
+    final photo = user.photoURL ?? '';
+    if (photo.contains('googleusercontent.com') ||
+        photo.contains('ggpht.com')) {
+      return 'google';
+    }
+    return 'email';
+  }
+
+  /// Resolves Firebase login status for display. Always returns `google` or `email`.
+  static String resolveLoginStatus({
+    String? authProvider,
+    String? photoUrl,
+    User? liveAuthUser,
+  }) {
+    if (liveAuthUser != null) {
+      return detectAuthProvider(liveAuthUser);
+    }
+    if (authProvider == 'google' || authProvider == 'email') {
+      return authProvider!;
+    }
+    final photo = photoUrl ?? '';
+    if (photo.contains('googleusercontent.com') ||
+        photo.contains('ggpht.com')) {
+      return 'google';
+    }
+    return 'email';
+  }
+
   Future<AppUser> ensureUserDoc(User user, {String? name}) async {
     final ref = _users.doc(user.uid);
     final snap = await ref.get();
+    final authProvider = detectAuthProvider(user);
 
     if (snap.exists) {
-      return AppUser.fromMap(user.uid, snap.data()!);
+      final data = snap.data()!;
+      final patch = <String, dynamic>{};
+      if (data['authProvider'] != authProvider) {
+        patch['authProvider'] = authProvider;
+      }
+      // Keep email in sync when available.
+      final email = user.email?.trim();
+      if (email != null && email.isNotEmpty && data['email'] != email) {
+        patch['email'] = email;
+      }
+      final photo = user.photoURL;
+      if (photo != null &&
+          photo.isNotEmpty &&
+          data['photoUrl'] != photo) {
+        patch['photoUrl'] = photo;
+      }
+      if (patch.isNotEmpty) {
+        await ref.set(patch, SetOptions(merge: true));
+      }
+
+      // Keep mess member doc in sync with Firebase Auth provider.
+      final messId = data['messId'];
+      if (messId is String && messId.isNotEmpty) {
+        await _firestore
+            .collection('messes')
+            .doc(messId)
+            .collection('members')
+            .doc(user.uid)
+            .set({'authProvider': authProvider}, SetOptions(merge: true));
+      }
+
+      return AppUser.fromMap(
+        user.uid,
+        patch.isEmpty ? data : {...data, ...patch},
+      );
     }
 
     final appUser = AppUser(
@@ -28,6 +97,7 @@ class UserService {
       messId: null,
       messName: null,
       bio: null,
+      authProvider: authProvider,
       createdAt: DateTime.now(),
     );
 
@@ -38,6 +108,7 @@ class UserService {
       'bio': null,
       'messId': null,
       'messName': null,
+      'authProvider': authProvider,
       'createdAt': FieldValue.serverTimestamp(),
     });
 
@@ -55,6 +126,39 @@ class UserService {
       if (!snap.exists || snap.data() == null) return null;
       return AppUser.fromMap(uid, snap.data()!);
     });
+  }
+
+  /// Firebase login status (`google` / `email`) for every member uid.
+  /// Current user uses live Firebase Auth; others use Firestore (synced from Auth).
+  Future<Map<String, String>> getLoginStatusesForUids({
+    required Iterable<String> uids,
+    Map<String, String?> memberProviders = const {},
+  }) async {
+    final unique = uids.toSet();
+    if (unique.isEmpty) return {};
+
+    final live = FirebaseAuth.instance.currentUser;
+    if (live != null && unique.contains(live.uid)) {
+      // Sync this device's Firebase Auth provider into Firestore.
+      try {
+        await ensureUserDoc(live);
+      } catch (_) {}
+    }
+
+    final result = <String, String>{};
+    await Future.wait(
+      unique.map((uid) async {
+        final user = await getUser(uid);
+        final liveUser =
+            (live != null && live.uid == uid) ? live : null;
+        result[uid] = resolveLoginStatus(
+          authProvider: user?.authProvider ?? memberProviders[uid],
+          photoUrl: user?.photoUrl,
+          liveAuthUser: liveUser,
+        );
+      }),
+    );
+    return result;
   }
 
   Future<void> setMessId(

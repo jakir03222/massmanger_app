@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../models/mess.dart';
 import '../config/feature_flags.dart';
@@ -75,6 +76,7 @@ class _MessSetupScreenState extends State<MessSetupScreen> {
                     ),
                   ),
                   IconButton(
+                    tooltip: 'কপি',
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: mess.code));
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -87,7 +89,25 @@ class _MessSetupScreenState extends State<MessSetupScreen> {
                         ),
                       );
                     },
-                    icon: const Icon(Icons.copy_rounded, color: AppColors.primaryGreen),
+                    icon: const Icon(
+                      Icons.copy_rounded,
+                      color: AppColors.primaryGreen,
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'শেয়ার',
+                    onPressed: () {
+                      SharePlus.instance.share(
+                        ShareParams(
+                          text:
+                              'আমাদের মেস "${mess.name}"-এ যোগ দিন।\nমেস কোড: ${mess.code}\nMass Manager অ্যাপে কোড দিয়ে জয়েন করুন।',
+                        ),
+                      );
+                    },
+                    icon: const Icon(
+                      Icons.share_rounded,
+                      color: AppColors.primaryGreen,
+                    ),
                   ),
                 ],
               ),

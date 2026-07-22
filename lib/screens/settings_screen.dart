@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../l10n/app_strings.dart';
 import '../l10n/locale_controller.dart';
@@ -109,11 +110,35 @@ class _MessInfoCard extends StatelessWidget {
 
   final Mess? mess;
 
+  Future<void> _copyCode(BuildContext context, String code) async {
+    await Clipboard.setData(ClipboardData(text: code));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'মেস কোড কপি হয়েছে',
+          style: GoogleFonts.notoSansBengali(),
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _shareCode(BuildContext context, String code, String name) async {
+    await SharePlus.instance.share(
+      ShareParams(
+        text:
+            'আমাদের মেস "$name"-এ যোগ দিন।\nমেস কোড: $code\nMass Manager অ্যাপে কোড দিয়ে জয়েন করুন।',
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final name = mess?.name ?? 'লোড হচ্ছে...';
     final location = mess?.location ?? '';
     final code = mess?.code ?? '------';
+    final canUseCode = code != '------' && code.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -136,7 +161,7 @@ class _MessInfoCard extends StatelessWidget {
             Container(width: 5, color: AppColors.darkGreen),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+                padding: const EdgeInsets.fromLTRB(14, 16, 10, 16),
                 child: Row(
                   children: [
                     Expanded(
@@ -150,6 +175,7 @@ class _MessInfoCard extends StatelessWidget {
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
                               color: AppColors.textDark,
+                              height: 1.3,
                             ),
                           ),
                           if (location.isNotEmpty) ...[
@@ -157,8 +183,8 @@ class _MessInfoCard extends StatelessWidget {
                             Row(
                               children: [
                                 const Icon(
-                                  Icons.map_outlined,
-                                  size: 14,
+                                  Icons.location_on_outlined,
+                                  size: 15,
                                   color: AppColors.textGrey,
                                 ),
                                 const SizedBox(width: 4),
@@ -169,6 +195,7 @@ class _MessInfoCard extends StatelessWidget {
                                       fontSize: 12,
                                       fontWeight: FontWeight.w400,
                                       color: AppColors.textGrey,
+                                      height: 1.3,
                                     ),
                                   ),
                                 ),
@@ -178,11 +205,15 @@ class _MessInfoCard extends StatelessWidget {
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.fromLTRB(12, 10, 6, 10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF0F2F0),
-                        borderRadius: BorderRadius.circular(10),
+                        color: AppColors.featureGreenBg,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.primaryGreen.withValues(alpha: 0.15),
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,8 +221,8 @@ class _MessInfoCard extends StatelessWidget {
                           Text(
                             'মেস কোড',
                             style: GoogleFonts.notoSansBengali(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w400,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
                               color: AppColors.textGrey,
                             ),
                           ),
@@ -202,34 +233,43 @@ class _MessInfoCard extends StatelessWidget {
                               Text(
                                 code,
                                 style: GoogleFonts.inter(
-                                  fontSize: 16,
+                                  fontSize: 17,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.primaryGreen,
                                   letterSpacing: 1.2,
                                 ),
                               ),
-                              const SizedBox(width: 6),
-                              GestureDetector(
-                                onTap: code == '------'
-                                    ? null
-                                    : () {
-                                        Clipboard.setData(ClipboardData(text: code));
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'মেস কোড কপি হয়েছে',
-                                              style: GoogleFonts.notoSansBengali(),
-                                            ),
-                                            duration: const Duration(seconds: 2),
-                                          ),
-                                        );
-                                      },
-                                child: const Icon(
-                                  Icons.copy_rounded,
-                                  size: 16,
-                                  color: AppColors.primaryGreen,
+                              if (canUseCode) ...[
+                                IconButton(
+                                  tooltip: 'কপি',
+                                  visualDensity: VisualDensity.compact,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 40,
+                                    minHeight: 40,
+                                  ),
+                                  onPressed: () => _copyCode(context, code),
+                                  icon: const Icon(
+                                    Icons.copy_rounded,
+                                    size: 18,
+                                    color: AppColors.primaryGreen,
+                                  ),
                                 ),
-                              ),
+                                IconButton(
+                                  tooltip: 'শেয়ার',
+                                  visualDensity: VisualDensity.compact,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 40,
+                                    minHeight: 40,
+                                  ),
+                                  onPressed: () =>
+                                      _shareCode(context, code, name),
+                                  icon: const Icon(
+                                    Icons.share_rounded,
+                                    size: 18,
+                                    color: AppColors.primaryGreen,
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ],
@@ -335,16 +375,33 @@ class _MembersTab extends StatelessWidget {
 
   void _shareCode(BuildContext context) {
     if (messCode.isEmpty) return;
+    final text =
+        'আমাদের মেসে যোগ দিন।\nমেস কোড: $messCode\nMass Manager অ্যাপে কোড দিয়ে জয়েন করুন।';
+    SharePlus.instance.share(ShareParams(text: text));
     Clipboard.setData(ClipboardData(text: messCode));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'মেস কোড $messCode কপি হয়েছে — অন্য ব্যবহারকারীকে দিন',
+          'মেস কোড শেয়ার/কপি হয়েছে',
           style: GoogleFonts.notoSansBengali(),
         ),
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
       ),
     );
+  }
+
+  Future<void> _showAddMemberDialog(BuildContext context) async {
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => _AddMemberDialog(
+        messId: messId,
+        messService: messService,
+      ),
+    );
+    if (result == true && context.mounted) {
+      _toast(context, 'নতুন মেম্বার যোগ হয়েছে');
+    }
   }
 
   Future<void> _manageMember(
@@ -660,67 +717,155 @@ class _MembersTab extends StatelessWidget {
         final members = snap.data ?? [];
         final meList = members.where((m) => m.uid == myUid);
         final me = meList.isNotEmpty ? meList.first : null;
+        final uidsKey = members.map((m) => m.uid).join(',');
+        final memberProviders = {
+          for (final m in members) m.uid: m.authProvider,
+        };
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
-            children: [
-              if (members.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 24),
-                  child: Text(
-                    'এখনো কোনো মেম্বার নেই',
-                    style: GoogleFonts.notoSansBengali(color: AppColors.textGrey),
-                  ),
-                )
-              else
-                ...members.asMap().entries.map((entry) {
-                  final i = entry.key;
-                  final m = entry.value;
-                  final color = avatarColors[i % avatarColors.length];
-                  final letter = m.name.isNotEmpty
-                      ? String.fromCharCode(m.name.runes.first)
-                      : '?';
-                  final textColor =
-                      color == AppColors.primaryGreen ? Colors.white : AppColors.textDark;
-                  final actor = me;
-                  final manageable = actor != null &&
-                      (m.canBeManagedBy(actor) ||
-                          (m.uid == actor.uid && actor.isAdmin));
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _MemberCard(
-                      letter: letter,
-                      name: m.name + (m.uid == myUid ? ' (আপনি)' : ''),
-                      room: m.room?.isNotEmpty == true ? m.room! : 'রুম —',
-                      color: color,
-                      textColor: textColor,
-                      member: m,
-                      canManage: manageable,
-                      onTap: manageable
-                          ? () => _manageMember(context, actor, m)
-                          : null,
-                    ),
-                  );
-                }),
-              const SizedBox(height: 6),
-              _InviteMemberButton(onTap: () => _shareCode(context)),
-              if (me != null && me.isAdmin)
-                Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: Text(
-                    me.isSuperAdmin
-                        ? 'সুপার অ্যাডমিন: মেম্বারকে অ্যাডমিন বানান · অ্যাডমিন ও মেম্বার নিয়ন্ত্রণ করুন'
-                        : 'অ্যাডমিন: শুধু সাধারণ মেম্বার ম্যানেজ করতে পারবেন · সুপার অ্যাডমিনের রোল বদলানো যায় না',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.notoSansBengali(
-                      fontSize: 11,
-                      color: AppColors.textGrey,
-                    ),
-                  ),
-                ),
-            ],
+        return FutureBuilder<Map<String, String>>(
+          key: ValueKey('auth-$uidsKey'),
+          future: UserService().getLoginStatusesForUids(
+            uids: members.map((m) => m.uid),
+            memberProviders: memberProviders,
           ),
+          builder: (context, authSnap) {
+            final providers = authSnap.data ??
+                {
+                  for (final m in members)
+                    m.uid: UserService.resolveLoginStatus(
+                      authProvider: m.authProvider,
+                    ),
+                };
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Column(
+                children: [
+                  if (members.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 28),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 64,
+                            height: 64,
+                            decoration: const BoxDecoration(
+                              color: AppColors.featureGreenBg,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.group_outlined,
+                              size: 32,
+                              color: AppColors.primaryGreen,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            'এখনো কোনো মেম্বার নেই',
+                            style: GoogleFonts.notoSansBengali(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textDark,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'কোড শেয়ার করে বা নতুন অ্যাকাউন্ট তৈরি করে যোগ করুন',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.notoSansBengali(
+                              fontSize: 13,
+                              color: AppColors.textGrey,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ...members.asMap().entries.map((entry) {
+                      final i = entry.key;
+                      final m = entry.value;
+                      final color = avatarColors[i % avatarColors.length];
+                      final letter = m.name.isNotEmpty
+                          ? String.fromCharCode(m.name.runes.first)
+                          : '?';
+                      final textColor = color == AppColors.primaryGreen
+                          ? Colors.white
+                          : AppColors.textDark;
+                      final actor = me;
+                      final manageable = actor != null &&
+                          (m.canBeManagedBy(actor) ||
+                              (m.uid == actor.uid && actor.isAdmin));
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _MemberCard(
+                          letter: letter,
+                          name: m.name + (m.uid == myUid ? ' (আপনি)' : ''),
+                          room: m.room?.isNotEmpty == true ? m.room! : 'রুম —',
+                          authProvider: providers[m.uid] ??
+                              UserService.resolveLoginStatus(
+                                authProvider: m.authProvider,
+                              ),
+                          color: color,
+                          textColor: textColor,
+                          member: m,
+                          canManage: manageable,
+                          onTap: manageable
+                              ? () => _manageMember(context, actor, m)
+                              : null,
+                        ),
+                      );
+                    }),
+                  const SizedBox(height: 6),
+                  if (me != null && me.isSuperAdmin) ...[
+                    _AddMemberButton(
+                      onTap: () => _showAddMemberDialog(context),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  _InviteMemberButton(onTap: () => _shareCode(context)),
+                  if (me != null && me.isAdmin)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.infoBoxBg,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(
+                              Icons.info_outline_rounded,
+                              size: 18,
+                              color: AppColors.primaryGreen,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                me.isSuperAdmin
+                                    ? 'সুপার অ্যাডমিন: ইমেইল দিয়ে মেম্বার যোগ করতে পারেন, অ্যাডমিন বানাতে পারেন ও মেম্বার ম্যানেজ করতে পারেন।'
+                                    : 'অ্যাডমিন: শুধু সাধারণ মেম্বার ম্যানেজ করতে পারবেন। সুপার অ্যাডমিনের রোল বদলানো যায় না।',
+                                style: GoogleFonts.notoSansBengali(
+                                  fontSize: 12,
+                                  height: 1.45,
+                                  color: AppColors.textDark,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
@@ -735,6 +880,7 @@ class _MemberCard extends StatelessWidget {
     required this.color,
     required this.textColor,
     required this.member,
+    required this.authProvider,
     this.canManage = false,
     this.onTap,
   });
@@ -745,6 +891,7 @@ class _MemberCard extends StatelessWidget {
   final Color color;
   final Color textColor;
   final MessMember member;
+  final String authProvider;
   final bool canManage;
   final VoidCallback? onTap;
 
@@ -753,6 +900,7 @@ class _MemberCard extends StatelessWidget {
     final badgeColor = member.isSuperAdmin
         ? const Color(0xFF6A1B9A)
         : AppColors.primaryGreen;
+    final isGoogle = authProvider == 'google';
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(14),
@@ -760,90 +908,358 @@ class _MemberCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: color,
-            child: Text(
-              letter,
-              style: GoogleFonts.notoSansBengali(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: textColor,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.borderGrey.withValues(alpha: 0.9)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
-            ),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        name,
-                        style: GoogleFonts.notoSansBengali(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textDark,
-                        ),
-                      ),
-                    ),
-                    if (member.isAdmin) ...[
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: badgeColor,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          member.roleBnLabel,
-                          style: GoogleFonts.notoSansBengali(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  room,
-                  style: GoogleFonts.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    color: AppColors.textGrey,
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: color,
+                child: Text(
+                  letter,
+                  style: GoogleFonts.notoSansBengali(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
                   ),
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            name,
+                            style: GoogleFonts.notoSansBengali(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textDark,
+                              height: 1.3,
+                            ),
+                          ),
+                        ),
+                        if (member.isAdmin) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: badgeColor,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              member.roleBnLabel,
+                              style: GoogleFonts.notoSansBengali(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      room,
+                      style: GoogleFonts.notoSansBengali(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.textGrey,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isGoogle
+                            ? const Color(0xFFE8F0FE)
+                            : AppColors.featureGreenBg,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isGoogle
+                                ? Icons.g_mobiledata_rounded
+                                : Icons.mail_outline_rounded,
+                            size: isGoogle ? 16 : 13,
+                            color: isGoogle
+                                ? const Color(0xFF4285F4)
+                                : AppColors.primaryGreen,
+                          ),
+                          SizedBox(width: isGoogle ? 0 : 4),
+                          Text(
+                            isGoogle ? 'Google লগইন' : 'ইমেইল লগইন',
+                            style: GoogleFonts.notoSansBengali(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isGoogle
+                                  ? const Color(0xFF4285F4)
+                                  : AppColors.darkGreen,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (canManage)
+                const Icon(
+                  Icons.more_vert_rounded,
+                  color: Color(0xFFB0B5B0),
+                  size: 22,
+                ),
+            ],
           ),
-          Icon(
-            canManage ? Icons.more_vert_rounded : Icons.chevron_right_rounded,
-            color: const Color(0xFFB0B5B0),
-            size: 22,
-          ),
-        ],
-      ),
         ),
       ),
+    );
+  }
+}
+
+class _AddMemberButton extends StatelessWidget {
+  const _AddMemberButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.primaryGreen,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.person_add_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'মেম্বার যোগ করুন',
+                style: GoogleFonts.notoSansBengali(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddMemberDialog extends StatefulWidget {
+  const _AddMemberDialog({
+    required this.messId,
+    required this.messService,
+  });
+
+  final String messId;
+  final MessService messService;
+
+  @override
+  State<_AddMemberDialog> createState() => _AddMemberDialogState();
+}
+
+class _AddMemberDialogState extends State<_AddMemberDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  bool _obscurePassword = true;
+  bool _loading = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _loading = true);
+    try {
+      await widget.messService.createMemberWithEmail(
+        messId: widget.messId,
+        name: _nameController.text,
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
+      if (!mounted) return;
+      Navigator.of(context).pop(true);
+    } on MessException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message, style: GoogleFonts.notoSansBengali()),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(
+        'নতুন মেম্বার যোগ',
+        style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
+      ),
+      content: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'ইমেইল ও পাসওয়ার্ড দিয়ে নতুন অ্যাকাউন্ট তৈরি হবে এবং এই মেসে যোগ হবে।',
+                style: GoogleFonts.notoSansBengali(
+                  fontSize: 13,
+                  color: AppColors.textGrey,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _nameController,
+                enabled: !_loading,
+                textInputAction: TextInputAction.next,
+                decoration: InputDecoration(
+                  labelText: 'নাম',
+                  labelStyle: GoogleFonts.notoSansBengali(),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                style: GoogleFonts.notoSansBengali(),
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'নাম দিন';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _emailController,
+                enabled: !_loading,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.next,
+                decoration: InputDecoration(
+                  labelText: 'ইমেইল',
+                  labelStyle: GoogleFonts.notoSansBengali(),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                style: GoogleFonts.inter(),
+                validator: (v) {
+                  final value = v?.trim() ?? '';
+                  if (value.isEmpty) return 'ইমেইল দিন';
+                  if (!value.contains('@')) return 'সঠিক ইমেইল দিন';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _passwordController,
+                enabled: !_loading,
+                obscureText: _obscurePassword,
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => _loading ? null : _submit(),
+                decoration: InputDecoration(
+                  labelText: 'পাসওয়ার্ড',
+                  labelStyle: GoogleFonts.notoSansBengali(),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  suffixIcon: IconButton(
+                    onPressed: _loading
+                        ? null
+                        : () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
+                  ),
+                ),
+                style: GoogleFonts.inter(),
+                validator: (v) {
+                  if (v == null || v.length < 6) {
+                    return 'কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড দিন';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _loading ? null : () => Navigator.of(context).pop(false),
+          child: Text('বাতিল', style: GoogleFonts.notoSansBengali()),
+        ),
+        FilledButton(
+          onPressed: _loading ? null : _submit,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.primaryGreen,
+          ),
+          child: _loading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Text(
+                  'যোগ করুন',
+                  style: GoogleFonts.notoSansBengali(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+        ),
+      ],
     );
   }
 }
@@ -855,33 +1271,37 @@ class _InviteMemberButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: CustomPaint(
-        painter: _DashedBorderPainter(
-          color: AppColors.primaryGreen.withValues(alpha: 0.45),
-        ),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.person_add_alt_1_outlined,
-                color: AppColors.primaryGreen,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'মেম্বার আমন্ত্রণ করুন',
-                style: GoogleFonts.notoSansBengali(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: CustomPaint(
+          painter: _DashedBorderPainter(
+            color: AppColors.primaryGreen.withValues(alpha: 0.45),
+          ),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.ios_share_rounded,
                   color: AppColors.primaryGreen,
+                  size: 20,
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Text(
+                  'মেস কোড শেয়ার করুন',
+                  style: GoogleFonts.notoSansBengali(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryGreen,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1121,7 +1541,7 @@ class _SettingsTabContent extends StatelessWidget {
                   '• বাজার: বাজার এন্ট্রি দিন — অ্যাডমিন অনুমোদন করবে।\n'
                   '• রিপোর্ট: মাসিক/দৈনিক হিসাব দেখুন।\n'
                   '• মাসিক বিল: অ্যাডমিন বিল যোগ করে মাস শেষে PDF এক্সপোর্ট করতে পারে।\n'
-                  '• মেম্বার যোগ: মেস কোড শেয়ার করুন।',
+                  '• মেম্বার যোগ: সুপার অ্যাডমিন ইমেইল/পাসওয়ার্ড দিয়ে অ্যাকাউন্ট তৈরি করতে পারে, অথবা মেস কোড শেয়ার করুন।',
             ),
           ),
           _SettingsTile(

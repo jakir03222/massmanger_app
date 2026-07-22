@@ -31,6 +31,7 @@ class MessMember {
     required this.name,
     required this.role,
     this.room,
+    this.authProvider,
   });
 
   final String uid;
@@ -39,6 +40,9 @@ class MessMember {
   /// `super_admin` | `admin` | `member`
   final String role;
   final String? room;
+
+  /// `google` | `email` — Firebase Auth sign-in method.
+  final String? authProvider;
 
   bool get isSuperAdmin => role == 'super_admin';
 
@@ -89,11 +93,16 @@ class MessMember {
     if (role != 'super_admin' && role != 'admin' && role != 'member') {
       role = 'member';
     }
+    final rawProvider = data['authProvider'] as String?;
+    final authProvider = (rawProvider == 'google' || rawProvider == 'email')
+        ? rawProvider
+        : null;
     return MessMember(
       uid: uid,
       name: data['name'] as String? ?? 'সদস্য',
       role: role,
       room: data['room'] as String?,
+      authProvider: authProvider,
     );
   }
 }
