@@ -54,7 +54,7 @@ service cloud.firestore {
     }
 
     function dayYearMonth(day) {
-      return day is string && day.size() >= 7 ? day.substring(0, 7) : '';
+      return day is string && day.size() >= 7 ? day[0:7] : '';
     }
 
     function messCreatedBy(messId) {
