@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../l10n/app_strings.dart';
 import '../theme/app_colors.dart';
 import '../widgets/splash_background.dart';
 import '../widgets/splash_loading_indicator.dart';
@@ -26,29 +26,15 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _navigateWhenReady() async {
-    await Future<void>.delayed(const Duration(seconds: 2));
+    await Future<void>.delayed(const Duration(milliseconds: 1400));
     if (!mounted) return;
     widget.onFinished();
   }
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     final screenHeight = MediaQuery.sizeOf(context).height;
-
-    final titleStyle = GoogleFonts.notoSansBengali(
-      fontSize: 30,
-      fontWeight: FontWeight.w700,
-      color: Colors.white,
-      height: 1.15,
-      letterSpacing: 0.2,
-    );
-
-    final subtitleStyle = GoogleFonts.notoSansBengali(
-      fontSize: 15,
-      fontWeight: FontWeight.w400,
-      color: AppColors.subtitle,
-      height: 1.35,
-    );
 
     return Scaffold(
       body: SplashBackground(
@@ -63,9 +49,28 @@ class _SplashScreenState extends State<SplashScreen> {
                 children: [
                   const SplashLogo(),
                   const SizedBox(height: 24),
-                  Text('মেস ম্যানেজার', style: titleStyle),
+                  Text(
+                    s.appTitle,
+                    style: appFont(
+                      context: context,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.card,
+                      height: 1.15,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
                   const SizedBox(height: 8),
-                  Text('মেসের হিসাব, সহজে', style: subtitleStyle),
+                  Text(
+                    s.appTagline,
+                    style: appFont(
+                      context: context,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w400,
+                      color: AppColors.subtitle,
+                      height: 1.35,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -79,11 +84,12 @@ class _SplashScreenState extends State<SplashScreen> {
                   const SplashLoadingIndicator(),
                   const SizedBox(height: 14),
                   Text(
-                    'অ্যাপ লোড হচ্ছে…',
-                    style: GoogleFonts.notoSansBengali(
+                    s.loadingApp,
+                    style: appFont(
+                      context: context,
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white.withValues(alpha: 0.92),
+                      color: AppColors.card.withValues(alpha: 0.92),
                     ),
                   ),
                 ],

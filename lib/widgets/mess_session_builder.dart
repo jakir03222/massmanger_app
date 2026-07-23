@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/app_user.dart';
 import '../models/mess.dart';
 import '../services/mess_service.dart';
@@ -22,7 +23,7 @@ class MessSessionBuilder extends StatelessWidget {
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
-      return const Center(child: Text('লগইন নেই'));
+      return Center(child: Text(AppStrings.of(context).noLogin));
     }
 
     final userService = UserService();
@@ -34,7 +35,7 @@ class MessSessionBuilder extends StatelessWidget {
         final appUser = userSnap.data;
         final messId = appUser?.messId;
         if (appUser == null || messId == null || messId.isEmpty) {
-          return const Center(
+          return Center(
             child: CircularProgressIndicator(color: AppColors.primaryGreen),
           );
         }
@@ -44,7 +45,7 @@ class MessSessionBuilder extends StatelessWidget {
           builder: (context, messSnap) {
             final mess = messSnap.data;
             if (mess == null) {
-              return const Center(
+              return Center(
                 child: CircularProgressIndicator(color: AppColors.primaryGreen),
               );
             }
@@ -78,19 +79,21 @@ class _RemovedFromMessView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.info_outline,
+            Icon(Icons.info_outline,
                 color: AppColors.primaryGreen, size: 48),
             const SizedBox(height: 16),
             Text(
-              'আপনি আর এই মেসে নেই',
+              s.notInThisMess,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: appFont(
+                context: context,
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
                 color: AppColors.textDark,
@@ -98,9 +101,13 @@ class _RemovedFromMessView extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'অ্যাডমিন আপনাকে রিমুভ করেছেন অথবা আপনি মেস ছেড়েছেন। নতুন মেসে যোগ দিতে নিচে ট্যাপ করুন।',
+              s.removedFromMessHint,
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textGrey, height: 1.5),
+              style: appFont(
+                context: context,
+                color: AppColors.textGrey,
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 20),
             ElevatedButton(
@@ -111,7 +118,10 @@ class _RemovedFromMessView extends StatelessWidget {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               ),
-              child: const Text('মেস সেটআপে যান'),
+              child: Text(
+                s.goToMessSetup,
+                style: appFont(context: context, color: Colors.white),
+              ),
             ),
           ],
         ),
@@ -162,8 +172,12 @@ String formatTaka(num amount) {
   return '${buf.toString()}৳';
 }
 
-/// Bangladesh Standard Time (UTC+6), বাংলা তারিখ ও পূর্বাহ্ন/অপরাহ্ন।
-String formatDateTime(DateTime? d) {
+/// Bangladesh Standard Time (UTC+6).
+/// Pass [context] to use [AppStrings.formatDateTimeLocal]; otherwise Bangla.
+String formatDateTime(DateTime? d, [BuildContext? context]) {
+  if (context != null) {
+    return AppStrings.of(context).formatDateTimeLocal(d);
+  }
   if (d == null) return '—';
   final bd = d.toUtc().add(const Duration(hours: 6));
   final datePart = formatBnDate(DateTime(bd.year, bd.month, bd.day));

@@ -60,6 +60,12 @@ class MessMember {
     return 'মেম্বার';
   }
 
+  String roleLabel({required bool bn}) {
+    if (isSuperAdmin) return bn ? 'সুপার অ্যাডমিন' : 'Super admin';
+    if (isRegularAdmin) return bn ? 'অ্যাডমিন' : 'Admin';
+    return bn ? 'মেম্বার' : 'Member';
+  }
+
   /// Who [actor] can manage in settings.
   bool canBeManagedBy(MessMember actor) {
     if (uid == actor.uid) return false;

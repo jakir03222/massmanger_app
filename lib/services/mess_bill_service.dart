@@ -73,8 +73,12 @@ class MessBillService {
     final uids = members.docs.map((d) => d.id).where((id) => id != adminUid);
     await _notifications.notifyUsers(
       uids: uids.toList(),
-      title: 'নতুন বিল',
-      body: '${type.bnLabel}: ৳${amount.toStringAsFixed(0)} ($yearMonth)',
+      titleBn: 'নতুন বিল',
+      titleEn: 'New bill',
+      bodyBn:
+          '${type.label(bn: true)}: ৳${amount.toStringAsFixed(0)} ($yearMonth)',
+      bodyEn:
+          '${type.label(bn: false)}: ৳${amount.toStringAsFixed(0)} ($yearMonth)',
       type: 'bill_added',
       data: {'messId': messId, 'yearMonth': yearMonth},
     );

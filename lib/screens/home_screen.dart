@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../config/feature_flags.dart';
+import '../l10n/app_strings.dart';
 import '../models/market_entry.dart';
 import '../models/meal_entry.dart';
 import '../models/mess.dart';
 import '../models/monthly_settlement.dart';
-import '../config/feature_flags.dart';
 import '../services/market_service.dart';
 import '../services/meal_service.dart';
+import '../services/month_lock_service.dart';
 import '../services/monthly_report_pdf_service.dart';
 import '../services/monthly_settlement_service.dart';
 import '../services/pdf_download_service.dart';
 import '../theme/app_colors.dart';
-import '../widgets/home_bottom_nav.dart';
+import '../widgets/app_surface.dart';
+import '../widgets/home_top_tab_bar.dart';
 import '../widgets/mess_app_header.dart';
 import '../widgets/mess_session_builder.dart';
+import '../widgets/month_navigator.dart';
 import 'community/community_hub_screen.dart';
 import 'market_hub_screen.dart';
 import 'meal_screen.dart';
@@ -29,29 +32,48 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  int _navIndex = 0;
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
 
-  Widget _tabForIndex(int index) {
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(
+      length: HomeTopTabBar.tabCount,
+      vsync: this,
+    );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _openTab(int index) {
+    if (index < 0 || index >= _tabController.length) return;
+    _tabController.animateTo(index);
+  }
+
+  List<Widget> get _pages {
     if (FeatureFlags.communityEnabled) {
-      return switch (index) {
-        0 => const _HomeTab(),
-        1 => const MealScreen(),
-        2 => const MarketHubScreen(),
-        3 => const CommunityHubScreen(embedded: true),
-        4 => const ReportScreen(),
-        5 => const SettingsScreen(),
-        _ => const _HomeTab(),
-      };
+      return [
+        _HomeTab(onOpenTab: _openTab),
+        const MealScreen(),
+        const MarketHubScreen(),
+        const CommunityHubScreen(embedded: true),
+        const ReportScreen(),
+        const SettingsScreen(),
+      ];
     }
-    return switch (index) {
-      0 => const _HomeTab(),
-      1 => const MealScreen(),
-      2 => const MarketHubScreen(),
-      3 => const ReportScreen(),
-      4 => const SettingsScreen(),
-      _ => const _HomeTab(),
-    };
+    return [
+      _HomeTab(onOpenTab: _openTab),
+      const MealScreen(),
+      const MarketHubScreen(),
+      const ReportScreen(),
+      const SettingsScreen(),
+    ];
   }
 
   @override
@@ -59,18 +81,26 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
       body: SafeArea(
-        child: _tabForIndex(_navIndex),
-      ),
-      bottomNavigationBar: HomeBottomNav(
-        currentIndex: _navIndex,
-        onTap: (index) => setState(() => _navIndex = index),
+        child: Column(
+          children: [
+            HomeTopTabBar(controller: _tabController),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: _pages,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _HomeTab extends StatefulWidget {
-  const _HomeTab();
+  const _HomeTab({required this.onOpenTab});
+
+  final ValueChanged<int> onOpenTab;
 
   @override
   State<_HomeTab> createState() => _HomeTabState();
@@ -85,7 +115,7 @@ class _HomeTabState extends State<_HomeTab> {
 
   bool _exporting = false;
   int _refreshTick = 0;
-  late final DateTime _month;
+  late DateTime _month;
 
   @override
   void initState() {
@@ -94,22 +124,19 @@ class _HomeTabState extends State<_HomeTab> {
     _month = DateTime(now.year, now.month);
   }
 
-  String get _monthLabel {
-    const months = [
-      'জানুয়ারি',
-      'ফেব্রুয়ারি',
-      'মার্চ',
-      'এপ্রিল',
-      'মে',
-      'জুন',
-      'জুলাই',
-      'আগস্ট',
-      'সেপ্টেম্বর',
-      'অক্টোবর',
-      'নভেম্বর',
-      'ডিসেম্বর',
-    ];
-    return '${months[_month.month - 1]} ${_month.year}';
+  String _monthLabel(BuildContext context) =>
+      AppStrings.of(context).monthLabel(_month);
+
+  bool get _isCurrentMonth {
+    final now = DateTime.now();
+    return isSameYearMonth(_month, now);
+  }
+
+  void _shiftMonth(DateTime next) {
+    setState(() {
+      _month = DateTime(next.year, next.month);
+      _refreshTick++;
+    });
   }
 
   String _fmtMeals(double n) =>
@@ -134,13 +161,12 @@ class _HomeTabState extends State<_HomeTab> {
         filename: 'mess-hisab-${yearMonthKey(_month)}.pdf',
       );
       if (!mounted) return;
+      final s = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            result.savedToDownloads
-                ? 'PDF ডাউনলোড ফোল্ডারে সেভ হয়েছে'
-                : 'PDF সেভ হয়েছে',
-            style: GoogleFonts.notoSansBengali(),
+            result.savedToDownloads ? s.pdfSavedDownloads : s.pdfSaved,
+            style: appFont(context: context),
           ),
         ),
       );
@@ -149,8 +175,8 @@ class _HomeTabState extends State<_HomeTab> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'PDF তৈরি ব্যর্থ — আবার চেষ্টা করুন',
-            style: GoogleFonts.notoSansBengali(),
+            AppStrings.of(context).pdfFailed,
+            style: appFont(context: context),
           ),
         ),
       );
@@ -171,127 +197,182 @@ class _HomeTabState extends State<_HomeTab> {
             ? matched.first.name
             : (appUser.name ?? appUser.email);
 
-        return StreamBuilder<List<MealEntry>>(
-          stream: _mealService.watchDayMeals(mess.id, today),
-          builder: (context, mealSnap) {
-            final todayMeals =
-                (mealSnap.data ?? []).where((e) => e.isApproved).toList();
-            final todayMealTotal =
-                todayMeals.fold<double>(0, (s, e) => s + e.mealCount);
+        return StreamBuilder<bool>(
+          stream: MonthLockService().watchLocked(mess.id, month),
+          builder: (context, lockSnap) {
+            final monthLocked = lockSnap.data ?? false;
 
-            return StreamBuilder<List<MarketEntry>>(
-              stream: _marketService.watchMarkets(mess.id, yearMonth: month),
-              builder: (context, marketSnap) {
-                final markets = marketSnap.data ?? [];
-                final monthSpendAll =
-                    markets.fold<double>(0, (s, e) => s + e.amount);
-                final todaySpend = markets
-                    .where((e) => e.dateKey == today)
-                    .fold<double>(0, (s, e) => s + e.amount);
-                final dueSpend = markets
-                    .where((e) => e.isDue)
-                    .fold<double>(0, (s, e) => s + e.amount);
-                final myMarketTotal = markets
-                    .where((e) => e.shopperUid == appUser.uid)
-                    .fold<double>(0, (s, e) => s + e.amount);
-                final todayMealRate = todayMealTotal == 0
-                    ? 0.0
-                    : todaySpend / todayMealTotal;
-                final recentList = markets.take(3).toList();
+            return StreamBuilder<List<MealEntry>>(
+              stream: _isCurrentMonth
+                  ? _mealService.watchDayMeals(mess.id, today)
+                  : Stream.value(const <MealEntry>[]),
+              builder: (context, mealSnap) {
+                final todayMeals =
+                    (mealSnap.data ?? []).where((e) => e.isApproved).toList();
+                final todayMealTotal =
+                    todayMeals.fold<double>(0, (s, e) => s + e.mealCount);
 
-                return StreamBuilder<MonthlySettlementReport>(
-                  key: ValueKey('home-report-$_refreshTick'),
-                  stream: _settlementService.watchReport(
-                    mess: mess,
-                    members: members,
-                    month: _month,
-                  ),
-                  builder: (context, reportSnap) {
-                    final report = reportSnap.data;
-                    final loadingReport = reportSnap.connectionState ==
-                            ConnectionState.waiting &&
-                        report == null;
+                return StreamBuilder<List<MarketEntry>>(
+                  stream: _marketService.watchMarkets(mess.id, yearMonth: month),
+                  builder: (context, marketSnap) {
+                    final markets = marketSnap.data ?? [];
+                    final monthSpendAll =
+                        markets.fold<double>(0, (s, e) => s + e.amount);
+                    final todaySpend = markets
+                        .where((e) => e.dateKey == today)
+                        .fold<double>(0, (s, e) => s + e.amount);
+                    final dueSpend = markets
+                        .where((e) => e.isDue)
+                        .fold<double>(0, (s, e) => s + e.amount);
+                    final myMarketTotal = markets
+                        .where((e) => e.shopperUid == appUser.uid)
+                        .fold<double>(0, (s, e) => s + e.amount);
+                    final todayMealRate = todayMealTotal == 0
+                        ? 0.0
+                        : todaySpend / todayMealTotal;
+                    final recentList = markets.take(3).toList();
 
-                    return RefreshIndicator(
-                      color: AppColors.primaryGreen,
-                      onRefresh: () async {
-                        setState(() => _refreshTick++);
-                        await Future<void>.delayed(
-                          const Duration(milliseconds: 450),
-                        );
-                      },
-                      child: ListView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.only(bottom: 24),
-                        children: [
-                          MessAppHeader(
-                            title: mess.name,
-                            subtitle: mess.location,
-                          ),
-                          const SizedBox(height: 14),
-                          _WelcomeBanner(
-                            name: displayName,
-                            monthLabel: _monthLabel,
-                          ),
-                          if (isAdmin) ...[
-                            const SizedBox(height: 14),
-                            _TodayRateCard(
-                              rate: todayMealRate,
-                              meals: todayMealTotal,
-                              spend: todaySpend,
-                              fmtMeals: _fmtMeals,
-                            ),
-                          ],
-                          const SizedBox(height: 16),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Text(
-                              isAdmin
-                                  ? 'সার্বিক কাউন্ট ($_monthLabel)'
-                                  : 'আমার কাউন্ট ($_monthLabel)',
-                              style: GoogleFonts.notoSansBengali(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
+                    return StreamBuilder<MonthlySettlementReport>(
+                      key: ValueKey('home-report-$_refreshTick-$month'),
+                      stream: _settlementService.watchReport(
+                        mess: mess,
+                        members: members,
+                        month: _month,
+                      ),
+                      builder: (context, reportSnap) {
+                        final report = reportSnap.data;
+                        final loadingReport = reportSnap.connectionState ==
+                                ConnectionState.waiting &&
+                            report == null;
+                        final s = AppStrings.of(context);
+                        final monthLabel = _monthLabel(context);
+
+                        return RefreshIndicator(
+                          color: AppColors.primaryGreen,
+                          onRefresh: () async {
+                            setState(() => _refreshTick++);
+                            await Future<void>.delayed(
+                              const Duration(milliseconds: 450),
+                            );
+                          },
+                          child: ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.only(bottom: 24),
+                            children: [
+                              MessAppHeader(
+                                title: mess.name,
+                                subtitle: mess.location,
                               ),
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          if (loadingReport)
-                            const Padding(
-                              padding: EdgeInsets.all(24),
-                              child: Center(
-                                child: CircularProgressIndicator(
-                                  color: AppColors.primaryGreen,
+                              const SizedBox(height: 12),
+                              MonthNavigator(
+                                month: _month,
+                                locked: monthLocked,
+                                onChanged: _shiftMonth,
+                              ),
+                              if (monthLocked) ...[
+                                const SizedBox(height: 10),
+                                MonthClosedBanner(
+                                  monthLabel: monthLabel,
+                                  isAdmin: isAdmin,
+                                ),
+                              ],
+                              const SizedBox(height: 12),
+                              _WelcomeBanner(
+                                name: displayName,
+                                monthLabel: monthLabel,
+                              ),
+                              const SizedBox(height: 14),
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 20),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: AppQuickAction(
+                                        icon: Icons.restaurant_rounded,
+                                        label: s.navMeal,
+                                        onTap: () => widget.onOpenTab(1),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: AppQuickAction(
+                                        icon: Icons.shopping_cart_rounded,
+                                        label: s.navMarket,
+                                        color: AppColors.marketOrange,
+                                        onTap: () => widget.onOpenTab(2),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: AppQuickAction(
+                                        icon: Icons.bar_chart_rounded,
+                                        label: s.navReport,
+                                        color: AppColors.actionBlueIcon,
+                                        onTap: () => widget.onOpenTab(
+                                          FeatureFlags.communityEnabled ? 4 : 3,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            )
-                          else
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 20),
-                              child: _OverallGrid(
-                                isAdmin: isAdmin,
-                                members: members.length,
-                                monthMeals: report?.totalConsumeMeal ?? 0,
-                                monthSpend: isAdmin
-                                    ? (report?.totalDeposit ?? monthSpendAll)
-                                    : myMarketTotal,
-                                mealRate: report?.mealRate ?? 0,
-                                fixedBills: report?.totalCookCost ?? 0,
-                                dueSpend: dueSpend,
-                                todayMeals: todayMealTotal,
-                                todaySpend: todaySpend,
-                                fmtMeals: _fmtMeals,
+                              if (isAdmin && _isCurrentMonth) ...[
+                                const SizedBox(height: 14),
+                                _TodayRateCard(
+                                  rate: todayMealRate,
+                                  meals: todayMealTotal,
+                                  spend: todaySpend,
+                                  fmtMeals: _fmtMeals,
+                                ),
+                              ],
+                              const SizedBox(height: 18),
+                              AppSectionHeader(
+                                title: isAdmin
+                                    ? s.overallCount(monthLabel)
+                                    : s.myCount(monthLabel),
                               ),
-                            ),
-                          if (isAdmin) ...[
+                              const SizedBox(height: 10),
+                              if (loadingReport)
+                                Padding(
+                                  padding: EdgeInsets.all(24),
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      color: AppColors.primaryGreen,
+                                    ),
+                                  ),
+                                )
+                              else
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 20),
+                                  child: _OverallGrid(
+                                    isAdmin: isAdmin,
+                                    members: members.length,
+                                    monthMeals: report?.totalConsumeMeal ?? 0,
+                                    monthSpend: isAdmin
+                                        ? (report?.totalDeposit ??
+                                            monthSpendAll)
+                                        : myMarketTotal,
+                                    mealRate: report?.mealRate ?? 0,
+                                    fixedBills: report?.totalCookCost ?? 0,
+                                    dueSpend: dueSpend,
+                                    todayMeals:
+                                        _isCurrentMonth ? todayMealTotal : 0,
+                                    todaySpend:
+                                        _isCurrentMonth ? todaySpend : 0,
+                                    fmtMeals: _fmtMeals,
+                                  ),
+                                ),
+                              if (isAdmin) ...[
                             const SizedBox(height: 18),
                             Padding(
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 20),
                               child: Text(
-                                'মাস শেষ — সব মেম্বারের হিসাব',
-                                style: GoogleFonts.notoSansBengali(
+                                s.monthEndAllMembers,
+                                style: appFont(
+                                  context: context,
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -302,8 +383,9 @@ class _HomeTabState extends State<_HomeTab> {
                               padding:
                                   const EdgeInsets.symmetric(horizontal: 20),
                               child: Text(
-                                'Smart PDF — প্রতি মেম্বারের মিল, বাজার, বিল ভাগ ও পাবে/দিবে',
-                                style: GoogleFonts.notoSansBengali(
+                                s.smartPdfHint,
+                                style: appFont(
+                                  context: context,
                                   fontSize: 12,
                                   color: AppColors.textGrey,
                                 ),
@@ -348,8 +430,9 @@ class _HomeTabState extends State<_HomeTab> {
                                               Icons.picture_as_pdf_outlined,
                                             ),
                                       label: Text(
-                                        'Smart মাসিক হিসাব PDF',
-                                        style: GoogleFonts.notoSansBengali(
+                                        s.smartMonthlyPdf,
+                                        style: appFont(
+                                          context: context,
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
@@ -367,7 +450,7 @@ class _HomeTabState extends State<_HomeTab> {
                                     },
                                     style: OutlinedButton.styleFrom(
                                       foregroundColor: AppColors.darkGreen,
-                                      side: const BorderSide(
+                                      side: BorderSide(
                                         color: AppColors.primaryGreen,
                                       ),
                                       padding: const EdgeInsets.symmetric(
@@ -379,8 +462,9 @@ class _HomeTabState extends State<_HomeTab> {
                                       ),
                                     ),
                                     child: Text(
-                                      'বিল',
-                                      style: GoogleFonts.notoSansBengali(
+                                      s.bills,
+                                      style: appFont(
+                                        context: context,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -394,8 +478,9 @@ class _HomeTabState extends State<_HomeTab> {
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 20),
                                 child: Text(
-                                  'সব মেম্বারের হিসাব (সংক্ষেপ)',
-                                  style: GoogleFonts.notoSansBengali(
+                                  s.memberSummary,
+                                  style: appFont(
+                                    context: context,
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -416,85 +501,41 @@ class _HomeTabState extends State<_HomeTab> {
                               ),
                           ],
                           const SizedBox(height: 18),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20),
-                            child: Text(
-                              'সাম্প্রতিক বাজার',
-                              style: GoogleFonts.notoSansBengali(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
+                          AppSectionHeader(title: s.recentMarket),
                           const SizedBox(height: 10),
                           if (recentList.isEmpty)
-                            Container(
-                              margin:
+                            Padding(
+                              padding:
                                   const EdgeInsets.symmetric(horizontal: 20),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 20,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(14),
-                                border:
-                                    Border.all(color: AppColors.borderGrey),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 40,
-                                    height: 40,
-                                    decoration: const BoxDecoration(
-                                      color: AppColors.featureOrangeBg,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.shopping_bag_outlined,
-                                      color: AppColors.featureOrangeIcon,
-                                      size: 20,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Text(
-                                      'এই মাসে এখনো কোনো বাজার এন্ট্রি নেই',
-                                      style: GoogleFonts.notoSansBengali(
-                                        color: AppColors.textGrey,
-                                        height: 1.35,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                              child: AppEmptyState(
+                                icon: Icons.shopping_bag_outlined,
+                                title: s.noMarketYetTitle,
+                                subtitle: s.noMarketYetBody,
+                                actionLabel: s.navMarket,
+                                onAction: () => widget.onOpenTab(2),
                               ),
                             )
                           else
                             ...recentList.map(
-                              (entry) => Container(
+                              (entry) => AppCard(
                                 margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
                                 padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(14),
-                                  border:
-                                      Border.all(color: AppColors.borderGrey),
-                                ),
                                 child: Row(
                                   children: [
                                     Expanded(
                                       child: Text(
                                         '${entry.shopperName} · ${formatTaka(entry.amount)}',
-                                        style: GoogleFonts.notoSansBengali(
+                                        style: appFont(
+                                          context: context,
                                           height: 1.35,
                                           fontWeight: FontWeight.w600,
-                                          color: AppColors.textDark,
                                         ),
                                       ),
                                     ),
                                     Text(
                                       entry.dateKey,
-                                      style: GoogleFonts.inter(
+                                      style: appFont(
+                                        context: context,
                                         fontSize: 11,
                                         color: AppColors.textGrey,
                                       ),
@@ -507,8 +548,9 @@ class _HomeTabState extends State<_HomeTab> {
                             Padding(
                               padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
                               child: Text(
-                                'এই মাসে আপনার মোট বাজার: ${formatTaka(myMarketTotal)}',
-                                style: GoogleFonts.notoSansBengali(
+                                s.myMarketTotal(formatTaka(myMarketTotal)),
+                                style: appFont(
+                                  context: context,
                                   fontSize: 12,
                                   color: AppColors.textGrey,
                                 ),
@@ -520,6 +562,8 @@ class _HomeTabState extends State<_HomeTab> {
                   },
                 );
               },
+            );
+          },
             );
           },
         );
@@ -536,30 +580,47 @@ class _WelcomeBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.bannerGreen,
-        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.bannerGreen,
+            AppColors.darkGreen,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryGreen.withValues(alpha: 0.28),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'স্বাগতম, $name',
-            style: GoogleFonts.notoSansBengali(
+            s.welcomeName(name),
+            style: appFont(
+              context: context,
               fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              color: AppColors.card,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             '${formatBnDate(DateTime.now())}  ·  $monthLabel',
-            style: GoogleFonts.notoSansBengali(
+            style: appFont(
+              context: context,
               fontSize: 13,
-              color: Colors.white.withValues(alpha: 0.9),
+              color: AppColors.card.withValues(alpha: 0.9),
             ),
           ),
         ],
@@ -583,11 +644,12 @@ class _TodayRateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.primaryGreen),
       ),
@@ -596,11 +658,11 @@ class _TodayRateCard extends StatelessWidget {
           Container(
             width: 44,
             height: 44,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.featureGreenBg,
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.calculate_outlined,
               color: AppColors.primaryGreen,
             ),
@@ -611,23 +673,26 @@ class _TodayRateCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'আজকের মিল রেট',
-                  style: GoogleFonts.notoSansBengali(
+                  s.todayMealRate,
+                  style: appFont(
+                    context: context,
                     fontSize: 12,
                     color: AppColors.textGrey,
                   ),
                 ),
                 Text(
                   formatTaka(rate),
-                  style: GoogleFonts.notoSansBengali(
+                  style: appFont(
+                    context: context,
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     color: AppColors.darkGreen,
                   ),
                 ),
                 Text(
-                  'মিল ${fmtMeals(meals)} · বাজার ${formatTaka(spend)}',
-                  style: GoogleFonts.notoSansBengali(
+                  s.todayMealMarket(fmtMeals(meals), formatTaka(spend)),
+                  style: appFont(
+                    context: context,
                     fontSize: 11,
                     color: AppColors.textGrey,
                   ),
@@ -668,48 +733,49 @@ class _OverallGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     final cards = <_StatTileData>[
-      _StatTileData('আজ মিল', fmtMeals(todayMeals), Icons.restaurant_rounded),
+      _StatTileData(s.todayMeals, fmtMeals(todayMeals), Icons.restaurant_rounded),
       _StatTileData(
-        'আজ বাজার',
+        s.todayMarket,
         formatTaka(todaySpend),
         Icons.shopping_cart_outlined,
       ),
       _StatTileData(
-        isAdmin ? 'মাসিক মিল' : 'আমার মাসিক বাজার',
+        isAdmin ? s.monthlyMeals : s.myMonthlyMarket,
         isAdmin ? fmtMeals(monthMeals) : formatTaka(monthSpend),
         Icons.calendar_month_outlined,
       ),
       if (isAdmin) ...[
         _StatTileData(
-          'মাসিক বাজার',
+          s.monthlyMarket,
           formatTaka(monthSpend),
           Icons.storefront_outlined,
         ),
         _StatTileData(
-          'মাসিক মিল রেট',
+          s.monthlyMealRate,
           formatTaka(mealRate),
           Icons.payments_outlined,
         ),
         _StatTileData(
-          'মাসিক বিল',
+          s.monthlyBillsShort,
           formatTaka(fixedBills),
           Icons.receipt_long_outlined,
         ),
         _StatTileData(
-          'বাকি বাজার',
+          s.dueMarket,
           formatTaka(dueSpend),
           Icons.account_balance_wallet_outlined,
         ),
         _StatTileData(
-          'মেম্বার',
-          '$members জন',
+          s.members,
+          s.membersCount(members),
           Icons.groups_outlined,
         ),
       ] else ...[
         _StatTileData(
-          'মেম্বার',
-          '$members জন',
+          s.members,
+          s.membersCount(members),
           Icons.groups_outlined,
         ),
       ],
@@ -746,27 +812,43 @@ class _StatTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.borderGrey),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(data.icon, color: AppColors.primaryGreen, size: 20),
-          const SizedBox(height: 8),
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: AppColors.featureGreenBg,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(data.icon, color: AppColors.primaryGreen, size: 18),
+          ),
+          const SizedBox(height: 10),
           Text(
             data.value,
-            style: GoogleFonts.notoSansBengali(
+            style: appFont(
+              context: context,
               fontSize: 15,
               fontWeight: FontWeight.w800,
-              color: AppColors.textDark,
             ),
           ),
           const SizedBox(height: 2),
           Text(
             data.label,
-            style: GoogleFonts.notoSansBengali(
+            style: appFont(
+              context: context,
               fontSize: 11,
               color: AppColors.textGrey,
             ),
@@ -784,13 +866,17 @@ class _MemberBalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     final net = row.netPayableReceivable;
     final payable = net < 0;
+    final meals = row.consumeMeal % 1 == 0
+        ? row.consumeMeal.toInt().toString()
+        : row.consumeMeal.toStringAsFixed(1);
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.borderGrey),
       ),
@@ -802,15 +888,16 @@ class _MemberBalanceCard extends StatelessWidget {
               children: [
                 Text(
                   row.member.name,
-                  style: GoogleFonts.notoSansBengali(
+                  style: appFont(
+                    context: context,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'মিল: ${row.consumeMeal % 1 == 0 ? row.consumeMeal.toInt() : row.consumeMeal.toStringAsFixed(1)}'
-                  '  ·  বাজার: ${formatTaka(row.depositMoney)}',
-                  style: GoogleFonts.notoSansBengali(
+                  '${s.navMeal}: $meals  ·  ${s.market}: ${formatTaka(row.depositMoney)}',
+                  style: appFont(
+                    context: context,
                     fontSize: 12,
                     color: AppColors.textGrey,
                   ),
@@ -822,8 +909,9 @@ class _MemberBalanceCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                payable ? 'দিবে' : 'পাবে',
-                style: GoogleFonts.notoSansBengali(
+                payable ? s.willPay : s.willReceive,
+                style: appFont(
+                  context: context,
                   fontSize: 11,
                   color: payable
                       ? const Color(0xFFC62828)
@@ -832,7 +920,8 @@ class _MemberBalanceCard extends StatelessWidget {
               ),
               Text(
                 formatTaka(payable ? -net : net),
-                style: GoogleFonts.notoSansBengali(
+                style: appFont(
+                  context: context,
                   fontWeight: FontWeight.w800,
                   color: payable
                       ? const Color(0xFFC62828)
@@ -860,6 +949,7 @@ class _MyMonthCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     final mine = report.members.where((m) => m.member.uid == uid);
     if (mine.isEmpty) return const SizedBox.shrink();
     final row = mine.first;
@@ -870,20 +960,21 @@ class _MyMonthCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.borderGrey),
       ),
       child: Column(
         children: [
-          _kv('আমার মিল', fmtMeals(row.consumeMeal)),
-          _kv('মিল রেট', formatTaka(row.mealRate)),
-          _kv('মিল খরচ', formatTaka(row.costOfMeal)),
-          _kv('আমার বাজার', formatTaka(row.depositMoney)),
-          _kv('বিল ভাগ', formatTaka(row.cookCost)),
+          _kv(context, s.myMeals, fmtMeals(row.consumeMeal)),
+          _kv(context, s.mealRate, formatTaka(row.mealRate)),
+          _kv(context, s.mealCost, formatTaka(row.costOfMeal)),
+          _kv(context, s.myMarket, formatTaka(row.depositMoney)),
+          _kv(context, s.billShare, formatTaka(row.cookCost)),
           const Divider(height: 18),
           _kv(
-            payable ? 'আমাকে দিতে হবে' : 'আমি পাব',
+            context,
+            payable ? s.iMustPay : s.iWillGet,
             formatTaka(payable ? -net : net),
             bold: true,
             color: payable ? const Color(0xFFC62828) : AppColors.darkGreen,
@@ -893,16 +984,26 @@ class _MyMonthCard extends StatelessWidget {
     );
   }
 
-  Widget _kv(String k, String v, {bool bold = false, Color? color}) {
+  Widget _kv(
+    BuildContext context,
+    String k,
+    String v, {
+    bool bold = false,
+    Color? color,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Text(k, style: GoogleFonts.notoSansBengali(color: AppColors.textGrey)),
+          Text(
+            k,
+            style: appFont(context: context, color: AppColors.textGrey),
+          ),
           const Spacer(),
           Text(
             v,
-            style: GoogleFonts.notoSansBengali(
+            style: appFont(
+              context: context,
               fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
               color: color,
             ),

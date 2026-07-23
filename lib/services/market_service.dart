@@ -105,9 +105,22 @@ class MarketService {
     if (!asAdmin) {
       await _notifications.notifyAdminsOfMess(
         messId: messId,
-        title: 'নতুন বাজার অনুমোদন',
-        body: '$shopperName — ৳${amount.toStringAsFixed(0)} ($dateKey)',
+        titleBn: 'নতুন বাজার অনুমোদন',
+        titleEn: 'New market approval',
+        bodyBn: '$shopperName — ৳${amount.toStringAsFixed(0)} ($dateKey)',
+        bodyEn: '$shopperName — ৳${amount.toStringAsFixed(0)} ($dateKey)',
         type: 'market_pending',
+        data: {'messId': messId, 'dateKey': dateKey},
+      );
+    } else {
+      await _notifications.notifyMessMembers(
+        messId: messId,
+        excludeUid: shopperUid,
+        titleBn: 'নতুন বাজার অনুমোদিত',
+        titleEn: 'New market approved',
+        bodyBn: '$shopperName — ৳${amount.toStringAsFixed(0)} ($dateKey)',
+        bodyEn: '$shopperName — ৳${amount.toStringAsFixed(0)} ($dateKey)',
+        type: 'market_approved_broadcast',
         data: {'messId': messId, 'dateKey': dateKey},
       );
     }
@@ -169,13 +182,41 @@ class MarketService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
     final shopperUid = snap.data()?['shopperUid'] as String?;
-    final shopperName = snap.data()?['shopperName'] as String? ?? 'মেম্বার';
+    final shopperName = snap.data()?['shopperName'] as String? ?? 'Member';
+    final amount = (snap.data()?['amount'] as num?)?.toDouble() ?? 0;
+    final dateKey = snap.data()?['dateKey'] as String? ?? '';
+    final amountLabel = '৳${amount.toStringAsFixed(0)}';
+    final dateSuffix = dateKey.isEmpty ? '' : ' ($dateKey)';
+
     if (shopperUid != null && shopperUid != adminUid) {
       await _notifications.notifyUsers(
         uids: [shopperUid],
-        title: 'বাজার অনুমোদিত',
-        body: '$shopperName — আপনার বাজার এন্ট্রি অনুমোদন হয়েছে',
+        titleBn: 'বাজার অনুমোদিত ✅',
+        titleEn: 'Market approved ✅',
+        bodyBn: 'আপনার বাজার এন্ট্রি অনুমোদন হয়েছে — $amountLabel',
+        bodyEn: 'Your market entry was approved — $amountLabel',
         type: 'market_approved',
+        data: {'messId': messId, 'marketId': marketId},
+      );
+    }
+
+    final members = await _firestore
+        .collection('messes')
+        .doc(messId)
+        .collection('members')
+        .get();
+    final others = members.docs
+        .map((d) => d.id)
+        .where((id) => id != adminUid && id != shopperUid)
+        .toList();
+    if (others.isNotEmpty) {
+      await _notifications.notifyUsers(
+        uids: others,
+        titleBn: 'বাজার অনুমোদিত',
+        titleEn: 'Market approved',
+        bodyBn: '$shopperName — $amountLabel$dateSuffix',
+        bodyEn: '$shopperName — $amountLabel$dateSuffix',
+        type: 'market_approved_broadcast',
         data: {'messId': messId, 'marketId': marketId},
       );
     }
@@ -199,8 +240,10 @@ class MarketService {
     if (shopperUid != null && shopperUid != adminUid) {
       await _notifications.notifyUsers(
         uids: [shopperUid],
-        title: 'বাজার বাতিল',
-        body: 'আপনার বাজার রিকোয়েস্ট বাতিল হয়েছে',
+        titleBn: 'বাজার বাতিল ❌',
+        titleEn: 'Market rejected ❌',
+        bodyBn: 'আপনার বাজার রিকোয়েস্ট বাতিল হয়েছে',
+        bodyEn: 'Your market request was rejected',
         type: 'market_rejected',
         data: {'messId': messId, 'marketId': marketId},
       );

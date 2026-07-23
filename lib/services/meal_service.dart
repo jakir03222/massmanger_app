@@ -137,9 +137,22 @@ class MealService {
     if (!asAdmin) {
       await _notifications.notifyAdminsOfMess(
         messId: messId,
-        title: 'নতুন মিল অনুমোদন',
-        body: '$name — ${type.bnLabel} ($day)',
+        titleBn: 'নতুন মিল অনুমোদন',
+        titleEn: 'New meal approval',
+        bodyBn: '$name — ${type.label(bn: true)} ($day)',
+        bodyEn: '$name — ${type.label(bn: false)} ($day)',
         type: 'meal_pending',
+        data: {'messId': messId, 'day': day},
+      );
+    } else {
+      await _notifications.notifyMessMembers(
+        messId: messId,
+        excludeUid: addedByUid ?? uid,
+        titleBn: 'নতুন মিল অনুমোদিত',
+        titleEn: 'New meal approved',
+        bodyBn: '$name — ${type.label(bn: true)} ($day)',
+        bodyEn: '$name — ${type.label(bn: false)} ($day)',
+        type: 'meal_approved_broadcast',
         data: {'messId': messId, 'day': day},
       );
     }
@@ -166,14 +179,44 @@ class MealService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
     final ownerUid = snap.data()?['uid'] as String?;
-    final ownerName = snap.data()?['name'] as String? ?? 'মেম্বার';
+    final ownerName = snap.data()?['name'] as String? ?? 'Member';
+    final typeRaw = snap.data()?['type'] as String? ?? '';
+    final mealType = MealType.fromString(typeRaw);
+    final typeLabelBn = mealType.label(bn: true);
+    final typeLabelEn = mealType.label(bn: false);
+
+    // Requester gets a personal approval notice.
     if (ownerUid != null && ownerUid != adminUid) {
       await _notifications.notifyUsers(
         uids: [ownerUid],
-        title: 'মিল অনুমোদিত',
-        body: '$ownerName — আপনার মিল অনুমোদন হয়েছে ($day)',
+        titleBn: 'মিল অনুমোদিত ✅',
+        titleEn: 'Meal approved ✅',
+        bodyBn: 'আপনার $typeLabelBn মিল অনুমোদন হয়েছে ($day)',
+        bodyEn: 'Your $typeLabelEn meal has been approved ($day)',
         type: 'meal_approved',
         data: {'messId': messId, 'day': day},
+      );
+    }
+
+    // Other mess members also learn about the approval.
+    final snapMembers = await _firestore
+        .collection('messes')
+        .doc(messId)
+        .collection('members')
+        .get();
+    final others = snapMembers.docs
+        .map((d) => d.id)
+        .where((id) => id != adminUid && id != ownerUid)
+        .toList();
+    if (others.isNotEmpty) {
+      await _notifications.notifyUsers(
+        uids: others,
+        titleBn: 'মিল অনুমোদিত',
+        titleEn: 'Meal approved',
+        bodyBn: '$ownerName — $typeLabelBn ($day)',
+        bodyEn: '$ownerName — $typeLabelEn ($day)',
+        type: 'meal_approved_broadcast',
+        data: {'messId': messId, 'day': day, 'uid': ownerUid},
       );
     }
   }
@@ -198,8 +241,10 @@ class MealService {
     if (ownerUid != null && ownerUid != adminUid) {
       await _notifications.notifyUsers(
         uids: [ownerUid],
-        title: 'মিল বাতিল',
-        body: 'আপনার মিল রিকোয়েস্ট বাতিল হয়েছে ($day)',
+        titleBn: 'মিল বাতিল ❌',
+        titleEn: 'Meal rejected ❌',
+        bodyBn: 'আপনার মিল রিকোয়েস্ট বাতিল হয়েছে ($day)',
+        bodyEn: 'Your meal request was rejected ($day)',
         type: 'meal_rejected',
         data: {'messId': messId, 'day': day},
       );

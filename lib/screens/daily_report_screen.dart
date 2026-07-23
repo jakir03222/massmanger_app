@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/market_entry.dart';
 import '../models/meal_entry.dart';
 import '../services/market_service.dart';
@@ -45,6 +45,7 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
   @override
   Widget build(BuildContext context) {
     final day = dateKey(_day);
+    final s = AppStrings.of(context);
 
     return MessSessionBuilder(
       builder: (context, appUser, mess, members) {
@@ -112,8 +113,9 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Text(
-                        isAdmin ? 'দৈনিক রিপোর্ট (সব মেম্বার)' : 'আমার দৈনিক রিপোর্ট',
-                        style: GoogleFonts.notoSansBengali(
+                        isAdmin ? s.dailyReportAll : s.myDailyReport,
+                        style: appFont(
+                          context: context,
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
                         ),
@@ -123,8 +125,9 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                       Padding(
                         padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
                         child: Text(
-                          'শুধু আপনার মিল ও বাজারের রিপোর্ট',
-                          style: GoogleFonts.notoSansBengali(
+                          s.myDailyReportHint,
+                          style: appFont(
+                            context: context,
                             fontSize: 12,
                             color: AppColors.textGrey,
                           ),
@@ -144,34 +147,47 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                       margin: const EdgeInsets.symmetric(horizontal: 20),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.card,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: AppColors.borderGrey),
                       ),
                       child: Column(
                         children: [
                           _kv(
-                            isAdmin ? 'আজকের বাজার' : 'আমার বাজার',
+                            context,
+                            isAdmin ? s.todayMarketAdmin : s.myMarket,
                             formatTaka(spend),
                           ),
                           if (isAdmin)
-                            _kv('মোট মিল (সব মেম্বার)', _fmtQty(allMembersMealTotal)),
+                            _kv(
+                              context,
+                              s.totalMealsAllMembers,
+                              _fmtQty(allMembersMealTotal),
+                            ),
                           if (!isAdmin)
-                            _kv('আমার মোট মিল', _fmtQty(myMealTotal)),
+                            _kv(
+                              context,
+                              s.myTotalMeals,
+                              _fmtQty(myMealTotal),
+                            ),
                           _kv(
-                            isAdmin ? 'সকাল মিল' : 'আমার সকাল',
+                            context,
+                            isAdmin ? s.morningMeals : s.myMorning,
                             _fmtQty(morning),
                           ),
                           _kv(
-                            isAdmin ? 'বিকাল মিল' : 'আমার বিকাল',
+                            context,
+                            isAdmin ? s.eveningMeals : s.myEvening,
                             _fmtQty(evening),
                           ),
                           _kv(
-                            isAdmin ? 'রাত মিল' : 'আমার রাত',
+                            context,
+                            isAdmin ? s.nightMeals : s.myNight,
                             _fmtQty(night),
                           ),
                           _kv(
-                            isAdmin ? 'রেট মিল' : 'আমার রেট',
+                            context,
+                            isAdmin ? s.rateMeal : s.myRate,
                             _fmtQty(rateTotal),
                           ),
                         ],
@@ -182,9 +198,10 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Text(
                         isAdmin
-                            ? 'সব মেম্বারের হিসাব (মিল × রেট)'
-                            : 'আমার উপস্থিতি',
-                        style: GoogleFonts.notoSansBengali(
+                            ? s.allMembersMealRateCalc
+                            : s.myAttendance,
+                        style: appFont(
+                          context: context,
                           fontWeight: FontWeight.w700,
                           fontSize: 16,
                         ),
@@ -212,7 +229,7 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                         margin: const EdgeInsets.fromLTRB(20, 0, 20, 10),
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.card,
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(color: AppColors.borderGrey),
                         ),
@@ -221,14 +238,21 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                           children: [
                             Text(
                               m.name,
-                              style: GoogleFonts.notoSansBengali(
+                              style: appFont(
+                                context: context,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'সকাল: ${_fmtQty(mMorning)}  ·  বিকাল: ${_fmtQty(mEvening)}  ·  রাত: ${_fmtQty(mNight)}  ·  রেট: ${_fmtQty(mRate)}',
-                              style: GoogleFonts.notoSansBengali(
+                              s.mealDayTotals(
+                                _fmtQty(mMorning),
+                                _fmtQty(mEvening),
+                                _fmtQty(mNight),
+                                _fmtQty(mRate),
+                              ),
+                              style: appFont(
+                                context: context,
                                 fontSize: 12,
                                 color: AppColors.textGrey,
                               ),
@@ -236,8 +260,12 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                             if (isAdmin) ...[
                               const SizedBox(height: 6),
                               Text(
-                                'মোট মিল: ${_fmtQty(memberMeals)}  •  খরচ: ${formatTaka(memberCost)}',
-                                style: GoogleFonts.notoSansBengali(
+                                s.totalMealsAndCost(
+                                  _fmtQty(memberMeals),
+                                  formatTaka(memberCost),
+                                ),
+                                style: appFont(
+                                  context: context,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.darkGreen,
@@ -253,8 +281,9 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Text(
-                          isAdmin ? 'এই দিনের বাজারকারী' : 'আমার বাজার লিস্ট',
-                          style: GoogleFonts.notoSansBengali(
+                          isAdmin ? s.dayShoppers : s.myMarketList,
+                          style: appFont(
+                            context: context,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -263,12 +292,13 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                         (e) => ListTile(
                           title: Text(
                             e.shopperName,
-                            style: GoogleFonts.notoSansBengali(),
+                            style: appFont(context: context),
                           ),
                           subtitle: e.dateKey.isNotEmpty
                               ? Text(
                                   e.dateKey,
-                                  style: GoogleFonts.notoSansBengali(
+                                  style: appFont(
+                                    context: context,
                                     fontSize: 11,
                                     color: AppColors.textGrey,
                                   ),
@@ -276,7 +306,8 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                               : null,
                           trailing: Text(
                             formatTaka(e.amount),
-                            style: GoogleFonts.notoSansBengali(
+                            style: appFont(
+                              context: context,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -293,14 +324,20 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
     );
   }
 
-  Widget _kv(String k, String v) {
+  Widget _kv(BuildContext context, String k, String v) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Text(k, style: GoogleFonts.notoSansBengali(color: AppColors.textGrey)),
+          Text(
+            k,
+            style: appFont(context: context, color: AppColors.textGrey),
+          ),
           const Spacer(),
-          Text(v, style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700)),
+          Text(
+            v,
+            style: appFont(context: context, fontWeight: FontWeight.w700),
+          ),
         ],
       ),
     );
@@ -322,11 +359,12 @@ class _AdminMealRateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [AppColors.darkGreen, AppColors.primaryGreen],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -337,28 +375,34 @@ class _AdminMealRateCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'আজকের মিল রেট (সব মেম্বার)',
-            style: GoogleFonts.notoSansBengali(
+            s.todayMealRateAllMembers,
+            style: appFont(
+              context: context,
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: Colors.white.withValues(alpha: 0.9),
+              color: AppColors.card.withValues(alpha: 0.9),
             ),
           ),
           const SizedBox(height: 6),
           Text(
             formatTaka(mealRate),
-            style: GoogleFonts.notoSansBengali(
+            style: appFont(
+              context: context,
               fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: Colors.white,
+              color: AppColors.card,
             ),
           ),
           const SizedBox(height: 4),
           Text(
-            'মোট বাজার ${formatTaka(totalSpend)} ÷ মোট মিল ${fmtMeals(totalMeals)}',
-            style: GoogleFonts.notoSansBengali(
+            s.marketDividedByMeals(
+              formatTaka(totalSpend),
+              fmtMeals(totalMeals),
+            ),
+            style: appFont(
+              context: context,
               fontSize: 12,
-              color: Colors.white.withValues(alpha: 0.85),
+              color: AppColors.card.withValues(alpha: 0.85),
             ),
           ),
         ],
@@ -385,7 +429,7 @@ class _DaySelector extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.card,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.borderGrey),
         ),
@@ -399,7 +443,8 @@ class _DaySelector extends StatelessWidget {
               child: Text(
                 label,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.notoSansBengali(
+                style: appFont(
+                  context: context,
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                 ),

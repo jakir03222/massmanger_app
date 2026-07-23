@@ -43,7 +43,7 @@ class _LogoPainter extends CustomPainter {
 
     final calcSize = size.width * 0.46;
     final calcTop = size.height * 0.48;
-  final calcLeft = (size.width - calcSize) / 2;
+    final calcLeft = (size.width - calcSize) / 2;
 
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -53,10 +53,14 @@ class _LogoPainter extends CustomPainter {
       Paint()..color = AppColors.calculatorOrange,
     );
 
-    _drawCalcSymbol(canvas, calcLeft + calcSize * 0.28, calcTop + calcSize * 0.22, '−');
-    _drawCalcSymbol(canvas, calcLeft + calcSize * 0.72, calcTop + calcSize * 0.22, '×');
-    _drawCalcSymbol(canvas, calcLeft + calcSize * 0.28, calcTop + calcSize * 0.58, '+');
-    _drawCalcSymbol(canvas, calcLeft + calcSize * 0.72, calcTop + calcSize * 0.58, '=');
+    _drawCalcSymbol(
+        canvas, calcLeft + calcSize * 0.28, calcTop + calcSize * 0.22, '−');
+    _drawCalcSymbol(
+        canvas, calcLeft + calcSize * 0.72, calcTop + calcSize * 0.22, '×');
+    _drawCalcSymbol(
+        canvas, calcLeft + calcSize * 0.28, calcTop + calcSize * 0.58, '+');
+    _drawCalcSymbol(
+        canvas, calcLeft + calcSize * 0.72, calcTop + calcSize * 0.58, '=');
   }
 
   void _drawCalcSymbol(Canvas canvas, double x, double y, String symbol) {

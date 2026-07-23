@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 
 import '../firebase_options.dart';
+import '../l10n/app_locale.dart';
 import '../models/mess.dart';
 import 'user_service.dart';
 
@@ -30,6 +31,8 @@ class MessService {
   final FirebaseAuth _auth;
   final UserService _userService;
 
+  String _t(String bn, String en) => AppLocale.pick(bn, en);
+
   CollectionReference<Map<String, dynamic>> get _messes =>
       _firestore.collection('messes');
 
@@ -47,7 +50,10 @@ class MessService {
       final existing = await _messCodes.doc(code).get();
       if (!existing.exists) return code;
     }
-    throw MessException('মেস কোড তৈরি করা যায়নি। আবার চেষ্টা করুন।');
+    throw MessException(
+      _t('মেস কোড তৈরি করা যায়নি। আবার চেষ্টা করুন।',
+          'Could not create a mess code. Please try again.'),
+    );
   }
 
   /// Admin creates mess. [linkUser] false = show code dialog before Home.
@@ -58,20 +64,24 @@ class MessService {
   }) async {
     final user = _auth.currentUser;
     if (user == null) {
-      throw MessException('আগে লগইন করুন।');
+      throw MessException(_t('আগে লগইন করুন।', 'Please sign in first.'));
     }
 
     final trimmedName = name.trim();
     final trimmedLocation = location.trim();
     if (trimmedName.isEmpty || trimmedLocation.isEmpty) {
-      throw MessException('মেসের নাম ও ঠিকানা দিন।');
+      throw MessException(
+        _t('মেসের নাম ও ঠিকানা দিন।', 'Enter the mess name and address.'),
+      );
     }
 
     try {
       await _userService.ensureUserDoc(user);
       final existing = await _userService.getUser(user.uid);
       if (existing != null && existing.hasMess) {
-        throw MessException('আপনি ইতিমধ্যে একটি মেসে আছেন।');
+        throw MessException(
+          _t('আপনি ইতিমধ্যে একটি মেসে আছেন।', 'You are already in a mess.'),
+        );
       }
 
       final code = await _uniqueCode();
@@ -129,14 +139,17 @@ class MessService {
     } on FirebaseException catch (e) {
       throw MessException(_mapError(e));
     } catch (e) {
-      throw MessException('মেস তৈরি ব্যর্থ। আবার চেষ্টা করুন।');
+      throw MessException(
+        _t('মেস তৈরি ব্যর্থ। আবার চেষ্টা করুন।',
+            'Failed to create mess. Please try again.'),
+      );
     }
   }
 
   Future<void> linkCurrentUserToMess(String messId) async {
     final user = _auth.currentUser;
     if (user == null) {
-      throw MessException('আগে লগইন করুন।');
+      throw MessException(_t('আগে লগইন করুন।', 'Please sign in first.'));
     }
     await _userService.ensureUserDoc(user);
     final mess = await getMess(messId);
@@ -171,23 +184,29 @@ class MessService {
     final trimmedName = name.trim();
     final trimmedEmail = email.trim();
     if (trimmedName.isEmpty) {
-      throw MessException('মেম্বারের নাম দিন।');
+      throw MessException(_t('মেম্বারের নাম দিন।', 'Enter the member name.'));
     }
     if (trimmedEmail.isEmpty || !trimmedEmail.contains('@')) {
-      throw MessException('সঠিক ইমেইল দিন।');
+      throw MessException(_t('সঠিক ইমেইল দিন।', 'Enter a valid email.'));
     }
     if (password.length < 6) {
-      throw MessException('পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।');
+      throw MessException(
+        _t('পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।',
+            'Password must be at least 6 characters.'),
+      );
     }
 
     final actor = await _requireActor(messId);
     if (!actor.isSuperAdmin) {
-      throw MessException('শুধু সুপার অ্যাডমিন নতুন মেম্বার অ্যাকাউন্ট তৈরি করতে পারে।');
+      throw MessException(
+        _t('শুধু সুপার অ্যাডমিন নতুন মেম্বার অ্যাকাউন্ট তৈরি করতে পারে।',
+            'Only the super admin can create new member accounts.'),
+      );
     }
 
     final mess = await getMess(messId);
     if (mess == null) {
-      throw MessException('মেস পাওয়া যায়নি।');
+      throw MessException(_t('মেস পাওয়া যায়নি।', 'Mess not found.'));
     }
 
     final secondaryApp = await _secondaryApp();
@@ -202,7 +221,10 @@ class MessService {
       );
       createdUser = credential.user;
       if (createdUser == null) {
-        throw MessException('অ্যাকাউন্ট তৈরি ব্যর্থ হয়েছে। আবার চেষ্টা করুন।');
+        throw MessException(
+          _t('অ্যাকাউন্ট তৈরি ব্যর্থ হয়েছে। আবার চেষ্টা করুন।',
+              'Failed to create account. Please try again.'),
+        );
       }
 
       await createdUser.updateDisplayName(trimmedName);
@@ -253,7 +275,10 @@ class MessService {
           await createdUser.delete();
         } catch (_) {}
       }
-      throw MessException('মেম্বার যোগ করতে ব্যর্থ। আবার চেষ্টা করুন।');
+      throw MessException(
+        _t('মেম্বার যোগ করতে ব্যর্থ। আবার চেষ্টা করুন।',
+            'Failed to add member. Please try again.'),
+      );
     } finally {
       try {
         await secondaryAuth.signOut();
@@ -265,12 +290,14 @@ class MessService {
   Future<Mess> joinMess({required String code}) async {
     final user = _auth.currentUser;
     if (user == null) {
-      throw MessException('আগে লগইন করুন।');
+      throw MessException(_t('আগে লগইন করুন।', 'Please sign in first.'));
     }
 
     final normalized = normalizeCode(code);
     if (normalized.length != 6) {
-      throw MessException('সঠিক ৬ ডিজিটের মেস কোড দিন।');
+      throw MessException(
+        _t('সঠিক ৬ ডিজিটের মেস কোড দিন।', 'Enter a valid 6-digit mess code.'),
+      );
     }
 
     try {
@@ -284,11 +311,12 @@ class MessService {
           return currentMess;
         }
         throw MessException(
-          'আপনি ইতিমধ্যে অন্য মেসে আছেন। আগে লগআউট/মেস ছাড়ুন।',
+          _t('আপনি ইতিমধ্যে অন্য মেসে আছেন। আগে লগআউট/মেস ছাড়ুন।',
+              'You are already in another mess. Leave that mess first.'),
         );
       }
 
-      // Prefer mess_codes doc (reliable). Fallback to query for old messes.
+      // Prefer mess_codes doc (reliable). No collection scan (security rules block list).
       String? messId;
       final codeSnap = await _messCodes.doc(normalized).get();
       if (codeSnap.exists && codeSnap.data() != null) {
@@ -296,23 +324,16 @@ class MessService {
       }
 
       if (messId == null || messId.isEmpty) {
-        final query =
-            await _messes.where('code', isEqualTo: normalized).limit(1).get();
-        if (query.docs.isEmpty) {
-          throw MessException('মেস কোড সঠিক নয়। অ্যাডমিনের কোড চেক করুন।');
-        }
-        messId = query.docs.first.id;
-        // Backfill lookup for next joins.
-        await _messCodes.doc(normalized).set({
-          'messId': messId,
-          'createdAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        throw MessException(
+          _t('মেস কোড সঠিক নয়। অ্যাডমিনের কোড চেক করুন।',
+              'Invalid mess code. Check the admin’s code.'),
+        );
       }
 
       final messRef = _messes.doc(messId);
       final messSnap = await messRef.get();
       if (!messSnap.exists || messSnap.data() == null) {
-        throw MessException('মেস পাওয়া যায়নি।');
+        throw MessException(_t('মেস পাওয়া যায়নি।', 'Mess not found.'));
       }
 
       final profile = await _userService.ensureUserDoc(user);
@@ -320,7 +341,7 @@ class MessService {
           ? profile.name!.trim()
           : (user.displayName?.trim().isNotEmpty == true
               ? user.displayName!.trim()
-              : (user.email ?? 'সদস্য'));
+              : (user.email ?? _t('সদস্য', 'Member')));
 
       final memberRef = messRef.collection('members').doc(user.uid);
       final existingMember = await memberRef.get();
@@ -353,7 +374,10 @@ class MessService {
     } on FirebaseException catch (e) {
       throw MessException(_mapError(e));
     } catch (_) {
-      throw MessException('মেসে যোগ দিতে ব্যর্থ। আবার চেষ্টা করুন।');
+      throw MessException(
+        _t('মেসে যোগ দিতে ব্যর্থ। আবার চেষ্টা করুন।',
+            'Failed to join mess. Please try again.'),
+      );
     }
   }
 
@@ -383,9 +407,15 @@ class MessService {
 
   Future<MessMember> _requireActor(String messId) async {
     final user = _auth.currentUser;
-    if (user == null) throw MessException('আগে লগইন করুন।');
+    if (user == null) {
+      throw MessException(_t('আগে লগইন করুন।', 'Please sign in first.'));
+    }
     final me = await _getMember(messId, user.uid);
-    if (me == null) throw MessException('আপনি এই মেসের মেম্বার নন।');
+    if (me == null) {
+      throw MessException(
+        _t('আপনি এই মেসের মেম্বার নন।', 'You are not a member of this mess.'),
+      );
+    }
     return me;
   }
 
@@ -398,9 +428,14 @@ class MessService {
     try {
       final actor = await _requireActor(messId);
       final target = await _getMember(messId, uid);
-      if (target == null) throw MessException('মেম্বার পাওয়া যায়নি।');
+      if (target == null) {
+        throw MessException(_t('মেম্বার পাওয়া যায়নি।', 'Member not found.'));
+      }
       if (target.uid != actor.uid && !target.canBeManagedBy(actor)) {
-        throw MessException('এই মেম্বার ম্যানেজ করার অনুমতি নেই।');
+        throw MessException(
+          _t('এই মেম্বার ম্যানেজ করার অনুমতি নেই।',
+              'You do not have permission to manage this member.'),
+        );
       }
       await _messes.doc(messId).collection('members').doc(uid).set(
         {'room': (room == null || room.trim().isEmpty) ? null : room.trim()},
@@ -422,15 +457,19 @@ class MessService {
     try {
       final actor = await _requireActor(messId);
       final target = await _getMember(messId, uid);
-      if (target == null) throw MessException('মেম্বার পাওয়া যায়নি।');
+      if (target == null) {
+        throw MessException(_t('মেম্বার পাওয়া যায়নি।', 'Member not found.'));
+      }
       if (!actor.canChangeRoleOf(target)) {
         if (target.isSuperAdmin) {
           throw MessException(
-            'সুপার অ্যাডমিনের রোল কেউ পরিবর্তন করতে পারবে না।',
+            _t('সুপার অ্যাডমিনের রোল কেউ পরিবর্তন করতে পারবে না।',
+                'No one can change the super admin role.'),
           );
         }
         throw MessException(
-          'শুধু সুপার অ্যাডমিন অন্যকে অ্যাডমিন বানাতে/সরাতে পারে।',
+          _t('শুধু সুপার অ্যাডমিন অন্যকে অ্যাডমিন বানাতে/সরাতে পারে।',
+              'Only the super admin can promote or demote admins.'),
         );
       }
       await _messes.doc(messId).collection('members').doc(uid).set(
@@ -452,20 +491,32 @@ class MessService {
   }) async {
     final me = _auth.currentUser;
     if (me != null && me.uid == uid) {
-      throw MessException('নিজেকে রিমুভ করা যাবে না। "মেস ছাড়ুন" ব্যবহার করুন।');
+      throw MessException(
+        _t('নিজেকে রিমুভ করা যাবে না। "মেস ছাড়ুন" ব্যবহার করুন।',
+            'You cannot remove yourself. Use “Leave mess” instead.'),
+      );
     }
     try {
       final actor = await _requireActor(messId);
       final target = await _getMember(messId, uid);
-      if (target == null) throw MessException('মেম্বার পাওয়া যায়নি।');
+      if (target == null) {
+        throw MessException(_t('মেম্বার পাওয়া যায়নি।', 'Member not found.'));
+      }
       if (target.isSuperAdmin) {
-        throw MessException('সুপার অ্যাডমিনকে রিমুভ করা যায় না।');
+        throw MessException(
+          _t('সুপার অ্যাডমিনকে রিমুভ করা যায় না।',
+              'The super admin cannot be removed.'),
+        );
       }
       if (!target.canBeManagedBy(actor)) {
         throw MessException(
           actor.isRegularAdmin
-              ? 'অ্যাডমিন শুধু সাধারণ মেম্বার রিমুভ করতে পারে। অ্যাডমিনকে সুপার অ্যাডমিন নিয়ন্ত্রণ করে।'
-              : 'এই মেম্বার রিমুভ করার অনুমতি নেই।',
+              ? _t(
+                  'অ্যাডমিন শুধু সাধারণ মেম্বার রিমুভ করতে পারে। অ্যাডমিনকে সুপার অ্যাডমিন নিয়ন্ত্রণ করে।',
+                  'Admins can only remove regular members. Super admin manages other admins.',
+                )
+              : _t('এই মেম্বার রিমুভ করার অনুমতি নেই।',
+                  'You do not have permission to remove this member.'),
         );
       }
       // Atomic: delete member + clear users.messId in one batch.
@@ -493,12 +544,12 @@ class MessService {
   Future<void> leaveMess() async {
     final user = _auth.currentUser;
     if (user == null) {
-      throw MessException('আগে লগইন করুন।');
+      throw MessException(_t('আগে লগইন করুন।', 'Please sign in first.'));
     }
     final appUser = await _userService.getUser(user.uid);
     final messId = appUser?.messId;
     if (messId == null || messId.isEmpty) {
-      throw MessException('আপনি কোনো মেসে নেই।');
+      throw MessException(_t('আপনি কোনো মেসে নেই।', 'You are not in a mess.'));
     }
 
     try {
@@ -512,8 +563,12 @@ class MessService {
 
       if (me.isSuperAdmin && members.length > 1) {
         throw MessException(
-          'আপনি সুপার অ্যাডমিন। মেসে অন্য মেম্বার থাকলে ছাড়া যায় না। '
-          'আগে মেস হস্তান্তর করুন বা সবাইকে রিমুভ করুন।',
+          _t(
+            'আপনি সুপার অ্যাডমিন। মেসে অন্য মেম্বার থাকলে ছাড়া যায় না। '
+            'আগে মেস হস্তান্তর করুন বা সবাইকে রিমুভ করুন।',
+            'You are the super admin. You cannot leave while other members remain. '
+            'Transfer the mess first or remove everyone.',
+          ),
         );
       }
       if (me.isRegularAdmin && members.length > 1) {
@@ -521,7 +576,10 @@ class MessService {
             members.where((m) => m.isAdmin && m.uid != user.uid).length;
         if (otherManagers == 0) {
           throw MessException(
-            'আপনি একমাত্র অ্যাডমিন। আগে সুপার অ্যাডমিনকে জানান বা অন্যকে অ্যাডমিন বানান।',
+            _t(
+              'আপনি একমাত্র অ্যাডমিন। আগে সুপার অ্যাডমিনকে জানান বা অন্যকে অ্যাডমিন বানান।',
+              'You are the only admin. Notify the super admin or promote someone else first.',
+            ),
           );
         }
       }
@@ -543,13 +601,21 @@ class MessService {
     try {
       final actor = await _requireActor(messId);
       if (!actor.isSuperAdmin) {
-        throw MessException('শুধু সুপার অ্যাডমিন হস্তান্তর করতে পারে।');
+        throw MessException(
+          _t('শুধু সুপার অ্যাডমিন হস্তান্তর করতে পারে।',
+              'Only the super admin can transfer ownership.'),
+        );
       }
       if (newSuperAdminUid == actor.uid) {
-        throw MessException('নিজের কাছে হস্তান্তর করা যায় না।');
+        throw MessException(
+          _t('নিজের কাছে হস্তান্তর করা যায় না।',
+              'You cannot transfer ownership to yourself.'),
+        );
       }
       final target = await _getMember(messId, newSuperAdminUid);
-      if (target == null) throw MessException('মেম্বার পাওয়া যায়নি।');
+      if (target == null) {
+        throw MessException(_t('মেম্বার পাওয়া যায়নি।', 'Member not found.'));
+      }
 
       final batch = _firestore.batch();
       final members = _messes.doc(messId).collection('members');
@@ -626,34 +692,45 @@ class MessService {
   String _mapAuthError(FirebaseAuthException e) {
     switch (e.code) {
       case 'invalid-email':
-        return 'ইমেইল ঠিকানা সঠিক নয়।';
+        return _t('ইমেইল ঠিকানা সঠিক নয়।', 'Invalid email address.');
       case 'email-already-in-use':
-        return 'এই ইমেইলে ইতিমধ্যে অ্যাকাউন্ট আছে।';
+        return _t('এই ইমেইলে ইতিমধ্যে অ্যাকাউন্ট আছে।',
+            'An account already exists with this email.');
       case 'weak-password':
-        return 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।';
+        return _t('পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।',
+            'Password must be at least 6 characters.');
       case 'network-request-failed':
-        return 'ইন্টারনেট সংযোগ নেই। আবার চেষ্টা করুন।';
+        return _t('ইন্টারনেট সংযোগ নেই। আবার চেষ্টা করুন।',
+            'No internet connection. Please try again.');
       case 'too-many-requests':
-        return 'অনেকবার চেষ্টা হয়েছে। একটু পরে আবার চেষ্টা করুন।';
+        return _t('অনেকবার চেষ্টা হয়েছে। একটু পরে আবার চেষ্টা করুন।',
+            'Too many attempts. Please try again later.');
       case 'operation-not-allowed':
-        return 'ইমেইল/পাসওয়ার্ড সাইন-আপ চালু নেই।';
+        return _t('ইমেইল/পাসওয়ার্ড সাইন-আপ চালু নেই।',
+            'Email/password sign-up is not enabled.');
       default:
-        return e.message ?? 'অ্যাকাউন্ট তৈরি ব্যর্থ। আবার চেষ্টা করুন।';
+        return e.message ??
+            _t('অ্যাকাউন্ট তৈরি ব্যর্থ। আবার চেষ্টা করুন।',
+                'Failed to create account. Please try again.');
     }
   }
 
   String _mapError(FirebaseException e) {
     switch (e.code) {
       case 'permission-denied':
-        return 'অনুমতি নেই। অ্যাডমিনকে জানান।';
+        return _t('অনুমতি নেই। অ্যাডমিনকে জানান।',
+            'Permission denied. Contact an admin.');
       case 'unavailable':
-        return 'ইন্টারনেট সংযোগ নেই।';
+        return _t('ইন্টারনেট সংযোগ নেই।', 'No internet connection.');
       case 'failed-precondition':
-        return 'ডেটাবেস ইনডেক্স লাগতে পারে। একটু পরে আবার চেষ্টা করুন।';
+        return _t('ডেটাবেস ইনডেক্স লাগতে পারে। একটু পরে আবার চেষ্টা করুন।',
+            'A database index may be required. Please try again later.');
       case 'not-found':
-        return 'মেস কোড সঠিক নয়।';
+        return _t('মেস কোড সঠিক নয়।', 'Invalid mess code.');
       default:
-        return e.message ?? 'কিছু ভুল হয়েছে। আবার চেষ্টা করুন।';
+        return e.message ??
+            _t('কিছু ভুল হয়েছে। আবার চেষ্টা করুন।',
+                'Something went wrong. Please try again.');
     }
   }
 }

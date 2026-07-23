@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/market_entry.dart';
 import '../services/market_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_surface.dart';
 import '../widgets/bn_date_picker.dart';
 import '../widgets/mess_session_builder.dart';
 import 'add_market_screen.dart';
@@ -19,9 +21,9 @@ class MarketListScreen extends StatefulWidget {
 
 class _MarketListScreenState extends State<MarketListScreen> {
   MarketFilter _filter = MarketFilter.thisMonth;
-  /// Admin-only: null = সব মেম্বার, else filter by shopperUid.
+  /// Admin-only: null = all members, else filter by shopperUid.
   String? _memberFilterUid;
-  /// Specific day filter (বাংলা ক্যালেন্ডার). null = মাস ফিল্টার ব্যবহার.
+  /// Specific day filter. null = use month filter.
   DateTime? _dateFilter;
   final _marketService = MarketService();
   final Set<String> _busyIds = {};
@@ -56,12 +58,13 @@ class _MarketListScreenState extends State<MarketListScreen> {
   }
 
   Future<void> _pickDateFilter() async {
+    final s = AppStrings.of(context);
     final picked = await showBnDatePicker(
       context: context,
       initialDate: _dateFilter ?? DateTime.now(),
       firstDate: DateTime(2024),
       lastDate: DateTime.now().add(const Duration(days: 1)),
-      helpText: 'বাজার তারিখ ফিল্টার',
+      helpText: s.marketDateFilterHelp,
     );
     if (picked == null) return;
     setState(() => _dateFilter = picked);
@@ -76,13 +79,12 @@ class _MarketListScreenState extends State<MarketListScreen> {
       MaterialPageRoute(builder: (_) => const AddMarketScreen()),
     );
     if (result == null || !mounted) return;
+    final s = AppStrings.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          result
-              ? 'বাজার যোগ হয়েছে'
-              : 'অনুরোধ পাঠানো হয়েছে — অ্যাডমিন অনুমোদন করলে সবাই দেখতে পাবে',
-          style: GoogleFonts.notoSansBengali(),
+          result ? s.marketAdded : s.marketRequestSentSnack,
+          style: appFont(context: context),
         ),
       ),
     );
@@ -93,9 +95,10 @@ class _MarketListScreenState extends State<MarketListScreen> {
       MaterialPageRoute(builder: (_) => AddMarketScreen(existing: entry)),
     );
     if (saved == true && mounted) {
+      final s = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('বাজার হালনাগাদ হয়েছে', style: GoogleFonts.notoSansBengali()),
+          content: Text(s.marketUpdated, style: appFont(context: context)),
         ),
       );
     }
@@ -110,19 +113,21 @@ class _MarketListScreenState extends State<MarketListScreen> {
         adminUid: adminUid,
       );
       if (!mounted) return;
+      final s = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'অনুমোদন হয়েছে — এখন সবাই দেখতে পাবে',
-            style: GoogleFonts.notoSansBengali(),
+            s.marketApprovedSnack,
+            style: appFont(context: context),
           ),
         ),
       );
     } catch (_) {
       if (!mounted) return;
+      final s = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('অনুমোদন ব্যর্থ', style: GoogleFonts.notoSansBengali()),
+          content: Text(s.approveFailed, style: appFont(context: context)),
         ),
       );
     } finally {
@@ -139,19 +144,21 @@ class _MarketListScreenState extends State<MarketListScreen> {
         adminUid: adminUid,
       );
       if (!mounted) return;
+      final s = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'প্রত্যাখ্যান করা হয়েছে — সবাই দেখতে পারবে না',
-            style: GoogleFonts.notoSansBengali(),
+            s.marketRejectedSnack,
+            style: appFont(context: context),
           ),
         ),
       );
     } catch (_) {
       if (!mounted) return;
+      final s = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('প্রত্যাখ্যান ব্যর্থ', style: GoogleFonts.notoSansBengali()),
+          content: Text(s.rejectFailed, style: appFont(context: context)),
         ),
       );
     } finally {
@@ -161,6 +168,7 @@ class _MarketListScreenState extends State<MarketListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return MessSessionBuilder(
       builder: (context, appUser, mess, members) {
         final matched = members.where((m) => m.uid == appUser.uid);
@@ -172,8 +180,9 @@ class _MarketListScreenState extends State<MarketListScreen> {
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 88),
               children: [
                 Text(
-                  'বাজারের তালিকা',
-                  style: GoogleFonts.notoSansBengali(
+                  s.marketListTitle,
+                  style: appFont(
+                    context: context,
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
                     color: AppColors.darkGreen,
@@ -181,7 +190,8 @@ class _MarketListScreenState extends State<MarketListScreen> {
                 ),
                 Text(
                   mess.name,
-                  style: GoogleFonts.notoSansBengali(
+                  style: appFont(
+                    context: context,
                     fontSize: 12,
                     color: AppColors.textGrey,
                   ),
@@ -198,8 +208,9 @@ class _MarketListScreenState extends State<MarketListScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'মেম্বার অনুরোধ (${pending.length})',
-                            style: GoogleFonts.notoSansBengali(
+                            s.memberRequests(pending.length),
+                            style: appFont(
+                              context: context,
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
                               color: AppColors.darkGreen,
@@ -207,8 +218,9 @@ class _MarketListScreenState extends State<MarketListScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'অনুমোদন করলে সবাই দেখতে পাবে · প্রত্যাখ্যান করলে যোগ হবে না',
-                            style: GoogleFonts.notoSansBengali(
+                            s.marketPendingApproveHint,
+                            style: appFont(
+                              context: context,
                               fontSize: 12,
                               color: AppColors.textGrey,
                             ),
@@ -240,8 +252,9 @@ class _MarketListScreenState extends State<MarketListScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'আমার অনুরোধ',
-                            style: GoogleFonts.notoSansBengali(
+                            s.myRequests,
+                            style: appFont(
+                              context: context,
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
                               color: AppColors.darkGreen,
@@ -261,11 +274,11 @@ class _MarketListScreenState extends State<MarketListScreen> {
                   ),
                 Row(
                   children: [
-                    _chip('এই মাস', MarketFilter.thisMonth),
+                    _chip(s.thisMonth, MarketFilter.thisMonth),
                     const SizedBox(width: 8),
-                    _chip('গত মাস', MarketFilter.lastMonth),
+                    _chip(s.lastMonth, MarketFilter.lastMonth),
                     const SizedBox(width: 8),
-                    _chip('সব', MarketFilter.all),
+                    _chip(s.all, MarketFilter.all),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -278,7 +291,7 @@ class _MarketListScreenState extends State<MarketListScreen> {
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.card,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: _dateFilter != null
@@ -288,7 +301,7 @@ class _MarketListScreenState extends State<MarketListScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.calendar_today_outlined,
                           size: 18,
                           color: AppColors.primaryGreen,
@@ -299,17 +312,19 @@ class _MarketListScreenState extends State<MarketListScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'তারিখ ফিল্টার',
-                                style: GoogleFonts.notoSansBengali(
+                                s.dateFilter,
+                                style: appFont(
+                                  context: context,
                                   fontSize: 11,
                                   color: AppColors.textGrey,
                                 ),
                               ),
                               Text(
                                 _dateFilter == null
-                                    ? 'সব তারিখ (মাস ফিল্টার)'
+                                    ? s.allDatesMonthFilter
                                     : formatBnDate(_dateFilter!),
-                                style: GoogleFonts.notoSansBengali(
+                                style: appFont(
+                                  context: context,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.textDark,
                                 ),
@@ -321,8 +336,9 @@ class _MarketListScreenState extends State<MarketListScreen> {
                           TextButton(
                             onPressed: _clearDateFilter,
                             child: Text(
-                              'মুছুন',
-                              style: GoogleFonts.notoSansBengali(
+                              s.delete,
+                              style: appFont(
+                                context: context,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                                 color: const Color(0xFFC62828),
@@ -331,8 +347,9 @@ class _MarketListScreenState extends State<MarketListScreen> {
                           )
                         else
                           Text(
-                            'সিলেক্ট',
-                            style: GoogleFonts.notoSansBengali(
+                            s.select,
+                            style: appFont(
+                              context: context,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                               color: AppColors.primaryGreen,
@@ -345,8 +362,9 @@ class _MarketListScreenState extends State<MarketListScreen> {
                 if (isAdmin && members.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text(
-                    'মেম্বার ফিল্টার',
-                    style: GoogleFonts.notoSansBengali(
+                    s.memberFilter,
+                    style: appFont(
+                      context: context,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textDark,
@@ -358,7 +376,7 @@ class _MarketListScreenState extends State<MarketListScreen> {
                     child: ListView(
                       scrollDirection: Axis.horizontal,
                       children: [
-                        _memberChip(label: 'সব মেম্বার', uid: null),
+                        _memberChip(label: s.allMembers, uid: null),
                         ...members.map(
                           (m) => Padding(
                             padding: const EdgeInsets.only(left: 8),
@@ -384,10 +402,10 @@ class _MarketListScreenState extends State<MarketListScreen> {
                             .toList();
                     items = _filterByDate(items);
                     final total =
-                        items.fold<double>(0, (s, e) => s + e.amount);
+                        items.fold<double>(0, (sum, e) => sum + e.amount);
                     final dueTotal = items
                         .where((e) => e.isDue)
-                        .fold<double>(0, (s, e) => s + e.amount);
+                        .fold<double>(0, (sum, e) => sum + e.amount);
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -405,16 +423,18 @@ class _MarketListScreenState extends State<MarketListScreen> {
                                   Expanded(
                                     child: Text(
                                       isAdmin
-                                          ? 'অনুমোদিত বাজার (সবাই দেখতে পাবে)'
-                                          : 'আমার বাজার (অনুমোদিত)',
-                                      style: GoogleFonts.notoSansBengali(
+                                          ? s.approvedMarketVisible
+                                          : s.myApprovedMarket,
+                                      style: appFont(
+                                        context: context,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                   ),
                                   Text(
                                     formatTaka(total),
-                                    style: GoogleFonts.notoSansBengali(
+                                    style: appFont(
+                                      context: context,
                                       fontSize: 18,
                                       fontWeight: FontWeight.w700,
                                       color: AppColors.primaryGreen,
@@ -426,7 +446,7 @@ class _MarketListScreenState extends State<MarketListScreen> {
                                 const SizedBox(height: 8),
                                 Row(
                                   children: [
-                                    const Icon(
+                                    Icon(
                                       Icons.account_balance_wallet_outlined,
                                       size: 16,
                                       color: AppColors.marketOrangeDark,
@@ -434,8 +454,9 @@ class _MarketListScreenState extends State<MarketListScreen> {
                                     const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
-                                        'এর মধ্যে বাকি',
-                                        style: GoogleFonts.notoSansBengali(
+                                        s.includingDue,
+                                        style: appFont(
+                                          context: context,
                                           fontSize: 13,
                                           fontWeight: FontWeight.w600,
                                           color: AppColors.marketOrangeDark,
@@ -444,7 +465,8 @@ class _MarketListScreenState extends State<MarketListScreen> {
                                     ),
                                     Text(
                                       formatTaka(dueTotal),
-                                      style: GoogleFonts.notoSansBengali(
+                                      style: appFont(
+                                        context: context,
                                         fontSize: 15,
                                         fontWeight: FontWeight.w700,
                                         color: AppColors.marketOrangeDark,
@@ -459,9 +481,10 @@ class _MarketListScreenState extends State<MarketListScreen> {
                         const SizedBox(height: 8),
                         Text(
                           isAdmin
-                              ? '${items.length} টি খরচ'
-                              : 'শুধু আপনার বাজার · অন্য মেম্বার দেখা যায় না',
-                          style: GoogleFonts.notoSansBengali(
+                              ? s.expenseCount(items.length)
+                              : s.myMarketOnlyHint,
+                          style: appFont(
+                            context: context,
                             fontSize: 12,
                             color: AppColors.textGrey,
                           ),
@@ -469,7 +492,7 @@ class _MarketListScreenState extends State<MarketListScreen> {
                         const SizedBox(height: 12),
                         if (snap.connectionState == ConnectionState.waiting &&
                             !snap.hasData)
-                          const Padding(
+                          Padding(
                             padding: EdgeInsets.all(40),
                             child: Center(
                               child: CircularProgressIndicator(
@@ -479,22 +502,22 @@ class _MarketListScreenState extends State<MarketListScreen> {
                           )
                         else if (items.isEmpty)
                           Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 40),
-                            child: Center(
-                              child: Text(
-                                isAdmin
-                                    ? (_dateFilter != null
-                                        ? 'এই তারিখে কোনো বাজার নেই'
-                                        : (_memberFilterUid == null
-                                            ? 'এখনো কোনো অনুমোদিত বাজার নেই'
-                                            : 'এই মেম্বারের কোনো বাজার নেই'))
-                                    : (_dateFilter != null
-                                        ? 'এই তারিখে আপনার কোনো বাজার নেই'
-                                        : 'আপনার কোনো অনুমোদিত বাজার নেই'),
-                                style: GoogleFonts.notoSansBengali(
-                                  color: AppColors.textGrey,
-                                ),
-                              ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 12,
+                            ),
+                            child: AppEmptyState(
+                              icon: Icons.shopping_bag_outlined,
+                              title: s.noMarketYetTitle,
+                              subtitle: isAdmin
+                                  ? (_dateFilter != null
+                                      ? s.noMarketOnDate
+                                      : (_memberFilterUid == null
+                                          ? s.noApprovedMarketYet
+                                          : s.noMarketForMember))
+                                  : (_dateFilter != null
+                                      ? s.noMyMarketOnDate
+                                      : s.noMyApprovedMarket),
                             ),
                           )
                         else
@@ -508,7 +531,7 @@ class _MarketListScreenState extends State<MarketListScreen> {
                                   margin: const EdgeInsets.only(bottom: 10),
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: AppColors.card,
                                     borderRadius: BorderRadius.circular(14),
                                     border: Border.all(
                                       color: AppColors.borderGrey,
@@ -526,8 +549,8 @@ class _MarketListScreenState extends State<MarketListScreen> {
                                                 Flexible(
                                                   child: Text(
                                                     e.shopperName,
-                                                    style: GoogleFonts
-                                                        .notoSansBengali(
+                                                    style: appFont(
+                                                      context: context,
                                                       fontWeight:
                                                           FontWeight.w700,
                                                     ),
@@ -544,8 +567,8 @@ class _MarketListScreenState extends State<MarketListScreen> {
                                                           '${i.name} ${i.quantity}',
                                                     )
                                                     .join(', '),
-                                                style:
-                                                    GoogleFonts.notoSansBengali(
+                                                style: appFont(
+                                                  context: context,
                                                   fontSize: 12,
                                                   color: AppColors.textGrey,
                                                 ),
@@ -553,8 +576,8 @@ class _MarketListScreenState extends State<MarketListScreen> {
                                             else if (e.notes.isNotEmpty)
                                               Text(
                                                 e.notes,
-                                                style:
-                                                    GoogleFonts.notoSansBengali(
+                                                style: appFont(
+                                                  context: context,
                                                   fontSize: 12,
                                                   color: AppColors.textGrey,
                                                 ),
@@ -572,14 +595,15 @@ class _MarketListScreenState extends State<MarketListScreen> {
                                       ),
                                       Text(
                                         formatTaka(e.amount),
-                                        style: GoogleFonts.notoSansBengali(
+                                        style: appFont(
+                                          context: context,
                                           fontWeight: FontWeight.w700,
                                           color: AppColors.marketAmountBrown,
                                         ),
                                       ),
                                       if (isAdmin) ...[
                                         const SizedBox(width: 6),
-                                        const Icon(
+                                        Icon(
                                           Icons.edit_outlined,
                                           size: 18,
                                           color: AppColors.primaryGreen,
@@ -630,7 +654,8 @@ class _MarketListScreenState extends State<MarketListScreen> {
         ),
         child: Text(
           label,
-          style: GoogleFonts.notoSansBengali(
+          style: appFont(
+            context: context,
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: selected ? Colors.white : AppColors.textGrey,
@@ -655,7 +680,8 @@ class _MarketListScreenState extends State<MarketListScreen> {
         ),
         child: Text(
           label,
-          style: GoogleFonts.notoSansBengali(
+          style: appFont(
+            context: context,
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: selected ? Colors.white : AppColors.textGrey,
@@ -671,6 +697,7 @@ class _DueBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Container(
       margin: const EdgeInsets.only(left: 8),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -680,8 +707,9 @@ class _DueBadge extends StatelessWidget {
         border: Border.all(color: AppColors.actionOrange),
       ),
       child: Text(
-        'বাকি',
-        style: GoogleFonts.notoSansBengali(
+        s.due,
+        style: appFont(
+          context: context,
           fontSize: 10,
           fontWeight: FontWeight.w700,
           color: AppColors.marketOrangeDark,
@@ -698,22 +726,25 @@ class _MarketTimes extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'তৈরি: ${formatDateTime(entry.createdAt)}',
-            style: GoogleFonts.notoSansBengali(
+            s.createdAtLabel(formatDateTime(entry.createdAt)),
+            style: appFont(
+              context: context,
               fontSize: 11,
               color: AppColors.textGrey,
             ),
           ),
           if (entry.wasEditedByAdmin)
             Text(
-              'সম্পাদনা: ${entry.editedByName}',
-              style: GoogleFonts.notoSansBengali(
+              s.editedByName(entry.editedByName ?? ''),
+              style: appFont(
+                context: context,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: AppColors.primaryGreen,
@@ -740,6 +771,7 @@ class _PendingRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -759,7 +791,8 @@ class _PendingRequestCard extends StatelessWidget {
                     Flexible(
                       child: Text(
                         entry.shopperName,
-                        style: GoogleFonts.notoSansBengali(
+                        style: appFont(
+                          context: context,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -770,7 +803,8 @@ class _PendingRequestCard extends StatelessWidget {
               ),
               Text(
                 formatTaka(entry.amount),
-                style: GoogleFonts.notoSansBengali(
+                style: appFont(
+                  context: context,
                   fontWeight: FontWeight.w700,
                   color: AppColors.marketAmountBrown,
                 ),
@@ -784,7 +818,8 @@ class _PendingRequestCard extends StatelessWidget {
                 entry.items
                     .map((i) => '${i.name} ${i.quantity}')
                     .join(', '),
-                style: GoogleFonts.notoSansBengali(
+                style: appFont(
+                  context: context,
                   fontSize: 12,
                   color: AppColors.textGrey,
                 ),
@@ -806,8 +841,9 @@ class _PendingRequestCard extends StatelessWidget {
                     side: const BorderSide(color: Color(0xFFC62828)),
                   ),
                   child: Text(
-                    'প্রত্যাখ্যান',
-                    style: GoogleFonts.notoSansBengali(
+                    s.reject,
+                    style: appFont(
+                      context: context,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -831,10 +867,11 @@ class _PendingRequestCard extends StatelessWidget {
                           ),
                         )
                       : Text(
-                          'গ্রহণ',
-                          style: GoogleFonts.notoSansBengali(
+                          s.accept,
+                          style: appFont(
+                            context: context,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                            color: AppColors.card,
                           ),
                         ),
                 ),
@@ -855,6 +892,7 @@ class _MyRequestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     final pending = entry.isPending;
     return Material(
       color: Colors.transparent,
@@ -865,7 +903,7 @@ class _MyRequestCard extends StatelessWidget {
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.card,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
               color: pending
@@ -884,7 +922,8 @@ class _MyRequestCard extends StatelessWidget {
                         Flexible(
                           child: Text(
                             entry.shopperName,
-                            style: GoogleFonts.notoSansBengali(
+                            style: appFont(
+                              context: context,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -897,7 +936,8 @@ class _MyRequestCard extends StatelessWidget {
                         entry.items
                             .map((i) => '${i.name} ${i.quantity}')
                             .join(', '),
-                        style: GoogleFonts.notoSansBengali(
+                        style: appFont(
+                          context: context,
                           fontSize: 12,
                           color: AppColors.textGrey,
                         ),
@@ -918,7 +958,8 @@ class _MyRequestCard extends StatelessWidget {
                 children: [
                   Text(
                     formatTaka(entry.amount),
-                    style: GoogleFonts.notoSansBengali(
+                    style: appFont(
+                      context: context,
                       fontWeight: FontWeight.w700,
                       color: AppColors.marketAmountBrown,
                     ),
@@ -934,8 +975,9 @@ class _MyRequestCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      entry.status.bnLabel,
-                      style: GoogleFonts.notoSansBengali(
+                      entry.status.label(bn: s.isBengali),
+                      style: appFont(
+                        context: context,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                         color: pending

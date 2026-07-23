@@ -1,8 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../models/app_user.dart';
 import '../../models/social.dart';
 import '../../services/chat_service.dart';
@@ -16,9 +16,10 @@ class ChatInboxTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
+    final s = AppStrings.of(context);
     if (uid == null) {
       return Center(
-        child: Text('লগইন করুন', style: GoogleFonts.notoSansBengali()),
+        child: Text(s.pleaseLogin, style: appFont(context: context)),
       );
     }
 
@@ -36,9 +37,9 @@ class ChatInboxTab extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Text(
-                'চ্যাট লোড ব্যর্থ।\n${snap.error}',
+                s.chatLoadFailed(snap.error!),
                 textAlign: TextAlign.center,
-                style: GoogleFonts.notoSansBengali(color: AppColors.textGrey),
+                style: appFont(context: context, color: AppColors.textGrey),
               ),
             ),
           );
@@ -47,9 +48,9 @@ class ChatInboxTab extends StatelessWidget {
         if (conversations.isEmpty) {
           return Center(
             child: Text(
-              'কোনো কথোপকথন নেই।\nফ্রেন্ড থেকে মেসেজ শুরু করুন।',
+              s.noConversations,
               textAlign: TextAlign.center,
-              style: GoogleFonts.notoSansBengali(color: AppColors.textGrey),
+              style: appFont(context: context, color: AppColors.textGrey),
             ),
           );
         }
@@ -67,7 +68,7 @@ class ChatInboxTab extends StatelessWidget {
               stream: userService.watchUser(other),
               builder: (context, userSnap) {
                 final user = userSnap.data;
-                final name = user?.name ?? 'ফ্রেন্ড';
+                final name = user?.name ?? s.friendFallback;
                 return ListTile(
                   leading: CircleAvatar(
                     backgroundImage: user?.photoUrl != null
@@ -79,7 +80,8 @@ class ChatInboxTab extends StatelessWidget {
                   ),
                   title: Text(
                     name,
-                    style: GoogleFonts.notoSansBengali(
+                    style: appFont(
+                      context: context,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -87,14 +89,16 @@ class ChatInboxTab extends StatelessWidget {
                     c.lastMessage ?? '',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.notoSansBengali(
+                    style: appFont(
+                      context: context,
                       fontSize: 12,
                       color: AppColors.textGrey,
                     ),
                   ),
                   trailing: Text(
                     time,
-                    style: GoogleFonts.notoSansBengali(
+                    style: appFont(
+                      context: context,
                       fontSize: 11,
                       color: AppColors.textGrey,
                     ),

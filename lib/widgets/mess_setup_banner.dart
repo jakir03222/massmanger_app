@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+
+import '../l10n/app_strings.dart';
 
 class MessSetupBanner extends StatelessWidget {
   const MessSetupBanner({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Container(
       height: 160,
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -49,8 +51,9 @@ class MessSetupBanner extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  'নতুন মেস শুরু করুন',
-                  style: GoogleFonts.notoSansBengali(
+                  s.startNewMess,
+                  style: appFont(
+                    context: context,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: Colors.white,
@@ -59,8 +62,9 @@ class MessSetupBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'সহজেই হিসাব রাখুন সবার সাথে',
-                  style: GoogleFonts.notoSansBengali(
+                  s.keepAccountsTogether,
+                  style: appFont(
+                    context: context,
                     fontSize: 13,
                     fontWeight: FontWeight.w400,
                     color: Colors.white.withValues(alpha: 0.92),

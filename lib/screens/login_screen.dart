@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../l10n/app_strings.dart';
+import '../l10n/locale_controller.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/google_logo.dart';
@@ -13,6 +15,9 @@ class LoginScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+    final locale = LocaleScope.maybeOf(context);
+
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
       body: SafeArea(
@@ -21,14 +26,23 @@ class LoginScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 12),
+              if (locale != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: _LanguageChip(locale: locale),
+                  ),
+                ),
+              const SizedBox(height: 4),
               const LoginHeroCard(),
               const SizedBox(height: 28),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Text(
-                  'স্বাগতম',
-                  style: GoogleFonts.notoSansBengali(
+                  s.welcome,
+                  style: appFont(
+                    context: context,
                     fontSize: 32,
                     fontWeight: FontWeight.w700,
                     color: AppColors.primaryGreen,
@@ -40,8 +54,9 @@ class LoginScreen extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Text(
-                  'মিল, বাজার ও হিসাব — এক জায়গায় সহজে ম্যানেজ করুন',
-                  style: GoogleFonts.notoSansBengali(
+                  s.loginSubtitle,
+                  style: appFont(
+                    context: context,
                     fontSize: 15,
                     fontWeight: FontWeight.w400,
                     color: AppColors.textDark,
@@ -57,14 +72,57 @@ class LoginScreen extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 28),
                 child: Text(
-                  'লগইন করে আপনি শর্তাবলী এবং গোপনীয়তা নীতি মেনে নিচ্ছেন',
+                  s.loginTerms,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.notoSansBengali(
+                  style: appFont(
+                    context: context,
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                     color: AppColors.textGrey,
                     height: 1.5,
                   ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LanguageChip extends StatelessWidget {
+  const _LanguageChip({required this.locale});
+
+  final LocaleController locale;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+    return Material(
+      color: AppColors.card,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: () => locale.toggle(),
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.borderGrey),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.translate_rounded, size: 18, color: AppColors.primaryGreen),
+              const SizedBox(width: 6),
+              Text(
+                locale.isBengali ? s.languageEn : s.languageBn,
+                style: appFont(
+                  context: context,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryGreen,
                 ),
               ),
             ],
@@ -106,7 +164,7 @@ class _LoginCardState extends State<_LoginCard> {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -121,7 +179,7 @@ class _LoginCardState extends State<_LoginCard> {
           _OutlinedLoginButton(
             onPressed: _googleLoading ? null : _signInWithGoogle,
             child: _googleLoading
-                ? const SizedBox(
+                ? SizedBox(
                     width: 22,
                     height: 22,
                     child: CircularProgressIndicator(
@@ -135,8 +193,9 @@ class _LoginCardState extends State<_LoginCard> {
                       const GoogleLogo(),
                       const SizedBox(width: 12),
                       Text(
-                        'গুগল দিয়ে লগইন করুন',
-                        style: GoogleFonts.notoSansBengali(
+                        AppStrings.of(context).continueGoogle,
+                        style: appFont(
+                          context: context,
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: AppColors.textDark,
@@ -159,7 +218,7 @@ class _LoginCardState extends State<_LoginCard> {
                     );
                   },
             icon: Icons.mail_outline_rounded,
-            label: 'ইমেইল দিয়ে লগইন করুন',
+            label: AppStrings.of(context).loginEmail,
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -175,21 +234,22 @@ class _LoginCardState extends State<_LoginCard> {
                         ),
                       );
                     },
-              icon: const Icon(
+              icon: Icon(
                 Icons.person_add_alt_1_outlined,
                 size: 20,
                 color: AppColors.primaryGreen,
               ),
               label: Text(
-                'ইমেইল দিয়ে অ্যাকাউন্ট তৈরি করুন',
-                style: GoogleFonts.notoSansBengali(
+                AppStrings.of(context).createAccount,
+                style: appFont(
+                  context: context,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   color: AppColors.primaryGreen,
                 ),
               ),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AppColors.primaryGreen, width: 1.5),
+                side: BorderSide(color: AppColors.primaryGreen, width: 1.5),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -220,7 +280,7 @@ class _OutlinedLoginButton extends StatelessWidget {
         onPressed: onPressed,
         style: OutlinedButton.styleFrom(
           backgroundColor: Colors.white,
-          side: const BorderSide(color: AppColors.borderGrey),
+          side: BorderSide(color: AppColors.borderGrey),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -252,7 +312,8 @@ class _FilledLoginButton extends StatelessWidget {
         icon: Icon(icon, size: 20, color: Colors.white),
         label: Text(
           label,
-          style: GoogleFonts.notoSansBengali(
+          style: appFont(
+            context: context,
             fontSize: 15,
             fontWeight: FontWeight.w600,
             color: Colors.white,
@@ -278,19 +339,20 @@ class _OrDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Expanded(child: Divider(color: AppColors.borderGrey, height: 1)),
+        Expanded(child: Divider(color: AppColors.borderGrey, height: 1)),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
-            'অথবা',
-            style: GoogleFonts.notoSansBengali(
+            AppStrings.of(context).orDivider,
+            style: appFont(
+              context: context,
               fontSize: 13,
               fontWeight: FontWeight.w400,
               color: AppColors.textGrey,
             ),
           ),
         ),
-        const Expanded(child: Divider(color: AppColors.borderGrey, height: 1)),
+        Expanded(child: Divider(color: AppColors.borderGrey, height: 1)),
       ],
     );
   }
@@ -301,6 +363,7 @@ class _FeatureBadges extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Row(
@@ -310,7 +373,7 @@ class _FeatureBadges extends StatelessWidget {
               backgroundColor: AppColors.featureGreenBg,
               iconColor: AppColors.primaryGreen,
               icon: Icons.shield_outlined,
-              label: 'সুরক্ষিত লগইন',
+              label: s.secureLogin,
             ),
           ),
           const SizedBox(width: 12),
@@ -319,7 +382,7 @@ class _FeatureBadges extends StatelessWidget {
               backgroundColor: AppColors.featureOrangeBg,
               iconColor: AppColors.featureOrangeIcon,
               icon: Icons.groups_outlined,
-              label: 'সহজ মেস ম্যানেজমেন্ট',
+              label: s.easyMessManagement,
             ),
           ),
         ],
@@ -364,7 +427,8 @@ class _FeatureBadge extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: GoogleFonts.notoSansBengali(
+              style: appFont(
+                context: context,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textDark,

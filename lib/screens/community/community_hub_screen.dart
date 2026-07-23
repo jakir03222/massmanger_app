@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../theme/app_colors.dart';
 import 'chat_inbox_tab.dart';
 import 'community_feed_tab.dart';
@@ -39,6 +39,7 @@ class _CommunityHubScreenState extends State<CommunityHubScreen>
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     final body = Column(
       children: [
         if (!widget.embedded)
@@ -51,8 +52,9 @@ class _CommunityHubScreenState extends State<CommunityHubScreen>
                   icon: const Icon(Icons.arrow_back_rounded),
                 ),
                 Text(
-                  'কমিউনিটি',
-                  style: GoogleFonts.notoSansBengali(
+                  s.navCommunity,
+                  style: appFont(
+                    context: context,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                     color: AppColors.darkGreen,
@@ -67,8 +69,9 @@ class _CommunityHubScreenState extends State<CommunityHubScreen>
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'কমিউনিটি',
-                style: GoogleFonts.notoSansBengali(
+                s.navCommunity,
+                style: appFont(
+                  context: context,
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: AppColors.darkGreen,
@@ -81,18 +84,20 @@ class _CommunityHubScreenState extends State<CommunityHubScreen>
           labelColor: AppColors.primaryGreen,
           unselectedLabelColor: AppColors.textGrey,
           indicatorColor: AppColors.primaryGreen,
-          labelStyle: GoogleFonts.notoSansBengali(
+          labelStyle: appFont(
+            context: context,
             fontWeight: FontWeight.w700,
             fontSize: 13,
           ),
-          unselectedLabelStyle: GoogleFonts.notoSansBengali(
+          unselectedLabelStyle: appFont(
+            context: context,
             fontWeight: FontWeight.w500,
             fontSize: 13,
           ),
-          tabs: const [
-            Tab(text: 'ফিড'),
-            Tab(text: 'ফ্রেন্ডস'),
-            Tab(text: 'চ্যাট'),
+          tabs: [
+            Tab(text: s.tabFeed),
+            Tab(text: s.tabFriends),
+            Tab(text: s.tabChat),
           ],
         ),
         Expanded(

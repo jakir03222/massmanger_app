@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/mess.dart';
 import '../models/mess_bill.dart';
 import '../services/mess_bill_service.dart';
@@ -35,24 +35,6 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
 
   String get _yearMonth => yearMonthKey(_month);
 
-  String get _monthLabel {
-    const months = [
-      'জানুয়ারি',
-      'ফেব্রুয়ারি',
-      'মার্চ',
-      'এপ্রিল',
-      'মে',
-      'জুন',
-      'জুলাই',
-      'আগস্ট',
-      'সেপ্টেম্বর',
-      'অক্টোবর',
-      'নভেম্বর',
-      'ডিসেম্বর',
-    ];
-    return '${months[_month.month - 1]} ${_month.year}';
-  }
-
   void _shiftMonth(int delta) {
     setState(() {
       _month = DateTime(_month.year, _month.month + delta);
@@ -67,7 +49,7 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
     final result = await showModalBottomSheet<_BillFormResult>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
@@ -100,11 +82,12 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
         );
       }
       if (!mounted) return;
+      final s = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            existing == null ? 'বিল যোগ হয়েছে' : 'বিল হালনাগাদ হয়েছে',
-            style: GoogleFonts.notoSansBengali(),
+            existing == null ? s.billAdded : s.billUpdated,
+            style: appFont(context: context),
           ),
         ),
       );
@@ -120,11 +103,12 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
       }
     } catch (_) {
       if (!mounted) return;
+      final s = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'সংরক্ষণ ব্যর্থ — আবার চেষ্টা করুন',
-            style: GoogleFonts.notoSansBengali(),
+            s.saveFailedRetry,
+            style: appFont(context: context),
           ),
         ),
       );
@@ -152,23 +136,25 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
         filename: 'mess-hisab-$_yearMonth.pdf',
       );
       if (!mounted) return;
+      final s = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             result.savedToDownloads
-                ? 'PDF ডাউনলোড ফোল্ডারে সেভ হয়েছে'
-                : 'PDF সেভ হয়েছে',
-            style: GoogleFonts.notoSansBengali(),
+                ? s.pdfSavedDownloads
+                : s.pdfSaved,
+            style: appFont(context: context),
           ),
         ),
       );
     } catch (_) {
       if (!mounted) return;
+      final s = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'PDF তৈরি ব্যর্থ — আবার চেষ্টা করুন',
-            style: GoogleFonts.notoSansBengali(),
+            s.pdfFailed,
+            style: appFont(context: context),
           ),
         ),
       );
@@ -178,27 +164,32 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
   }
 
   Future<void> _delete(String messId, MessBill bill) async {
+    final s = AppStrings.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'বিল মুছবেন?',
-          style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
+          s.deleteBillTitle,
+          style: appFont(context: context, fontWeight: FontWeight.w700),
         ),
         content: Text(
-          '${bill.type.bnLabel} — ${formatTaka(bill.amount)} মুছে যাবে।',
-          style: GoogleFonts.notoSansBengali(),
+          s.deleteBillBody(
+            bill.type.label(bn: s.isBengali),
+            formatTaka(bill.amount),
+          ),
+          style: appFont(context: context),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('না', style: GoogleFonts.notoSansBengali()),
+            child: Text(s.no, style: appFont(context: context)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(
-              'মুছুন',
-              style: GoogleFonts.notoSansBengali(
+              s.delete,
+              style: appFont(
+                context: context,
                 color: const Color(0xFFC62828),
                 fontWeight: FontWeight.w600,
               ),
@@ -210,9 +201,10 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
     if (ok != true) return;
     await _service.deleteBill(messId: messId, billId: bill.id);
     if (!mounted) return;
+    final sn = AppStrings.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('বিল মুছে গেছে', style: GoogleFonts.notoSansBengali()),
+        content: Text(sn.billDeleted, style: appFont(context: context)),
       ),
     );
   }
@@ -236,6 +228,7 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return MessSessionBuilder(
       builder: (context, appUser, mess, members) {
         final matched = members.where((m) => m.uid == appUser.uid);
@@ -249,8 +242,8 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
             elevation: 0,
             foregroundColor: AppColors.textDark,
             title: Text(
-              'মাসিক বিল',
-              style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
+              s.monthlyBills,
+              style: appFont(context: context, fontWeight: FontWeight.w700),
             ),
             actions: [
               if (isAdmin)
@@ -258,7 +251,7 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
                   onPressed: _exporting
                       ? null
                       : () => _exportPdf(mess: mess, members: members),
-                  tooltip: 'PDF ডাউনলোড',
+                  tooltip: s.downloadPdf,
                   icon: _exporting
                       ? const SizedBox(
                           width: 20,
@@ -275,8 +268,9 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
                   backgroundColor: AppColors.primaryGreen,
                   icon: const Icon(Icons.add, color: Colors.white),
                   label: Text(
-                    'বিল যোগ',
-                    style: GoogleFonts.notoSansBengali(
+                    s.addBill,
+                    style: appFont(
+                      context: context,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
@@ -290,7 +284,7 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.card,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppColors.borderGrey),
                   ),
@@ -302,9 +296,10 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
                       ),
                       Expanded(
                         child: Text(
-                          _monthLabel,
+                          s.monthLabel(_month),
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.notoSansBengali(
+                          style: appFont(
+                            context: context,
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                           ),
@@ -321,10 +316,9 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
-                  isAdmin
-                      ? 'অ্যাডমিন বিল যোগ/সম্পাদনা করতে পারবে · মাস শেষে সব মেম্বারের হিসাব PDF এক্সপোর্ট'
-                      : 'এই মাসের মেস বিল — অ্যাডমিন যোগ করেছে',
-                  style: GoogleFonts.notoSansBengali(
+                  isAdmin ? s.billsAdminHint : s.billsMemberHint,
+                  style: appFont(
+                    context: context,
                     fontSize: 12,
                     color: AppColors.textGrey,
                   ),
@@ -342,7 +336,7 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
                           : () => _exportPdf(mess: mess, members: members),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.darkGreen,
-                        side: const BorderSide(color: AppColors.primaryGreen),
+                        side: BorderSide(color: AppColors.primaryGreen),
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -356,8 +350,9 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
                             )
                           : const Icon(Icons.download_outlined),
                       label: Text(
-                        'মাস শেষ ক্লোজিং — সব মেম্বারের হিসাব PDF',
-                        style: GoogleFonts.notoSansBengali(
+                        s.monthEndClosingPdf,
+                        style: appFont(
+                          context: context,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -372,7 +367,7 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
                   builder: (context, snap) {
                     if (snap.connectionState == ConnectionState.waiting &&
                         !snap.hasData) {
-                      return const Center(
+                      return Center(
                         child: CircularProgressIndicator(
                           color: AppColors.primaryGreen,
                         ),
@@ -382,15 +377,16 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
                     if (bills.isEmpty) {
                       return Center(
                         child: Text(
-                          'এই মাসে কোনো বিল নেই',
-                          style: GoogleFonts.notoSansBengali(
+                          s.noBillsThisMonth,
+                          style: appFont(
+                            context: context,
                             color: AppColors.textGrey,
                           ),
                         ),
                       );
                     }
                     final total =
-                        bills.fold<double>(0, (s, b) => s + b.amount);
+                        bills.fold<double>(0, (sum, b) => sum + b.amount);
                     return ListView(
                       padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
                       children: [
@@ -404,14 +400,16 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                'মোট বিল',
-                                style: GoogleFonts.notoSansBengali(
+                                s.totalBills,
+                                style: appFont(
+                                  context: context,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
                               Text(
                                 formatTaka(total),
-                                style: GoogleFonts.notoSansBengali(
+                                style: appFont(
+                                  context: context,
                                   fontSize: 18,
                                   fontWeight: FontWeight.w700,
                                   color: AppColors.darkGreen,
@@ -468,11 +466,12 @@ class _BillCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.borderGrey),
       ),
@@ -481,7 +480,7 @@ class _BillCard extends StatelessWidget {
           Container(
             width: 44,
             height: 44,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.featureGreenBg,
               shape: BoxShape.circle,
             ),
@@ -493,14 +492,16 @@ class _BillCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  bill.type.bnLabel,
-                  style: GoogleFonts.notoSansBengali(
+                  bill.type.label(bn: s.isBengali),
+                  style: appFont(
+                    context: context,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 Text(
                   formatTaka(bill.amount),
-                  style: GoogleFonts.notoSansBengali(
+                  style: appFont(
+                    context: context,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                     color: AppColors.darkGreen,
@@ -509,7 +510,8 @@ class _BillCard extends StatelessWidget {
                 if (bill.note.isNotEmpty)
                   Text(
                     bill.note,
-                    style: GoogleFonts.notoSansBengali(
+                    style: appFont(
+                      context: context,
                       fontSize: 12,
                       color: AppColors.textGrey,
                     ),
@@ -521,7 +523,7 @@ class _BillCard extends StatelessWidget {
             IconButton(
               onPressed: onEdit,
               icon: const Icon(Icons.edit_outlined, size: 20),
-              tooltip: 'সম্পাদনা',
+              tooltip: s.edit,
             ),
             IconButton(
               onPressed: onDelete,
@@ -530,7 +532,7 @@ class _BillCard extends StatelessWidget {
                 size: 20,
                 color: Color(0xFFC62828),
               ),
-              tooltip: 'মুছুন',
+              tooltip: s.delete,
             ),
           ],
         ],
@@ -602,32 +604,15 @@ class _BillFormSheetState extends State<_BillFormSheet> {
     super.dispose();
   }
 
-  String get _monthLabel {
-    const months = [
-      'জানুয়ারি',
-      'ফেব্রুয়ারি',
-      'মার্চ',
-      'এপ্রিল',
-      'মে',
-      'জুন',
-      'জুলাই',
-      'আগস্ট',
-      'সেপ্টেম্বর',
-      'অক্টোবর',
-      'নভেম্বর',
-      'ডিসেম্বর',
-    ];
-    return '${months[_month.month - 1]} ${_month.year}';
-  }
-
   void _submit() {
+    final s = AppStrings.of(context);
     final amount = double.tryParse(_amountCtrl.text.trim());
     if (amount == null || amount < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'সঠিক টাকার পরিমাণ দিন',
-            style: GoogleFonts.notoSansBengali(),
+            s.enterValidAmount,
+            style: appFont(context: context),
           ),
         ),
       );
@@ -646,6 +631,7 @@ class _BillFormSheetState extends State<_BillFormSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     final bottom = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottom),
@@ -655,16 +641,18 @@ class _BillFormSheetState extends State<_BillFormSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              widget.initial == null ? 'বিল যোগ করুন' : 'বিল সম্পাদনা',
-              style: GoogleFonts.notoSansBengali(
+              widget.initial == null ? s.addBillFull : s.editBill,
+              style: appFont(
+                context: context,
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 14),
             Text(
-              'বিলের ধরন',
-              style: GoogleFonts.notoSansBengali(
+              s.billType,
+              style: appFont(
+                context: context,
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
               ),
@@ -677,8 +665,9 @@ class _BillFormSheetState extends State<_BillFormSheet> {
                 final selected = _type == t;
                 return ChoiceChip(
                   label: Text(
-                    t.bnLabel,
-                    style: GoogleFonts.notoSansBengali(
+                    t.label(bn: s.isBengali),
+                    style: appFont(
+                      context: context,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: selected ? Colors.white : AppColors.textDark,
@@ -694,8 +683,9 @@ class _BillFormSheetState extends State<_BillFormSheet> {
             ),
             const SizedBox(height: 14),
             Text(
-              'মাস',
-              style: GoogleFonts.notoSansBengali(
+              s.month,
+              style: appFont(
+                context: context,
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
               ),
@@ -708,7 +698,7 @@ class _BillFormSheetState extends State<_BillFormSheet> {
                   initialDate: _month,
                   firstDate: DateTime(2024),
                   lastDate: DateTime.now().add(const Duration(days: 365)),
-                  helpText: 'মাস সিলেক্ট করুন',
+                  helpText: s.selectMonth,
                   initialDatePickerMode: DatePickerMode.year,
                 );
                 if (picked != null) {
@@ -730,8 +720,9 @@ class _BillFormSheetState extends State<_BillFormSheet> {
                     const Icon(Icons.calendar_month_outlined, size: 20),
                     const SizedBox(width: 10),
                     Text(
-                      _monthLabel,
-                      style: GoogleFonts.notoSansBengali(
+                      s.monthLabel(_month),
+                      style: appFont(
+                        context: context,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -741,8 +732,9 @@ class _BillFormSheetState extends State<_BillFormSheet> {
             ),
             const SizedBox(height: 14),
             Text(
-              'টাকার পরিমাণ',
-              style: GoogleFonts.notoSansBengali(
+              s.amountTaka,
+              style: appFont(
+                context: context,
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
               ),
@@ -757,8 +749,9 @@ class _BillFormSheetState extends State<_BillFormSheet> {
                 FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
               ],
               decoration: InputDecoration(
-                hintText: 'যেমন: ৫০০০',
-                hintStyle: GoogleFonts.notoSansBengali(
+                hintText: s.amountExampleHint,
+                hintStyle: appFont(
+                  context: context,
                   color: AppColors.textGrey,
                 ),
                 border: OutlineInputBorder(
@@ -766,12 +759,13 @@ class _BillFormSheetState extends State<_BillFormSheet> {
                 ),
                 suffixText: '৳',
               ),
-              style: GoogleFonts.notoSansBengali(),
+              style: appFont(context: context),
             ),
             const SizedBox(height: 14),
             Text(
-              'নোট (ঐচ্ছিক)',
-              style: GoogleFonts.notoSansBengali(
+              s.noteOptional,
+              style: appFont(
+                context: context,
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
               ),
@@ -780,15 +774,16 @@ class _BillFormSheetState extends State<_BillFormSheet> {
             TextField(
               controller: _noteCtrl,
               decoration: InputDecoration(
-                hintText: 'ঐচ্ছিক বিবরণ',
-                hintStyle: GoogleFonts.notoSansBengali(
+                hintText: s.optionalDetails,
+                hintStyle: appFont(
+                  context: context,
                   color: AppColors.textGrey,
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              style: GoogleFonts.notoSansBengali(),
+              style: appFont(context: context),
             ),
             const SizedBox(height: 18),
             ElevatedButton(
@@ -802,10 +797,11 @@ class _BillFormSheetState extends State<_BillFormSheet> {
                 ),
               ),
               child: Text(
-                widget.initial == null ? 'যোগ করুন' : 'হালনাগাদ করুন',
-                style: GoogleFonts.notoSansBengali(
+                widget.initial == null ? s.add : s.update,
+                style: appFont(
+                  context: context,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: AppColors.card,
                 ),
               ),
             ),

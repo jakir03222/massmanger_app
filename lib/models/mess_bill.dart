@@ -49,6 +49,23 @@ enum MessBillType {
     }
   }
 
+  String label({required bool bn}) {
+    switch (this) {
+      case MessBillType.cook:
+        return bn ? 'খালা বিল' : 'Cook bill';
+      case MessBillType.rent:
+        return bn ? 'বাসা ভাড়া' : 'House rent';
+      case MessBillType.electricity:
+        return bn ? 'বিদ্যুৎ বিল' : 'Electricity';
+      case MessBillType.water:
+        return bn ? 'পানির বিল' : 'Water';
+      case MessBillType.utility:
+        return bn ? 'ইউটিলিটি বিল' : 'Utility';
+      case MessBillType.eidBonus:
+        return bn ? 'ঈদ বোনাস' : 'Eid bonus';
+    }
+  }
+
   /// Cook-cost share excludes eid bonus (applied as Eid Bonus column).
   bool get countsAsCookCost => this != MessBillType.eidBonus;
 }

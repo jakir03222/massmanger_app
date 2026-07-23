@@ -29,6 +29,17 @@ enum MealStatus {
         return 'বাতিল';
     }
   }
+
+  String label({required bool bn}) {
+    switch (this) {
+      case MealStatus.pending:
+        return bn ? 'অপেক্ষমাণ' : 'Pending';
+      case MealStatus.approved:
+        return bn ? 'অনুমোদিত' : 'Approved';
+      case MealStatus.rejected:
+        return bn ? 'বাতিল' : 'Rejected';
+    }
+  }
 }
 
 enum MealType {
@@ -63,6 +74,19 @@ enum MealType {
         return 'রাত';
       case MealType.rate:
         return 'রেট মিল';
+    }
+  }
+
+  String label({required bool bn}) {
+    switch (this) {
+      case MealType.morning:
+        return bn ? 'সকাল' : 'Morning';
+      case MealType.evening:
+        return bn ? 'বিকাল' : 'Evening';
+      case MealType.night:
+        return bn ? 'রাত' : 'Night';
+      case MealType.rate:
+        return bn ? 'রেট মিল' : 'Rate meal';
     }
   }
 }
@@ -130,6 +154,9 @@ class MealEntry {
   }
 
   String get displayLabel => '${type.bnLabel} ($quantityLabel)';
+
+  String localizedDisplayLabel({required bool bn}) =>
+      '${type.label(bn: bn)} ($quantityLabel)';
 
   factory MealEntry.fromMap(String id, Map<String, dynamic> data, {String? day}) {
     // New item shape.

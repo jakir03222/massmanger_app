@@ -30,6 +30,17 @@ enum MarketStatus {
         return 'বাতিল';
     }
   }
+
+  String label({required bool bn}) {
+    switch (this) {
+      case MarketStatus.pending:
+        return bn ? 'অপেক্ষমাণ' : 'Pending';
+      case MarketStatus.approved:
+        return bn ? 'অনুমোদিত' : 'Approved';
+      case MarketStatus.rejected:
+        return bn ? 'বাতিল' : 'Rejected';
+    }
+  }
 }
 
 class MarketItem {

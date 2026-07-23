@@ -1,9 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../models/community_post.dart';
 import '../../services/community_post_service.dart';
 import '../../theme/app_colors.dart';
@@ -30,11 +30,14 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   Future<void> _share(CommunityPost post) async {
+    final s = AppStrings.of(context);
     final buffer = StringBuffer()
-      ..writeln('${post.messName} — সিট খালি: ${post.seatsAvailable}')
+      ..writeln(s.seatsVacantShare(post.messName, post.seatsAvailable))
       ..writeln(post.body);
-    if (post.messCode != null) buffer.writeln('মেস কোড: ${post.messCode}');
-    buffer.writeln('\n— ম্যাস ম্যানেজার কমিউনিটি');
+    if (post.messCode != null) {
+      buffer.writeln(s.messCodeLine(post.messCode!));
+    }
+    buffer.writeln('\n${s.communityShareFooter}');
     await SharePlus.instance.share(ShareParams(text: buffer.toString()));
   }
 
@@ -46,7 +49,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e', style: GoogleFonts.notoSansBengali())),
+        SnackBar(content: Text('$e', style: appFont(context: context))),
       );
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -56,13 +59,14 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
+    final s = AppStrings.of(context);
 
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
       appBar: AppBar(
         title: Text(
-          'পোস্ট',
-          style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
+          s.post,
+          style: appFont(context: context, fontWeight: FontWeight.w700),
         ),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textDark,
@@ -79,8 +83,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           if (post == null) {
             return Center(
               child: Text(
-                'পোস্ট পাওয়া যায়নি',
-                style: GoogleFonts.notoSansBengali(),
+                s.postNotFound,
+                style: appFont(context: context),
               ),
             );
           }
@@ -88,6 +92,17 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           final date = post.createdAt != null
               ? DateFormat('d MMM y, h:mm a').format(post.createdAt!)
               : '';
+
+          final meta = StringBuffer(s.seatsLabel(post.seatsAvailable));
+          if (post.rentHint != null && post.rentHint!.isNotEmpty) {
+            meta.write(' · ${post.rentHint}');
+          }
+          if (post.messLocation != null) {
+            meta.write('\n${post.messLocation}');
+          }
+          if (post.messCode != null) {
+            meta.write('\n${s.messCodeLine(post.messCode!)}');
+          }
 
           return Column(
             children: [
@@ -98,7 +113,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.card,
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: AppColors.borderGrey),
                       ),
@@ -135,13 +150,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   children: [
                                     Text(
                                       post.authorName,
-                                      style: GoogleFonts.notoSansBengali(
+                                      style: appFont(
+                                        context: context,
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
                                     Text(
                                       '${post.messName} · $date',
-                                      style: GoogleFonts.notoSansBengali(
+                                      style: appFont(
+                                        context: context,
                                         fontSize: 11,
                                         color: AppColors.textGrey,
                                       ),
@@ -155,8 +172,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                     await _service.closePost(post.id);
                                   },
                                   child: Text(
-                                    'বন্ধ করুন',
-                                    style: GoogleFonts.notoSansBengali(
+                                    s.close,
+                                    style: appFont(
+                                      context: context,
                                       fontSize: 12,
                                       color: AppColors.monthRed,
                                     ),
@@ -167,18 +185,17 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           const SizedBox(height: 12),
                           Text(
                             post.body,
-                            style: GoogleFonts.notoSansBengali(
+                            style: appFont(
+                              context: context,
                               fontSize: 14,
                               height: 1.45,
                             ),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            'সিট: ${post.seatsAvailable}'
-                            '${post.rentHint != null && post.rentHint!.isNotEmpty ? ' · ${post.rentHint}' : ''}'
-                            '${post.messLocation != null ? '\n${post.messLocation}' : ''}'
-                            '${post.messCode != null ? '\nমেস কোড: ${post.messCode}' : ''}',
-                            style: GoogleFonts.notoSansBengali(
+                            meta.toString(),
+                            style: appFont(
+                              context: context,
                               fontSize: 12,
                               color: AppColors.textGrey,
                               height: 1.4,
@@ -207,8 +224,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                   },
                                 ),
                               Text(
-                                '${post.likeCount} লাইক · ${post.commentCount} কমেন্ট',
-                                style: GoogleFonts.notoSansBengali(
+                                s.likesAndComments(
+                                  post.likeCount,
+                                  post.commentCount,
+                                ),
+                                style: appFont(
+                                  context: context,
                                   fontSize: 12,
                                   color: AppColors.textGrey,
                                 ),
@@ -225,8 +246,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'কমেন্ট',
-                      style: GoogleFonts.notoSansBengali(
+                      s.comments,
+                      style: appFont(
+                        context: context,
                         fontWeight: FontWeight.w700,
                         fontSize: 15,
                       ),
@@ -238,8 +260,9 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         final comments = snap.data ?? [];
                         if (comments.isEmpty) {
                           return Text(
-                            'এখনো কোনো কমেন্ট নেই।',
-                            style: GoogleFonts.notoSansBengali(
+                            s.noCommentsYet,
+                            style: appFont(
+                              context: context,
                               color: AppColors.textGrey,
                               fontSize: 13,
                             ),
@@ -254,58 +277,62 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                           .format(c.createdAt!)
                                       : '';
                                   return ListTile(
-                                  contentPadding: EdgeInsets.zero,
-                                  leading: CircleAvatar(
-                                    radius: 16,
-                                    backgroundImage: c.authorPhotoUrl != null
-                                        ? NetworkImage(c.authorPhotoUrl!)
-                                        : null,
-                                    child: c.authorPhotoUrl == null
-                                        ? Text(
-                                            c.authorName.isNotEmpty
-                                                ? c.authorName[0]
-                                                : '?',
-                                            style: const TextStyle(fontSize: 12),
-                                          )
-                                        : null,
-                                  ),
-                                  title: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          c.authorName,
-                                          style: GoogleFonts.notoSansBengali(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 13,
-                                          ),
-                                        ),
-                                      ),
-                                      if (timeLabel.isNotEmpty)
-                                        Text(
-                                          timeLabel,
-                                          style: GoogleFonts.notoSansBengali(
-                                            fontSize: 11,
-                                            color: AppColors.textGrey,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                  subtitle: Text(
-                                    c.text,
-                                    style: GoogleFonts.notoSansBengali(
-                                      fontSize: 13,
+                                    contentPadding: EdgeInsets.zero,
+                                    leading: CircleAvatar(
+                                      radius: 16,
+                                      backgroundImage: c.authorPhotoUrl != null
+                                          ? NetworkImage(c.authorPhotoUrl!)
+                                          : null,
+                                      child: c.authorPhotoUrl == null
+                                          ? Text(
+                                              c.authorName.isNotEmpty
+                                                  ? c.authorName[0]
+                                                  : '?',
+                                              style:
+                                                  const TextStyle(fontSize: 12),
+                                            )
+                                          : null,
                                     ),
-                                  ),
-                                  onTap: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute<void>(
-                                        builder: (_) => PublicProfileScreen(
-                                          uid: c.authorId,
+                                    title: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            c.authorName,
+                                            style: appFont(
+                                              context: context,
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13,
+                                            ),
+                                          ),
                                         ),
+                                        if (timeLabel.isNotEmpty)
+                                          Text(
+                                            timeLabel,
+                                            style: appFont(
+                                              context: context,
+                                              fontSize: 11,
+                                              color: AppColors.textGrey,
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                    subtitle: Text(
+                                      c.text,
+                                      style: appFont(
+                                        context: context,
+                                        fontSize: 13,
                                       ),
-                                    );
-                                  },
-                                );
+                                    ),
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute<void>(
+                                          builder: (_) => PublicProfileScreen(
+                                            uid: c.authorId,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  );
                                 },
                               )
                               .toList(),
@@ -323,10 +350,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                       Expanded(
                         child: TextField(
                           controller: _commentController,
-                          style: GoogleFonts.notoSansBengali(),
+                          style: appFont(context: context),
                           decoration: InputDecoration(
-                            hintText: 'কমেন্ট লিখুন…',
-                            hintStyle: GoogleFonts.notoSansBengali(
+                            hintText: s.writeCommentHint,
+                            hintStyle: appFont(
+                              context: context,
                               color: AppColors.textGrey,
                             ),
                             filled: true,

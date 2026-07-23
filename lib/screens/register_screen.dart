@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../l10n/app_strings.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 import 'email_login_screen.dart';
@@ -48,7 +48,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } on AuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message, style: GoogleFonts.notoSansBengali())),
+        SnackBar(
+          content: Text(e.message, style: appFont(context: context)),
+        ),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -57,6 +59,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
       appBar: AppBar(
@@ -64,8 +67,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         elevation: 0,
         foregroundColor: AppColors.textDark,
         title: Text(
-          'নতুন অ্যাকাউন্ট',
-          style: GoogleFonts.notoSansBengali(
+          s.registerTitle,
+          style: appFont(
+            context: context,
             fontWeight: FontWeight.w600,
             color: AppColors.textDark,
           ),
@@ -80,8 +84,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'নাম, ইমেইল ও পাসওয়ার্ড দিয়ে রেজিস্ট্রেশন করুন',
-                  style: GoogleFonts.notoSansBengali(
+                  s.registerSubtitle,
+                  style: appFont(
+                    context: context,
                     fontSize: 15,
                     color: AppColors.textGrey,
                     height: 1.4,
@@ -90,28 +95,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 28),
                 _Field(
                   controller: _nameController,
-                  label: 'নাম',
+                  label: s.name,
                   validator: (value) {
-                    if (value == null || value.trim().isEmpty) return 'নাম দিন';
+                    if (value == null || value.trim().isEmpty) {
+                      return s.nameRequired;
+                    }
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
                 _Field(
                   controller: _emailController,
-                  label: 'ইমেইল',
+                  label: s.email,
                   keyboardType: TextInputType.emailAddress,
                   validator: (value) {
                     final v = value?.trim() ?? '';
-                    if (v.isEmpty) return 'ইমেইল দিন';
-                    if (!v.contains('@')) return 'সঠিক ইমেইল দিন';
+                    if (v.isEmpty) return s.emailRequired;
+                    if (!v.contains('@')) return s.emailInvalid;
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
                 _Field(
                   controller: _passwordController,
-                  label: 'পাসওয়ার্ড',
+                  label: s.password,
                   obscureText: _obscurePassword,
                   suffixIcon: IconButton(
                     onPressed: () =>
@@ -125,7 +132,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.length < 6) {
-                      return 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে';
+                      return s.passwordMinLength;
                     }
                     return null;
                   },
@@ -133,7 +140,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 16),
                 _Field(
                   controller: _confirmController,
-                  label: 'পাসওয়ার্ড নিশ্চিত করুন',
+                  label: s.confirmPassword,
                   obscureText: _obscureConfirm,
                   suffixIcon: IconButton(
                     onPressed: () =>
@@ -147,7 +154,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   validator: (value) {
                     if (value != _passwordController.text) {
-                      return 'পাসওয়ার্ড মিলছে না';
+                      return s.passwordMismatch;
                     }
                     return null;
                   },
@@ -176,11 +183,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             ),
                           )
                         : Text(
-                            'রেজিস্ট্রেশন করুন',
-                            style: GoogleFonts.notoSansBengali(
+                            s.registerAction,
+                            style: appFont(
+                              context: context,
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                              color: AppColors.card,
                             ),
                           ),
                   ),
@@ -197,8 +205,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           );
                         },
                   child: Text(
-                    'ইতিমধ্যে অ্যাকাউন্ট আছে? লগইন করুন',
-                    style: GoogleFonts.notoSansBengali(
+                    s.alreadyHaveAccount,
+                    style: appFont(
+                      context: context,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: AppColors.primaryGreen,
@@ -238,24 +247,24 @@ class _Field extends StatelessWidget {
       obscureText: obscureText,
       keyboardType: keyboardType,
       validator: validator,
-      style: GoogleFonts.notoSansBengali(color: AppColors.textDark),
+      style: appFont(context: context, color: AppColors.textDark),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: GoogleFonts.notoSansBengali(color: AppColors.textGrey),
+        labelStyle: appFont(context: context, color: AppColors.textGrey),
         filled: true,
         fillColor: Colors.white,
         suffixIcon: suffixIcon,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.borderGrey),
+          borderSide: BorderSide(color: AppColors.borderGrey),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.borderGrey),
+          borderSide: BorderSide(color: AppColors.borderGrey),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primaryGreen, width: 1.5),
+          borderSide: BorderSide(color: AppColors.primaryGreen, width: 1.5),
         ),
       ),
     );

@@ -29,6 +29,17 @@ enum BazaarScheduleStatus {
         return 'বাতিল';
     }
   }
+
+  String label({required bool bn}) {
+    switch (this) {
+      case BazaarScheduleStatus.pending:
+        return bn ? 'অপেক্ষমাণ' : 'Pending';
+      case BazaarScheduleStatus.approved:
+        return bn ? 'নির্ধারিত' : 'Scheduled';
+      case BazaarScheduleStatus.rejected:
+        return bn ? 'বাতিল' : 'Rejected';
+    }
+  }
 }
 
 /// Accept এর পর তারিখ অনুযায়ী চলমান স্ট্যাটাস (৩টি)।
@@ -45,6 +56,17 @@ enum BazaarRunStatus {
         return 'চলমান';
       case BazaarRunStatus.completed:
         return 'সম্পন্ন';
+    }
+  }
+
+  String label({required bool bn}) {
+    switch (this) {
+      case BazaarRunStatus.upcoming:
+        return bn ? 'আসন্ন' : 'Upcoming';
+      case BazaarRunStatus.running:
+        return bn ? 'চলমান' : 'Running';
+      case BazaarRunStatus.completed:
+        return bn ? 'সম্পন্ন' : 'Completed';
     }
   }
 }

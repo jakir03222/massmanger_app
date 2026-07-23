@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/mess.dart';
 import '../models/monthly_meal_chart.dart';
 import '../services/monthly_meal_chart_excel_service.dart';
@@ -84,13 +84,12 @@ class _MealChartScreenState extends State<MealChartScreen> {
         filename: 'meal-chart-${yearMonthKey(widget.month)}.xlsx',
       );
       if (!mounted) return;
+      final s = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            result.savedToDownloads
-                ? 'Excel ডাউনলোড ফোল্ডারে সেভ হয়েছে'
-                : 'Excel সেভ হয়েছে',
-            style: GoogleFonts.notoSansBengali(),
+            result.savedToDownloads ? s.excelSavedDownloads : s.excelSaved,
+            style: appFont(context: context),
           ),
         ),
       );
@@ -99,8 +98,8 @@ class _MealChartScreenState extends State<MealChartScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Excel তৈরি ব্যর্থ — আবার চেষ্টা করুন',
-            style: GoogleFonts.notoSansBengali(),
+            AppStrings.of(context).excelFailed,
+            style: appFont(context: context),
           ),
         ),
       );
@@ -121,13 +120,14 @@ class _MealChartScreenState extends State<MealChartScreen> {
         filename: 'meal-chart-${yearMonthKey(widget.month)}.pdf',
       );
       if (!mounted) return;
+      final s = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             result.savedToDownloads
-                ? 'মিল চার্ট PDF ডাউনলোড ফোল্ডারে সেভ হয়েছে'
-                : 'মিল চার্ট PDF সেভ হয়েছে',
-            style: GoogleFonts.notoSansBengali(),
+                ? s.mealChartPdfSavedDownloads
+                : s.mealChartPdfSaved,
+            style: appFont(context: context),
           ),
         ),
       );
@@ -136,8 +136,8 @@ class _MealChartScreenState extends State<MealChartScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'PDF তৈরি ব্যর্থ — আবার চেষ্টা করুন',
-            style: GoogleFonts.notoSansBengali(),
+            AppStrings.of(context).pdfFailed,
+            style: appFont(context: context),
           ),
         ),
       );
@@ -149,6 +149,7 @@ class _MealChartScreenState extends State<MealChartScreen> {
   @override
   Widget build(BuildContext context) {
     final busy = _exportingExcel || _exportingPdf;
+    final s = AppStrings.of(context);
 
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
@@ -156,13 +157,13 @@ class _MealChartScreenState extends State<MealChartScreen> {
         backgroundColor: AppColors.primaryGreen,
         foregroundColor: Colors.white,
         title: Text(
-          'মিল চার্ট',
-          style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
+          s.mealChart,
+          style: appFont(context: context, fontWeight: FontWeight.w700),
         ),
         actions: [
           if (widget.canDownload && _chart != null) ...[
             IconButton(
-              tooltip: 'PDF ডাউনলোড',
+              tooltip: s.downloadPdf,
               onPressed: busy ? null : _exportPdf,
               icon: _exportingPdf
                   ? const SizedBox(
@@ -176,7 +177,7 @@ class _MealChartScreenState extends State<MealChartScreen> {
                   : const Icon(Icons.picture_as_pdf_outlined),
             ),
             IconButton(
-              tooltip: 'Excel ডাউনলোড',
+              tooltip: s.downloadExcel,
               onPressed: busy ? null : _exportExcel,
               icon: _exportingExcel
                   ? const SizedBox(
@@ -191,14 +192,14 @@ class _MealChartScreenState extends State<MealChartScreen> {
             ),
           ],
           IconButton(
-            tooltip: 'রিফ্রেশ',
+            tooltip: s.refresh,
             onPressed: _loading ? null : _load,
             icon: const Icon(Icons.refresh_rounded),
           ),
         ],
       ),
       body: _loading
-          ? const Center(
+          ? Center(
               child: CircularProgressIndicator(color: AppColors.primaryGreen),
             )
           : _error != null
@@ -209,8 +210,9 @@ class _MealChartScreenState extends State<MealChartScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          'চার্ট লোড হয়নি',
-                          style: GoogleFonts.notoSansBengali(
+                          s.chartLoadFailed,
+                          style: appFont(
+                            context: context,
                             fontWeight: FontWeight.w700,
                             fontSize: 16,
                           ),
@@ -222,8 +224,8 @@ class _MealChartScreenState extends State<MealChartScreen> {
                             backgroundColor: AppColors.primaryGreen,
                           ),
                           child: Text(
-                            'আবার চেষ্টা',
-                            style: GoogleFonts.notoSansBengali(),
+                            s.retry,
+                            style: appFont(context: context),
                           ),
                         ),
                       ],
@@ -265,9 +267,10 @@ class _MealChartScreenState extends State<MealChartScreen> {
                                         ),
                                   label: Text(
                                     _exportingPdf
-                                        ? 'PDF…'
-                                        : 'Smart PDF',
-                                    style: GoogleFonts.notoSansBengali(
+                                        ? s.pdfExporting
+                                        : s.smartPdf,
+                                    style: appFont(
+                                      context: context,
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
@@ -279,7 +282,7 @@ class _MealChartScreenState extends State<MealChartScreen> {
                                   onPressed: busy ? null : _exportExcel,
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: AppColors.primaryGreen,
-                                    side: const BorderSide(
+                                    side: BorderSide(
                                       color: AppColors.primaryGreen,
                                     ),
                                     minimumSize: const Size(0, 46),
@@ -288,7 +291,7 @@ class _MealChartScreenState extends State<MealChartScreen> {
                                     ),
                                   ),
                                   icon: _exportingExcel
-                                      ? const SizedBox(
+                                      ? SizedBox(
                                           width: 18,
                                           height: 18,
                                           child: CircularProgressIndicator(
@@ -302,9 +305,10 @@ class _MealChartScreenState extends State<MealChartScreen> {
                                         ),
                                   label: Text(
                                     _exportingExcel
-                                        ? 'Excel…'
-                                        : 'Excel',
-                                    style: GoogleFonts.notoSansBengali(
+                                        ? s.excelExporting
+                                        : s.excel,
+                                    style: appFont(
+                                      context: context,
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),

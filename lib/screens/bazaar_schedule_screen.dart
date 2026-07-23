@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/bazaar_schedule.dart';
 import '../models/mess.dart';
 import '../services/bazaar_schedule_service.dart';
@@ -30,11 +30,12 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
         adminUid: adminUid,
       );
       if (!mounted) return;
+      final strings = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'অনুমোদন — এখন সব মেম্বার দেখতে পাবে',
-            style: GoogleFonts.notoSansBengali(),
+            strings.scheduleApprovedSnack,
+            style: appFont(context: context),
           ),
         ),
       );
@@ -43,16 +44,25 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
     }
   }
 
-  Future<void> _reject(String messId, BazaarSchedule s) async {
+  Future<void> _reject(
+    String messId,
+    String adminUid,
+    BazaarSchedule s,
+  ) async {
     setState(() => _busy.add(s.id));
     try {
-      await _service.reject(messId: messId, scheduleId: s.id);
+      await _service.reject(
+        messId: messId,
+        scheduleId: s.id,
+        adminUid: adminUid,
+      );
       if (!mounted) return;
+      final strings = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'প্রত্যাখ্যান — তালিকা থেকে মুছে গেছে',
-            style: GoogleFonts.notoSansBengali(),
+            strings.mealRejectedSnack,
+            style: appFont(context: context),
           ),
         ),
       );
@@ -61,28 +71,33 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
     }
   }
 
-  Future<void> _delete(String messId, BazaarSchedule s) async {
+  Future<void> _delete(String messId, BazaarSchedule schedule) async {
+    final strings = AppStrings.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'সময়সূচি মুছবেন?',
-          style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
+          strings.deleteScheduleTitle,
+          style: appFont(context: context, fontWeight: FontWeight.w700),
         ),
         content: Text(
-          '${s.memberName} — ${_rangeLabel(s)} মুছে যাবে।',
-          style: GoogleFonts.notoSansBengali(),
+          strings.deleteScheduleBody(
+            schedule.memberName,
+            _rangeLabel(schedule),
+          ),
+          style: appFont(context: context),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('না', style: GoogleFonts.notoSansBengali()),
+            child: Text(strings.no, style: appFont(context: context)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(
-              'মুছুন',
-              style: GoogleFonts.notoSansBengali(
+              strings.delete,
+              style: appFont(
+                context: context,
                 color: const Color(0xFFC62828),
                 fontWeight: FontWeight.w600,
               ),
@@ -92,7 +107,7 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
       ),
     );
     if (ok != true) return;
-    await _service.delete(messId: messId, scheduleId: s.id);
+    await _service.delete(messId: messId, scheduleId: schedule.id);
   }
 
   DateTime? _parseDate(String key) {
@@ -116,6 +131,7 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppStrings.of(context);
     return MessSessionBuilder(
       builder: (context, appUser, mess, members) {
         final matched = members.where((m) => m.uid == appUser.uid);
@@ -163,8 +179,9 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Text(
-                        'বাজার তারিখ / স্ট্যাটাস',
-                        style: GoogleFonts.notoSansBengali(
+                        strings.bazaarDateStatus,
+                        style: appFont(
+                          context: context,
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
                         ),
@@ -174,9 +191,10 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Text(
                         isAdmin
-                            ? 'মেম্বার অনুরোধ অনুমোদন করলে সবাই দেখবে কে কোন দিন বাজার করবে'
-                            : 'তারিখ অনুরোধ পাঠান · অনুমোদন হলে সব মেম্বার দেখতে পাবে',
-                        style: GoogleFonts.notoSansBengali(
+                            ? strings.bazaarScheduleAdminHint
+                            : strings.bazaarScheduleMemberHint,
+                        style: appFont(
+                          context: context,
                           fontSize: 12,
                           color: AppColors.textGrey,
                         ),
@@ -187,8 +205,9 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Text(
-                          'বাজার তারিখ অনুরোধ (${pending.length})',
-                          style: GoogleFonts.notoSansBengali(
+                          strings.bazaarDateRequests(pending.length),
+                          style: appFont(
+                            context: context,
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                             color: AppColors.darkGreen,
@@ -203,7 +222,7 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                           busy: _busy.contains(s.id),
                           onAccept: () =>
                               _approve(mess.id, appUser.uid, s),
-                          onReject: () => _reject(mess.id, s),
+                          onReject: () => _reject(mess.id, appUser.uid, s),
                         ),
                       ),
                     ],
@@ -212,8 +231,9 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Text(
-                          'আমার অনুরোধ',
-                          style: GoogleFonts.notoSansBengali(
+                          strings.myRequests,
+                          style: appFont(
+                            context: context,
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                           ),
@@ -232,8 +252,9 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Text(
-                        'বাজার স্ট্যাটাস (সব মেম্বার)',
-                        style: GoogleFonts.notoSansBengali(
+                        strings.bazaarStatusAllMembers,
+                        style: appFont(
+                          context: context,
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                         ),
@@ -242,8 +263,9 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
                       child: Text(
-                        'কে কোন তারিখে বাজার করবে — অনুমোদন এর পর এখানে দেখা যায়',
-                        style: GoogleFonts.notoSansBengali(
+                        strings.bazaarStatusHint,
+                        style: appFont(
+                          context: context,
                           fontSize: 12,
                           color: AppColors.textGrey,
                         ),
@@ -257,7 +279,7 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                           children: [
                             Expanded(
                               child: _StatusCountChip(
-                                label: 'চলমান',
+                                label: strings.running,
                                 count: runningCount,
                                 color: AppColors.primaryGreen,
                               ),
@@ -265,7 +287,7 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: _StatusCountChip(
-                                label: 'আসন্ন',
+                                label: strings.upcoming,
                                 count: upcomingCount,
                                 color: const Color(0xFF1565C0),
                               ),
@@ -273,7 +295,7 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: _StatusCountChip(
-                                label: 'সম্পন্ন',
+                                label: strings.completed,
                                 count: completedCount,
                                 color: AppColors.textGrey,
                               ),
@@ -290,9 +312,10 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                           vertical: 32,
                         ),
                         child: Text(
-                          'এখনো কোনো নির্ধারিত বাজার তারিখ নেই',
+                          strings.noScheduledBazaarDates,
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.notoSansBengali(
+                          style: appFont(
+                            context: context,
                             color: AppColors.textGrey,
                           ),
                         ),
@@ -325,8 +348,9 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                     backgroundColor: AppColors.primaryGreen,
                     icon: const Icon(Icons.add, color: Colors.white),
                     label: Text(
-                      isAdmin ? 'তারিখ নির্ধারণ' : 'তারিখ অনুরোধ',
-                      style: GoogleFonts.notoSansBengali(
+                      isAdmin ? strings.setDate : strings.requestDate,
+                      style: appFont(
+                        context: context,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
@@ -348,11 +372,12 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
     required bool asAdmin,
   }) async {
     MessMember target = me;
+    final strings = AppStrings.of(context);
 
     if (asAdmin) {
       final pickedMember = await showModalBottomSheet<MessMember>(
         context: context,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.card,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
         ),
@@ -368,8 +393,9 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                     child: Text(
-                      'কার বাজার তারিখ?',
-                      style: GoogleFonts.notoSansBengali(
+                      strings.whoseBazaarDate,
+                      style: appFont(
+                        context: context,
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
                       ),
@@ -384,7 +410,8 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                         return ListTile(
                           title: Text(
                             m.name,
-                            style: GoogleFonts.notoSansBengali(
+                            style: appFont(
+                              context: context,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -412,7 +439,7 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
       initialDate: DateTime.now(),
       firstDate: minDate,
       lastDate: maxDate,
-      helpText: 'শুরুর তারিখ সিলেক্ট করুন',
+      helpText: strings.selectStartDate,
     );
     if (start == null || !mounted) return;
 
@@ -421,7 +448,7 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
       initialDate: start,
       firstDate: start,
       lastDate: maxDate,
-      helpText: 'শেষ তারিখ সিলেক্ট করুন',
+      helpText: strings.selectEndDate,
     );
     if (end == null || !mounted) return;
 
@@ -440,13 +467,14 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
       final rangeText = dateKey(start) == dateKey(end)
           ? formatBnDate(start)
           : '${formatBnDate(start)} → ${formatBnDate(end)}';
+      final sn = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             asAdmin
-                ? '${target.name}: $rangeText নির্ধারিত'
-                : 'অনুরোধ ($rangeText) পাঠানো হয়েছে — অনুমোদন হলে সবাই দেখবে',
-            style: GoogleFonts.notoSansBengali(),
+                ? sn.scheduleSetSnack(target.name, rangeText)
+                : sn.scheduleRequestSnack(rangeText),
+            style: appFont(context: context),
           ),
         ),
       );
@@ -473,6 +501,7 @@ class _PendingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 10),
       padding: const EdgeInsets.all(14),
@@ -486,18 +515,20 @@ class _PendingCard extends StatelessWidget {
         children: [
           Text(
             schedule.memberName,
-            style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
+            style: appFont(context: context, fontWeight: FontWeight.w700),
           ),
           Text(
             dateLabel,
-            style: GoogleFonts.notoSansBengali(
+            style: appFont(
+              context: context,
               fontWeight: FontWeight.w600,
               color: AppColors.darkGreen,
             ),
           ),
           Text(
-            'অনুরোধ: ${formatDateTime(schedule.createdAt)}',
-            style: GoogleFonts.notoSansBengali(
+            s.requestAt(formatDateTime(schedule.createdAt)),
+            style: appFont(
+              context: context,
               fontSize: 11,
               color: AppColors.textGrey,
             ),
@@ -513,8 +544,9 @@ class _PendingCard extends StatelessWidget {
                     side: const BorderSide(color: Color(0xFFC62828)),
                   ),
                   child: Text(
-                    'প্রত্যাখ্যান',
-                    style: GoogleFonts.notoSansBengali(
+                    s.reject,
+                    style: appFont(
+                      context: context,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -538,10 +570,11 @@ class _PendingCard extends StatelessWidget {
                           ),
                         )
                       : Text(
-                          'গ্রহণ',
-                          style: GoogleFonts.notoSansBengali(
+                          s.accept,
+                          style: appFont(
+                            context: context,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                            color: AppColors.card,
                           ),
                         ),
                 ),
@@ -569,11 +602,12 @@ class _StatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.borderGrey),
       ),
@@ -582,11 +616,11 @@ class _StatusCard extends StatelessWidget {
           Container(
             width: 44,
             height: 44,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               color: AppColors.featureGreenBg,
               shape: BoxShape.circle,
             ),
-            child: const Icon(
+            child: Icon(
               Icons.shopping_bag_outlined,
               color: AppColors.primaryGreen,
             ),
@@ -598,13 +632,15 @@ class _StatusCard extends StatelessWidget {
               children: [
                 Text(
                   schedule.memberName,
-                  style: GoogleFonts.notoSansBengali(
+                  style: appFont(
+                    context: context,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 Text(
                   dateLabel,
-                  style: GoogleFonts.notoSansBengali(
+                  style: appFont(
+                    context: context,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.darkGreen,
@@ -613,8 +649,9 @@ class _StatusCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 if (schedule.isPending)
                   Text(
-                    'স্ট্যাটাস: অপেক্ষমাণ',
-                    style: GoogleFonts.notoSansBengali(
+                    s.statusPendingLabel,
+                    style: appFont(
+                      context: context,
                       fontSize: 11,
                       color: const Color(0xFFF9A825),
                     ),
@@ -659,7 +696,8 @@ class _StatusCountChip extends StatelessWidget {
         children: [
           Text(
             '$count',
-            style: GoogleFonts.notoSansBengali(
+            style: appFont(
+              context: context,
               fontSize: 16,
               fontWeight: FontWeight.w700,
               color: color,
@@ -667,7 +705,8 @@ class _StatusCountChip extends StatelessWidget {
           ),
           Text(
             label,
-            style: GoogleFonts.notoSansBengali(
+            style: appFont(
+              context: context,
               fontSize: 10,
               fontWeight: FontWeight.w600,
               color: color,
@@ -697,6 +736,7 @@ class _RunStatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     final color = _color;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -705,8 +745,9 @@ class _RunStatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        status.bnLabel,
-        style: GoogleFonts.notoSansBengali(
+        status.label(bn: s.isBengali),
+        style: appFont(
+          context: context,
           fontSize: 11,
           fontWeight: FontWeight.w700,
           color: color,

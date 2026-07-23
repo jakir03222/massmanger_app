@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../models/app_user.dart';
 import '../../models/social.dart';
 import '../../services/chat_service.dart';
@@ -17,9 +17,10 @@ class FriendsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
+    final s = AppStrings.of(context);
     if (uid == null) {
       return Center(
-        child: Text('লগইন করুন', style: GoogleFonts.notoSansBengali()),
+        child: Text(s.pleaseLogin, style: appFont(context: context)),
       );
     }
 
@@ -30,8 +31,9 @@ class FriendsTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       children: [
         Text(
-          'ফ্রেন্ড রিকোয়েস্ট',
-          style: GoogleFonts.notoSansBengali(
+          s.friendRequests,
+          style: appFont(
+            context: context,
             fontWeight: FontWeight.w700,
             fontSize: 15,
           ),
@@ -45,8 +47,9 @@ class FriendsTab extends StatelessWidget {
               return Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: Text(
-                  'কোনো নতুন রিকোয়েস্ট নেই',
-                  style: GoogleFonts.notoSansBengali(
+                  s.noNewRequests,
+                  style: appFont(
+                    context: context,
                     color: AppColors.textGrey,
                     fontSize: 13,
                   ),
@@ -59,7 +62,7 @@ class FriendsTab extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.card,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: AppColors.borderGrey),
                   ),
@@ -90,8 +93,9 @@ class FriendsTab extends StatelessWidget {
                             );
                           },
                           child: Text(
-                            r.fromName ?? 'ইউজার',
-                            style: GoogleFonts.notoSansBengali(
+                            r.fromName ?? s.userFallback,
+                            style: appFont(
+                              context: context,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -100,8 +104,9 @@ class FriendsTab extends StatelessWidget {
                       TextButton(
                         onPressed: () => social.acceptFriendRequest(r.id),
                         child: Text(
-                          'একসেপ্ট',
-                          style: GoogleFonts.notoSansBengali(
+                          s.acceptRequest,
+                          style: appFont(
+                            context: context,
                             color: AppColors.primaryGreen,
                             fontWeight: FontWeight.w700,
                           ),
@@ -110,8 +115,9 @@ class FriendsTab extends StatelessWidget {
                       TextButton(
                         onPressed: () => social.rejectFriendRequest(r.id),
                         child: Text(
-                          'না',
-                          style: GoogleFonts.notoSansBengali(
+                          s.no,
+                          style: appFont(
+                            context: context,
                             color: AppColors.monthRed,
                           ),
                         ),
@@ -125,8 +131,9 @@ class FriendsTab extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'আমার ফ্রেন্ডস',
-          style: GoogleFonts.notoSansBengali(
+          s.myFriends,
+          style: appFont(
+            context: context,
             fontWeight: FontWeight.w700,
             fontSize: 15,
           ),
@@ -138,8 +145,9 @@ class FriendsTab extends StatelessWidget {
             final friendships = snap.data ?? [];
             if (friendships.isEmpty) {
               return Text(
-                'এখনো কোনো ফ্রেন্ড নেই। প্রোফাইল থেকে রিকোয়েস্ট পাঠান।',
-                style: GoogleFonts.notoSansBengali(
+                s.noFriendsYet,
+                style: appFont(
+                  context: context,
                   color: AppColors.textGrey,
                   fontSize: 13,
                 ),
@@ -152,7 +160,7 @@ class FriendsTab extends StatelessWidget {
                   stream: userService.watchUser(other),
                   builder: (context, userSnap) {
                     final friend = userSnap.data;
-                    final name = friend?.name ?? 'ফ্রেন্ড';
+                    final name = friend?.name ?? s.friendFallback;
                     return ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: CircleAvatar(
@@ -165,21 +173,23 @@ class FriendsTab extends StatelessWidget {
                       ),
                       title: Text(
                         name,
-                        style: GoogleFonts.notoSansBengali(
+                        style: appFont(
+                          context: context,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       subtitle: Text(
                         friend?.hasMess == true
-                            ? (friend?.messName ?? 'মেস যুক্ত')
-                            : 'মেস নেই',
-                        style: GoogleFonts.notoSansBengali(
+                            ? (friend?.messName ?? s.messLinked)
+                            : s.noMess,
+                        style: appFont(
+                          context: context,
                           fontSize: 12,
                           color: AppColors.textGrey,
                         ),
                       ),
                       trailing: IconButton(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.chat_rounded,
                           color: AppColors.primaryGreen,
                         ),
@@ -204,7 +214,7 @@ class FriendsTab extends StatelessWidget {
                               SnackBar(
                                 content: Text(
                                   '$e',
-                                  style: GoogleFonts.notoSansBengali(),
+                                  style: appFont(context: context),
                                 ),
                               ),
                             );

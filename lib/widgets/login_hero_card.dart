@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+
 class LoginHeroCard extends StatelessWidget {
   const LoginHeroCard({super.key});
 
@@ -9,7 +11,7 @@ class LoginHeroCard extends StatelessWidget {
       height: 180,
       margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(

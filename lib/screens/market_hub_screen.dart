@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../l10n/app_strings.dart';
 import '../theme/app_colors.dart';
 import 'bazaar_schedule_screen.dart';
 import 'market_list_screen.dart';
@@ -50,6 +50,7 @@ class _MarketHubToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -60,14 +61,14 @@ class _MarketHubToggle extends StatelessWidget {
         children: [
           Expanded(
             child: _ToggleChip(
-              label: 'বাজার লিস্ট',
+              label: s.marketList,
               selected: view == MarketHubView.list,
               onTap: () => onChanged(MarketHubView.list),
             ),
           ),
           Expanded(
             child: _ToggleChip(
-              label: 'বাজার তারিখ',
+              label: s.bazaarDates,
               selected: view == MarketHubView.schedule,
               onTap: () => onChanged(MarketHubView.schedule),
             ),
@@ -103,7 +104,8 @@ class _ToggleChip extends StatelessWidget {
         child: Text(
           label,
           textAlign: TextAlign.center,
-          style: GoogleFonts.notoSansBengali(
+          style: appFont(
+            context: context,
             fontSize: 13,
             fontWeight: FontWeight.w600,
             color: selected ? Colors.white : AppColors.darkGreen,

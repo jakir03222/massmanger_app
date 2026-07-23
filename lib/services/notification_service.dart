@@ -6,6 +6,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
+import '../l10n/app_locale.dart';
+
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Background/terminated: OS shows notification payload if present.
@@ -71,8 +73,8 @@ class NotificationService {
           final age = DateTime.now().difference(created.toDate());
           if (age > const Duration(minutes: 2)) continue;
         }
-        final title = (data['title'] as String?) ?? 'Mass Manager';
-        final body = (data['body'] as String?) ?? '';
+        final title = _localizedTitle(data);
+        final body = _localizedBody(data);
         if (body.isNotEmpty) {
           _showLocal(title, body);
         }
@@ -156,11 +158,28 @@ class NotificationService {
     );
   }
 
+  String _localizedTitle(Map<String, dynamic> data) {
+    final bn = data['titleBn'] as String?;
+    final en = data['titleEn'] as String?;
+    if (bn != null && en != null) return AppLocale.pick(bn, en);
+    return (data['title'] as String?) ?? 'Mass Manager';
+  }
+
+  String _localizedBody(Map<String, dynamic> data) {
+    final bn = data['bodyBn'] as String?;
+    final en = data['bodyEn'] as String?;
+    if (bn != null && en != null) return AppLocale.pick(bn, en);
+    return (data['body'] as String?) ?? '';
+  }
+
   /// Write inbox docs for recipients (live on their devices).
+  /// Always store BN + EN so each device shows the user's language.
   Future<void> notifyUsers({
     required List<String> uids,
-    required String title,
-    required String body,
+    required String titleBn,
+    required String titleEn,
+    required String bodyBn,
+    required String bodyEn,
     String type = 'general',
     Map<String, dynamic>? data,
   }) async {
@@ -170,8 +189,12 @@ class NotificationService {
     for (final uid in unique) {
       final ref = _inbox(uid).doc();
       batch.set(ref, {
-        'title': title,
-        'body': body,
+        'title': AppLocale.pick(titleBn, titleEn),
+        'body': AppLocale.pick(bodyBn, bodyEn),
+        'titleBn': titleBn,
+        'titleEn': titleEn,
+        'bodyBn': bodyBn,
+        'bodyEn': bodyEn,
         'type': type,
         'data': data ?? {},
         'read': false,
@@ -183,8 +206,10 @@ class NotificationService {
 
   Future<void> notifyAdminsOfMess({
     required String messId,
-    required String title,
-    required String body,
+    required String titleBn,
+    required String titleEn,
+    required String bodyBn,
+    required String bodyEn,
     String type = 'general',
     Map<String, dynamic>? data,
   }) async {
@@ -202,8 +227,41 @@ class NotificationService {
         .toList();
     await notifyUsers(
       uids: adminUids,
-      title: title,
-      body: body,
+      titleBn: titleBn,
+      titleEn: titleEn,
+      bodyBn: bodyBn,
+      bodyEn: bodyEn,
+      type: type,
+      data: data,
+    );
+  }
+
+  /// Notify every mess member (optionally skip one uid, e.g. the acting admin).
+  Future<void> notifyMessMembers({
+    required String messId,
+    required String titleBn,
+    required String titleEn,
+    required String bodyBn,
+    required String bodyEn,
+    String type = 'general',
+    Map<String, dynamic>? data,
+    String? excludeUid,
+  }) async {
+    final snap = await _firestore
+        .collection('messes')
+        .doc(messId)
+        .collection('members')
+        .get();
+    final uids = snap.docs
+        .map((d) => d.id)
+        .where((id) => id.isNotEmpty && id != excludeUid)
+        .toList();
+    await notifyUsers(
+      uids: uids,
+      titleBn: titleBn,
+      titleEn: titleEn,
+      bodyBn: bodyBn,
+      bodyEn: bodyEn,
       type: type,
       data: data,
     );

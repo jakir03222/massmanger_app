@@ -1,27 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../l10n/app_strings.dart';
 import '../theme/app_colors.dart';
 
-const _bnWeekdays = ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র', 'শনি'];
-
-const _bnMonths = [
-  'জানুয়ারি',
-  'ফেব্রুয়ারি',
-  'মার্চ',
-  'এপ্রিল',
-  'মে',
-  'জুন',
-  'জুলাই',
-  'আগস্ট',
-  'সেপ্টেম্বর',
-  'অক্টোবর',
-  'নভেম্বর',
-  'ডিসেম্বর',
-];
-
-/// English digits → বাংলা সংখ্যা
-String toBnDigits(String input) {
+/// English digits → locale digits (Bangla when locale is BN).
+String toBnDigits(String input, [BuildContext? context]) {
+  if (context != null) {
+    return AppStrings.of(context).digits(input);
+  }
   const en = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
   const bn = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
   var out = input;
@@ -31,18 +17,19 @@ String toBnDigits(String input) {
   return out;
 }
 
-String formatBnDateFull(DateTime d) {
-  return toBnDigits('${d.day} ${_bnMonths[d.month - 1]} ${d.year}');
+String formatBnDateFull(DateTime d, BuildContext context) {
+  return AppStrings.of(context).formatDate(d);
 }
 
-/// বাংলা ক্যালেন্ডার দিয়ে তারিখ সিলেক্ট।
+/// Locale-aware calendar date picker.
 Future<DateTime?> showBnDatePicker({
   required BuildContext context,
   required DateTime initialDate,
   DateTime? firstDate,
   DateTime? lastDate,
-  String helpText = 'তারিখ সিলেক্ট করুন',
+  String? helpText,
 }) {
+  final s = AppStrings.of(context);
   final first = firstDate ?? DateTime(2024);
   final last = lastDate ?? DateTime.now().add(const Duration(days: 1));
   var initial = DateTime(initialDate.year, initialDate.month, initialDate.day);
@@ -55,7 +42,7 @@ Future<DateTime?> showBnDatePicker({
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
-    backgroundColor: Colors.white,
+    backgroundColor: AppColors.card,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
     ),
@@ -67,7 +54,7 @@ Future<DateTime?> showBnDatePicker({
           initialDate: initial,
           firstDate: firstDay,
           lastDate: lastDay,
-          helpText: helpText,
+          helpText: helpText ?? s.selectDate,
         ),
       );
     },
@@ -155,8 +142,11 @@ class _BnCalendarSheetState extends State<_BnCalendarSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     final cells = _daysInGrid();
     final today = DateTime.now();
+    final weekdays = s.weekdaysShort;
+    final months = s.months;
 
     return SafeArea(
       child: Padding(
@@ -175,23 +165,26 @@ class _BnCalendarSheetState extends State<_BnCalendarSheet> {
             const SizedBox(height: 12),
             Text(
               widget.helpText,
-              style: GoogleFonts.notoSansBengali(
+              style: appFont(
+                context: context,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              'তারিখে ট্যাপ করলেই সিলেক্ট হবে',
-              style: GoogleFonts.notoSansBengali(
+              s.tapDateToSelect,
+              style: appFont(
+                context: context,
                 fontSize: 12,
                 color: AppColors.textGrey,
               ),
             ),
             const SizedBox(height: 6),
             Text(
-              formatBnDateFull(_selected),
-              style: GoogleFonts.notoSansBengali(
+              formatBnDateFull(_selected, context),
+              style: appFont(
+                context: context,
                 fontSize: 14,
                 color: AppColors.primaryGreen,
                 fontWeight: FontWeight.w600,
@@ -207,11 +200,12 @@ class _BnCalendarSheetState extends State<_BnCalendarSheet> {
                 ),
                 Expanded(
                   child: Text(
-                    toBnDigits(
-                      '${_bnMonths[_visibleMonth.month - 1]} ${_visibleMonth.year}',
+                    s.digits(
+                      '${months[_visibleMonth.month - 1]} ${_visibleMonth.year}',
                     ),
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.notoSansBengali(
+                    style: appFont(
+                      context: context,
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
                     ),
@@ -226,13 +220,14 @@ class _BnCalendarSheetState extends State<_BnCalendarSheet> {
             ),
             const SizedBox(height: 4),
             Row(
-              children: _bnWeekdays
+              children: weekdays
                   .map(
                     (w) => Expanded(
                       child: Center(
                         child: Text(
                           w,
-                          style: GoogleFonts.notoSansBengali(
+                          style: appFont(
+                            context: context,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: AppColors.textGrey,
@@ -278,8 +273,9 @@ class _BnCalendarSheetState extends State<_BnCalendarSheet> {
                           : null,
                       child: Center(
                         child: Text(
-                          toBnDigits('${day.day}'),
-                          style: GoogleFonts.notoSansBengali(
+                          s.digits('${day.day}'),
+                          style: appFont(
+                            context: context,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                             color: !enabled
@@ -302,8 +298,9 @@ class _BnCalendarSheetState extends State<_BnCalendarSheet> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context),
                     child: Text(
-                      'বাতিল',
-                      style: GoogleFonts.notoSansBengali(
+                      s.cancel,
+                      style: appFont(
+                        context: context,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -318,8 +315,9 @@ class _BnCalendarSheetState extends State<_BnCalendarSheet> {
                       elevation: 0,
                     ),
                     child: Text(
-                      'ঠিক আছে',
-                      style: GoogleFonts.notoSansBengali(
+                      s.ok,
+                      style: appFont(
+                        context: context,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),

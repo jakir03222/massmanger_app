@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../l10n/app_strings.dart';
 import '../theme/app_colors.dart';
 import '../widgets/mess_session_builder.dart';
 import 'daily_report_screen.dart';
@@ -20,6 +20,8 @@ class _ReportScreenState extends State<ReportScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+
     return MessSessionBuilder(
       builder: (context, appUser, mess, members) {
         final matched = members.where((m) => m.uid == appUser.uid);
@@ -42,11 +44,10 @@ class _ReportScreenState extends State<ReportScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  isAdmin
-                      ? 'অ্যাডমিন মোড · সব মেম্বারের রিপোর্ট'
-                      : 'মেম্বার মোড · শুধু আপনার রিপোর্ট',
+                  isAdmin ? s.adminReportMode : s.memberReportMode,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.notoSansBengali(
+                  style: appFont(
+                    context: context,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: isAdmin
@@ -87,10 +88,12 @@ class _ReportViewToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.borderGrey),
       ),
@@ -98,14 +101,14 @@ class _ReportViewToggle extends StatelessWidget {
         children: [
           Expanded(
             child: _ToggleChip(
-              label: 'মাসিক',
+              label: s.monthly,
               selected: view == ReportView.monthly,
               onTap: () => onChanged(ReportView.monthly),
             ),
           ),
           Expanded(
             child: _ToggleChip(
-              label: 'দৈনিক',
+              label: s.daily,
               selected: view == ReportView.daily,
               onTap: () => onChanged(ReportView.daily),
             ),
@@ -141,7 +144,8 @@ class _ToggleChip extends StatelessWidget {
         alignment: Alignment.center,
         child: Text(
           label,
-          style: GoogleFonts.notoSansBengali(
+          style: appFont(
+            context: context,
             fontSize: 13,
             fontWeight: FontWeight.w600,
             color: selected ? Colors.white : AppColors.textGrey,

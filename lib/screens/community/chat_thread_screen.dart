@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../models/social.dart';
 import '../../services/chat_service.dart';
 import '../../theme/app_colors.dart';
@@ -57,7 +57,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('$e', style: GoogleFonts.notoSansBengali())),
+        SnackBar(content: Text('$e', style: appFont(context: context))),
       );
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -67,6 +67,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
   @override
   Widget build(BuildContext context) {
     final me = FirebaseAuth.instance.currentUser?.uid;
+    final s = AppStrings.of(context);
 
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
@@ -99,7 +100,8 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
               Expanded(
                 child: Text(
                   widget.otherName,
-                  style: GoogleFonts.notoSansBengali(
+                  style: appFont(
+                    context: context,
                     fontWeight: FontWeight.w700,
                     fontSize: 16,
                   ),
@@ -119,8 +121,9 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
                 if (messages.isEmpty) {
                   return Center(
                     child: Text(
-                      'মেসেজ শুরু করুন',
-                      style: GoogleFonts.notoSansBengali(
+                      s.startMessaging,
+                      style: appFont(
+                        context: context,
                         color: AppColors.textGrey,
                       ),
                     ),
@@ -163,7 +166,8 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
                         ),
                         child: Text(
                           m.text,
-                          style: GoogleFonts.notoSansBengali(
+                          style: appFont(
+                            context: context,
                             color: mine ? Colors.white : AppColors.textDark,
                             fontSize: 14,
                           ),
@@ -183,10 +187,11 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
                   Expanded(
                     child: TextField(
                       controller: _controller,
-                      style: GoogleFonts.notoSansBengali(),
+                      style: appFont(context: context),
                       decoration: InputDecoration(
-                        hintText: 'মেসেজ লিখুন…',
-                        hintStyle: GoogleFonts.notoSansBengali(
+                        hintText: s.writeMessageHint,
+                        hintStyle: appFont(
+                          context: context,
                           color: AppColors.textGrey,
                         ),
                         filled: true,

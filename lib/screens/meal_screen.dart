@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/app_user.dart';
 import '../models/meal_entry.dart';
 import '../models/mess.dart';
 import '../services/meal_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_surface.dart';
 import '../widgets/bn_date_picker.dart';
 import '../widgets/mess_app_header.dart';
 import '../widgets/mess_session_builder.dart';
@@ -69,21 +70,23 @@ class _MealBodyState extends State<_MealBody> {
   }
 
   Future<void> _pickDate() async {
+    final s = AppStrings.of(context);
     final picked = await showBnDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2024),
       lastDate: DateTime.now().add(const Duration(days: 1)),
-      helpText: 'মিলের তারিখ সিলেক্ট করুন',
+      helpText: s.selectMealDate,
     );
     if (picked == null) return;
     setState(() => _selectedDate = picked);
   }
 
   Future<MessMember?> _pickMember() async {
+    final s = AppStrings.of(context);
     return showModalBottomSheet<MessMember>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
@@ -95,8 +98,9 @@ class _MealBodyState extends State<_MealBody> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
                 child: Text(
-                  'মেম্বার সিলেক্ট করুন',
-                  style: GoogleFonts.notoSansBengali(
+                  s.selectMember,
+                  style: appFont(
+                    context: context,
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
                   ),
@@ -111,7 +115,8 @@ class _MealBodyState extends State<_MealBody> {
                     return ListTile(
                       title: Text(
                         m.name,
-                        style: GoogleFonts.notoSansBengali(
+                        style: appFont(
+                          context: context,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -130,15 +135,16 @@ class _MealBodyState extends State<_MealBody> {
   Future<_MealAddDraft?> _askQuantity(
     MealType type, {
     double initial = 0.5,
-    String confirmLabel = 'যোগ করুন',
+    String? confirmLabel,
     bool pickDate = true,
   }) async {
+    final s = AppStrings.of(context);
     return showDialog<_MealAddDraft>(
       context: context,
       builder: (context) => _MealQuantityDialog(
         type: type,
         initialQty: initial,
-        confirmLabel: confirmLabel,
+        confirmLabel: confirmLabel ?? s.add,
         initialDate: _selectedDate,
         pickDate: pickDate,
       ),
@@ -150,10 +156,11 @@ class _MealBodyState extends State<_MealBody> {
     final admin = _me;
     if (admin == null) return;
 
+    final s = AppStrings.of(context);
     final draft = await _askQuantity(
       entry.type,
       initial: entry.rateValue < 0.5 ? 0.5 : entry.rateValue,
-      confirmLabel: 'হালনাগাদ করুন',
+      confirmLabel: s.update,
       pickDate: false,
     );
     if (draft == null) return;
@@ -169,11 +176,12 @@ class _MealBodyState extends State<_MealBody> {
         editedByName: admin.name,
       );
       if (!mounted) return;
+      final sn = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'হালনাগাদ হয়েছে — সম্পাদনা: ${admin.name}',
-            style: GoogleFonts.notoSansBengali(),
+            sn.mealUpdatedBy(admin.name),
+            style: appFont(context: context),
           ),
         ),
       );
@@ -212,16 +220,18 @@ class _MealBodyState extends State<_MealBody> {
         addedByName: _isAdmin ? admin?.name : null,
       );
       if (!mounted) return;
+      final s = AppStrings.of(context);
       final q = draft.quantity % 1 == 0
           ? draft.quantity.toInt().toString()
           : draft.quantity.toStringAsFixed(1);
+      final typeLabel = type.label(bn: s.isBengali);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             _isAdmin
-                ? '${type.bnLabel} $q যোগ হয়েছে (${formatBnDate(draft.date)})'
-                : '${type.bnLabel} $q অনুরোধ — অনুমোদন হলে তালিকায় যোগ হবে',
-            style: GoogleFonts.notoSansBengali(),
+                ? s.mealAddedOnDate(typeLabel, q, formatBnDate(draft.date))
+                : s.mealRequestSent(typeLabel, q),
+            style: appFont(context: context),
           ),
         ),
       );
@@ -240,11 +250,14 @@ class _MealBodyState extends State<_MealBody> {
         adminUid: widget.appUser.uid,
       );
       if (!mounted) return;
+      final s = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'অনুমোদন — ${entry.displayLabel} তালিকায় যোগ হয়েছে',
-            style: GoogleFonts.notoSansBengali(),
+            s.mealApprovedSnack(
+              entry.localizedDisplayLabel(bn: s.isBengali),
+            ),
+            style: appFont(context: context),
           ),
         ),
       );
@@ -263,11 +276,12 @@ class _MealBodyState extends State<_MealBody> {
         adminUid: widget.appUser.uid,
       );
       if (!mounted) return;
+      final s = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'প্রত্যাখ্যান — তালিকা থেকে মুছে গেছে',
-            style: GoogleFonts.notoSansBengali(),
+            s.mealRejectedSnack,
+            style: appFont(context: context),
           ),
         ),
       );
@@ -277,27 +291,32 @@ class _MealBodyState extends State<_MealBody> {
   }
 
   Future<void> _delete(MealEntry entry) async {
+    final s = AppStrings.of(context);
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'মিল মুছবেন?',
-          style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
+          s.deleteMealTitle,
+          style: appFont(context: context, fontWeight: FontWeight.w700),
         ),
         content: Text(
-          '${entry.name} — ${entry.displayLabel} মুছে যাবে।',
-          style: GoogleFonts.notoSansBengali(),
+          s.deleteMealBody(
+            entry.name,
+            entry.localizedDisplayLabel(bn: s.isBengali),
+          ),
+          style: appFont(context: context),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text('না', style: GoogleFonts.notoSansBengali()),
+            child: Text(s.no, style: appFont(context: context)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(
-              'মুছুন',
-              style: GoogleFonts.notoSansBengali(
+              s.delete,
+              style: appFont(
+                context: context,
                 color: const Color(0xFFC62828),
                 fontWeight: FontWeight.w600,
               ),
@@ -316,6 +335,7 @@ class _MealBodyState extends State<_MealBody> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return StreamBuilder<List<MealEntry>>(
       stream: _mealService.watchDayMeals(widget.mess.id, _day),
       builder: (context, mealSnap) {
@@ -333,16 +353,19 @@ class _MealBodyState extends State<_MealBody> {
 
         var morningCount = approved
             .where((e) => e.morning)
-            .fold<double>(0, (s, e) => s + e.rateValue);
+            .fold<double>(0, (sum, e) => sum + e.rateValue);
         var eveningCount = approved
             .where((e) => e.evening)
-            .fold<double>(0, (s, e) => s + e.rateValue);
+            .fold<double>(0, (sum, e) => sum + e.rateValue);
         var nightCount = approved
             .where((e) => e.night)
-            .fold<double>(0, (s, e) => s + e.rateValue);
+            .fold<double>(0, (sum, e) => sum + e.rateValue);
         var rateTotal = approved
             .where((e) => e.isRate)
-            .fold<double>(0, (s, e) => s + e.rateValue);
+            .fold<double>(0, (sum, e) => sum + e.rateValue);
+
+        String fmt(double v) =>
+            v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1);
 
         return Column(
           children: [
@@ -360,8 +383,9 @@ class _MealBodyState extends State<_MealBody> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Text(
-                        'মিল লিস্ট',
-                        style: GoogleFonts.notoSansBengali(
+                        s.mealList,
+                        style: appFont(
+                          context: context,
                           fontSize: 26,
                           fontWeight: FontWeight.w700,
                         ),
@@ -379,13 +403,13 @@ class _MealBodyState extends State<_MealBody> {
                             vertical: 12,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.card,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: AppColors.borderGrey),
                           ),
                           child: Row(
                             children: [
-                              const Icon(
+                              Icon(
                                 Icons.calendar_today_outlined,
                                 size: 18,
                                 color: AppColors.primaryGreen,
@@ -394,14 +418,16 @@ class _MealBodyState extends State<_MealBody> {
                               Expanded(
                                 child: Text(
                                   formatBnDate(_selectedDate),
-                                  style: GoogleFonts.notoSansBengali(
+                                  style: appFont(
+                                    context: context,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ),
                               Text(
-                                _isToday ? 'আজ' : 'পরিবর্তন',
-                                style: GoogleFonts.notoSansBengali(
+                                _isToday ? s.today : s.change,
+                                style: appFont(
+                                  context: context,
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
                                   color: AppColors.primaryGreen,
@@ -416,8 +442,9 @@ class _MealBodyState extends State<_MealBody> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Text(
-                        'সকাল / বিকাল / রাত / রেট আলাদা · পরিমাণ ০.৫ করে +/− · অনুমোদনের পর তালিকায়',
-                        style: GoogleFonts.notoSansBengali(
+                        s.mealHint,
+                        style: appFont(
+                          context: context,
                           fontSize: 12,
                           color: AppColors.textGrey,
                         ),
@@ -427,8 +454,9 @@ class _MealBodyState extends State<_MealBody> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Text(
-                        _isAdmin ? 'মেম্বারের মিল যোগ' : 'মিল যোগ করুন',
-                        style: GoogleFonts.notoSansBengali(
+                        _isAdmin ? s.addMemberMeal : s.addMeal,
+                        style: appFont(
+                          context: context,
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                         ),
@@ -442,22 +470,22 @@ class _MealBodyState extends State<_MealBody> {
                         runSpacing: 8,
                         children: [
                           _AddTypeChip(
-                            label: 'সকাল যোগ',
+                            label: s.addMorning,
                             enabled: !_adding,
                             onTap: () => _addType(MealType.morning),
                           ),
                           _AddTypeChip(
-                            label: 'বিকাল যোগ',
+                            label: s.addEvening,
                             enabled: !_adding,
                             onTap: () => _addType(MealType.evening),
                           ),
                           _AddTypeChip(
-                            label: 'রাত যোগ',
+                            label: s.addNight,
                             enabled: !_adding,
                             onTap: () => _addType(MealType.night),
                           ),
                           _AddTypeChip(
-                            label: 'রেট যোগ',
+                            label: s.addRate,
                             enabled: !_adding,
                             onTap: () => _addType(MealType.rate),
                           ),
@@ -469,8 +497,9 @@ class _MealBodyState extends State<_MealBody> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Text(
-                          'মুছতে পারবেন না · অ্যাডমিন অনুমোদন করলে হিসাব/তালিকায় যোগ হবে',
-                          style: GoogleFonts.notoSansBengali(
+                          s.mealPendingHint,
+                          style: appFont(
+                            context: context,
                             fontSize: 12,
                             color: AppColors.textGrey,
                           ),
@@ -485,7 +514,7 @@ class _MealBodyState extends State<_MealBody> {
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           children: [
-                            _memberChip('সব মেম্বার', null),
+                            _memberChip(s.allMembers, null),
                             ...widget.members.map(
                               (m) => Padding(
                                 padding: const EdgeInsets.only(left: 8),
@@ -501,8 +530,9 @@ class _MealBodyState extends State<_MealBody> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Text(
-                          'মিল অনুরোধ (${pending.length})',
-                          style: GoogleFonts.notoSansBengali(
+                          s.mealRequests(pending.length),
+                          style: appFont(
+                            context: context,
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                             color: AppColors.darkGreen,
@@ -524,8 +554,9 @@ class _MealBodyState extends State<_MealBody> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         child: Text(
-                          'আমার অনুরোধ (অপেক্ষমাণ)',
-                          style: GoogleFonts.notoSansBengali(
+                          s.myPendingRequests,
+                          style: appFont(
+                            context: context,
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                           ),
@@ -543,8 +574,9 @@ class _MealBodyState extends State<_MealBody> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Text(
-                        'অনুমোদিত মিল লিস্ট',
-                        style: GoogleFonts.notoSansBengali(
+                        s.approvedMealList,
+                        style: appFont(
+                          context: context,
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                         ),
@@ -554,8 +586,9 @@ class _MealBodyState extends State<_MealBody> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Text(
-                        'অনুমোদন এর পর এখানে আলাদা আলাদা দেখা যায়',
-                        style: GoogleFonts.notoSansBengali(
+                        s.approvedMealHint,
+                        style: appFont(
+                          context: context,
                           fontSize: 12,
                           color: AppColors.textGrey,
                         ),
@@ -564,16 +597,11 @@ class _MealBodyState extends State<_MealBody> {
                     const SizedBox(height: 10),
                     if (approved.isEmpty)
                       Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 28,
-                        ),
-                        child: Text(
-                          'এই তারিখে অনুমোদিত মিল নেই',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.notoSansBengali(
-                            color: AppColors.textGrey,
-                          ),
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: AppEmptyState(
+                          icon: Icons.restaurant_outlined,
+                          title: s.noMealsYetTitle,
+                          subtitle: s.noMealsYetBody,
                         ),
                       )
                     else
@@ -592,14 +620,20 @@ class _MealBodyState extends State<_MealBody> {
             if (_isAdmin)
               Container(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
-                decoration: const BoxDecoration(
-                  color: Colors.white,
+                decoration: BoxDecoration(
+                  color: AppColors.card,
                   border: Border(top: BorderSide(color: AppColors.borderGrey)),
                 ),
                 child: Text(
-                  'সকাল: ${morningCount % 1 == 0 ? morningCount.toInt() : morningCount.toStringAsFixed(1)}  •  বিকাল: ${eveningCount % 1 == 0 ? eveningCount.toInt() : eveningCount.toStringAsFixed(1)}  •  রাত: ${nightCount % 1 == 0 ? nightCount.toInt() : nightCount.toStringAsFixed(1)}  •  রেট: ${rateTotal % 1 == 0 ? rateTotal.toInt() : rateTotal.toStringAsFixed(1)}',
+                  s.mealDayTotals(
+                    fmt(morningCount),
+                    fmt(eveningCount),
+                    fmt(nightCount),
+                    fmt(rateTotal),
+                  ),
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.notoSansBengali(
+                  style: appFont(
+                    context: context,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.primaryGreen,
@@ -627,7 +661,8 @@ class _MealBodyState extends State<_MealBody> {
         ),
         child: Text(
           label,
-          style: GoogleFonts.notoSansBengali(
+          style: appFont(
+            context: context,
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: selected ? Colors.white : AppColors.textGrey,
@@ -649,7 +684,7 @@ class _MealQuantityDialog extends StatefulWidget {
   const _MealQuantityDialog({
     required this.type,
     this.initialQty = 0.5,
-    this.confirmLabel = 'যোগ করুন',
+    required this.confirmLabel,
     this.initialDate,
     this.pickDate = true,
   });
@@ -695,12 +730,13 @@ class _MealQuantityDialogState extends State<_MealQuantityDialog> {
   }
 
   Future<void> _pickDate() async {
+    final s = AppStrings.of(context);
     final picked = await showBnDatePicker(
       context: context,
       initialDate: _date,
       firstDate: DateTime(2024),
       lastDate: DateTime.now().add(const Duration(days: 1)),
-      helpText: 'মিলের তারিখ সিলেক্ট করুন',
+      helpText: s.selectMealDate,
     );
     if (picked == null) return;
     setState(() => _date = picked);
@@ -708,10 +744,11 @@ class _MealQuantityDialogState extends State<_MealQuantityDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return AlertDialog(
       title: Text(
-        '${widget.type.bnLabel} যোগ',
-        style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
+        s.addMealType(widget.type.label(bn: s.isBengali)),
+        style: appFont(context: context, fontWeight: FontWeight.w700),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -733,7 +770,7 @@ class _MealQuantityDialogState extends State<_MealQuantityDialog> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.calendar_today_outlined,
                       size: 16,
                       color: AppColors.primaryGreen,
@@ -742,14 +779,16 @@ class _MealQuantityDialogState extends State<_MealQuantityDialog> {
                     Expanded(
                       child: Text(
                         formatBnDate(_date),
-                        style: GoogleFonts.notoSansBengali(
+                        style: appFont(
+                          context: context,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
                     Text(
-                      'তারিখ',
-                      style: GoogleFonts.notoSansBengali(
+                      s.date,
+                      style: appFont(
+                        context: context,
                         fontSize: 12,
                         color: AppColors.primaryGreen,
                         fontWeight: FontWeight.w600,
@@ -762,8 +801,9 @@ class _MealQuantityDialogState extends State<_MealQuantityDialog> {
             const SizedBox(height: 14),
           ],
           Text(
-            'পরিমাণ · ০.৫ করে বাড়ান / কমান',
-            style: GoogleFonts.notoSansBengali(
+            s.quantityStep,
+            style: appFont(
+              context: context,
               fontSize: 12,
               color: AppColors.textGrey,
             ),
@@ -793,7 +833,8 @@ class _MealQuantityDialogState extends State<_MealQuantityDialog> {
                 alignment: Alignment.center,
                 child: Text(
                   _label,
-                  style: GoogleFonts.notoSansBengali(
+                  style: appFont(
+                    context: context,
                     fontSize: 28,
                     fontWeight: FontWeight.w700,
                     color: AppColors.darkGreen,
@@ -817,7 +858,7 @@ class _MealQuantityDialogState extends State<_MealQuantityDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('বাতিল', style: GoogleFonts.notoSansBengali()),
+          child: Text(s.cancel, style: appFont(context: context)),
         ),
         TextButton(
           onPressed: () => Navigator.pop(
@@ -826,7 +867,7 @@ class _MealQuantityDialogState extends State<_MealQuantityDialog> {
           ),
           child: Text(
             widget.confirmLabel,
-            style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w600),
+            style: appFont(context: context, fontWeight: FontWeight.w600),
           ),
         ),
       ],
@@ -862,7 +903,8 @@ class _AddTypeChip extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 label,
-                style: GoogleFonts.notoSansBengali(
+                style: appFont(
+                  context: context,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
@@ -891,6 +933,7 @@ class _PendingItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 10),
       padding: const EdgeInsets.all(14),
@@ -904,19 +947,21 @@ class _PendingItemCard extends StatelessWidget {
         children: [
           Text(
             entry.name,
-            style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
+            style: appFont(context: context, fontWeight: FontWeight.w700),
           ),
           Text(
-            entry.displayLabel,
-            style: GoogleFonts.notoSansBengali(
+            entry.localizedDisplayLabel(bn: s.isBengali),
+            style: appFont(
+              context: context,
               fontSize: 14,
               fontWeight: FontWeight.w600,
               color: AppColors.darkGreen,
             ),
           ),
           Text(
-            'যোগ: ${formatDateTime(entry.createdAt)}',
-            style: GoogleFonts.notoSansBengali(
+            s.addedAt(formatDateTime(entry.createdAt)),
+            style: appFont(
+              context: context,
               fontSize: 11,
               color: AppColors.textGrey,
             ),
@@ -932,8 +977,9 @@ class _PendingItemCard extends StatelessWidget {
                     side: const BorderSide(color: Color(0xFFC62828)),
                   ),
                   child: Text(
-                    'প্রত্যাখ্যান',
-                    style: GoogleFonts.notoSansBengali(
+                    s.reject,
+                    style: appFont(
+                      context: context,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -957,10 +1003,11 @@ class _PendingItemCard extends StatelessWidget {
                           ),
                         )
                       : Text(
-                          'গ্রহণ',
-                          style: GoogleFonts.notoSansBengali(
+                          s.accept,
+                          style: appFont(
+                            context: context,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                            color: AppColors.card,
                           ),
                         ),
                 ),
@@ -988,11 +1035,12 @@ class _ListItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.borderGrey),
       ),
@@ -1004,29 +1052,33 @@ class _ListItemCard extends StatelessWidget {
               children: [
                 Text(
                   entry.name,
-                  style: GoogleFonts.notoSansBengali(
+                  style: appFont(
+                    context: context,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 Text(
-                  entry.displayLabel,
-                  style: GoogleFonts.notoSansBengali(
+                  entry.localizedDisplayLabel(bn: s.isBengali),
+                  style: appFont(
+                    context: context,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.primaryGreen,
                   ),
                 ),
                 Text(
-                  'যোগ: ${formatDateTime(entry.createdAt)}',
-                  style: GoogleFonts.notoSansBengali(
+                  s.addedAt(formatDateTime(entry.createdAt)),
+                  style: appFont(
+                    context: context,
                     fontSize: 11,
                     color: AppColors.textGrey,
                   ),
                 ),
                 if (entry.wasAddedByAdmin)
                   Text(
-                    'যোগ করেছেন: ${entry.addedByName}',
-                    style: GoogleFonts.notoSansBengali(
+                    s.addedByName(entry.addedByName!),
+                    style: appFont(
+                      context: context,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primaryGreen,
@@ -1034,8 +1086,9 @@ class _ListItemCard extends StatelessWidget {
                   ),
                 if (entry.wasEditedByAdmin)
                   Text(
-                    'সম্পাদনা: ${entry.editedByName}',
-                    style: GoogleFonts.notoSansBengali(
+                    s.editedByName(entry.editedByName!),
+                    style: appFont(
+                      context: context,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: AppColors.darkGreen,
@@ -1043,8 +1096,9 @@ class _ListItemCard extends StatelessWidget {
                   ),
                 if (!entry.isApproved)
                   Text(
-                    entry.status.bnLabel,
-                    style: GoogleFonts.notoSansBengali(
+                    entry.status.label(bn: s.isBengali),
+                    style: appFont(
+                      context: context,
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: entry.isPending
@@ -1059,14 +1113,14 @@ class _ListItemCard extends StatelessWidget {
             if (onEdit != null)
               IconButton(
                 onPressed: onEdit,
-                icon: const Icon(Icons.edit_outlined, color: AppColors.primaryGreen),
-                tooltip: 'হালনাগাদ',
+                icon: Icon(Icons.edit_outlined, color: AppColors.primaryGreen),
+                tooltip: s.edit,
               ),
             if (onDelete != null)
               IconButton(
                 onPressed: onDelete,
                 icon: const Icon(Icons.delete_outline, color: Color(0xFFC62828)),
-                tooltip: 'মুছুন',
+                tooltip: s.delete,
               ),
           ],
         ],

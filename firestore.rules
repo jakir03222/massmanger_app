@@ -33,6 +33,11 @@ service cloud.firestore {
         myUser().messId.size() > 0;
     }
 
+    function sameMessAs(uid) {
+      return hasMess() &&
+        exists(/databases/$(database)/documents/messes/$(myUser().messId)/members/$(uid));
+    }
+
     function friendshipId(a, b) {
       return a < b ? a + '_' + b : b + '_' + a;
     }
@@ -48,13 +53,39 @@ service cloud.firestore {
         get(/databases/$(database)/documents/messes/$(messId)/month_locks/$(yearMonth)).data.locked == true;
     }
 
+    function dayYearMonth(day) {
+      return day is string && day.size() >= 7 ? day.substring(0, 7) : '';
+    }
+
+    function messCreatedBy(messId) {
+      return get(/databases/$(database)/documents/messes/$(messId)).data.createdBy;
+    }
+
+    // ---- Users ----
     match /users/{userId} {
-      allow read: if signedIn();
-      allow create: if signedIn() && request.auth.uid == userId;
+      // Get by id (profile/friends) OK; list-all blocked to stop data scraping.
+      allow get: if signedIn();
+      allow list: if false;
+
+      allow create: if signedIn() &&
+        request.auth.uid == userId &&
+        (!('role' in request.resource.data));
+
       allow delete: if signedIn() && request.auth.uid == userId;
+
       allow update: if signedIn() && (
-        request.auth.uid == userId ||
-        // Admin cleared messId after removing the member from that mess.
+        (
+          request.auth.uid == userId &&
+          (
+            !request.resource.data.diff(resource.data).affectedKeys()
+              .hasAny(['messId', 'messName']) ||
+            request.resource.data.messId == null ||
+            (
+              request.resource.data.messId is string &&
+              exists(/databases/$(database)/documents/messes/$(request.resource.data.messId)/members/$(request.auth.uid))
+            )
+          )
+        ) ||
         (
           resource.data.messId is string &&
           isAdmin(resource.data.messId) &&
@@ -66,18 +97,47 @@ service cloud.firestore {
 
       match /notifications/{notifId} {
         allow read, update, delete: if signedIn() && request.auth.uid == userId;
-        allow create: if signedIn();
+        // Only self or same-mess members can create inbox items (blocks spam floods).
+        allow create: if signedIn() && (
+          request.auth.uid == userId ||
+          sameMessAs(userId)
+        );
       }
     }
 
+    // ---- Messes ----
     match /messes/{messId} {
-      allow read, create: if signedIn();
+      // Join needs get before membership; list-all blocked.
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn() &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.code is string &&
+        request.resource.data.code.size() == 6;
       allow update, delete: if isAdmin(messId);
 
       match /members/{memberId} {
-        allow read: if signedIn();
+        allow read: if isMember(messId);
 
-        allow create: if signedIn() && request.auth.uid == memberId;
+        // Self join as member OR creator as super_admin OR admin invites member.
+        allow create: if signedIn() && (
+          (
+            request.auth.uid == memberId &&
+            request.resource.data.role == 'member'
+          ) ||
+          (
+            request.auth.uid == memberId &&
+            request.resource.data.role == 'super_admin' &&
+            messCreatedBy(messId) == request.auth.uid
+          ) ||
+          (
+            isAdmin(messId) &&
+            request.auth.uid != memberId &&
+            request.resource.data.role == 'member'
+          )
+        );
 
         allow delete: if signedIn() && (
           request.auth.uid == memberId ||
@@ -85,34 +145,42 @@ service cloud.firestore {
           (isAdmin(messId) && !isSuperAdmin(messId) && resource.data.role == 'member')
         );
 
+        // Cannot self-escalate role; only super_admin changes roles.
         allow update: if signedIn() && (
-          (request.auth.uid == memberId &&
-            request.resource.data.role == resource.data.role) ||
-          (isSuperAdmin(messId) &&
-            (resource.data.role != 'super_admin' ||
-             request.resource.data.role == 'super_admin' ||
-             request.auth.uid == memberId)) ||
-          (isAdmin(messId) &&
+          (
+            request.auth.uid == memberId &&
+            request.resource.data.role == resource.data.role
+          ) ||
+          (
+            isSuperAdmin(messId) &&
+            resource.data.role != 'super_admin' &&
+            request.resource.data.role in ['admin', 'member']
+          ) ||
+          (
+            isAdmin(messId) &&
             !isSuperAdmin(messId) &&
             resource.data.role == 'member' &&
-            request.resource.data.role == 'member')
+            request.resource.data.role == 'member'
+          )
         );
       }
 
       match /meals/{day} {
         allow read: if isMember(messId);
-        allow write: if isAdmin(messId);
+        allow write: if isAdmin(messId) && !isMonthLocked(messId, dayYearMonth(day));
 
         match /items/{itemId} {
           allow read: if isMember(messId);
-          allow create: if isMember(messId) && (
+          allow create: if isMember(messId) &&
+            !isMonthLocked(messId, dayYearMonth(day)) && (
             (isAdmin(messId) &&
               request.resource.data.status in ['approved', 'pending']) ||
             (!isAdmin(messId) &&
               request.resource.data.uid == request.auth.uid &&
               request.resource.data.status == 'pending')
           );
-          allow update: if isMember(messId) && (
+          allow update: if isMember(messId) &&
+            !isMonthLocked(messId, dayYearMonth(day)) && (
             isAdmin(messId) ||
             (
               resource.data.uid == request.auth.uid &&
@@ -121,7 +189,8 @@ service cloud.firestore {
               request.resource.data.status == 'pending'
             )
           );
-          allow delete: if isMember(messId) && (
+          allow delete: if isMember(messId) &&
+            !isMonthLocked(messId, dayYearMonth(day)) && (
             isAdmin(messId) ||
             (resource.data.uid == request.auth.uid &&
               resource.data.status == 'pending')
@@ -130,7 +199,7 @@ service cloud.firestore {
 
         match /entries/{uid} {
           allow read: if isMember(messId);
-          allow write: if isAdmin(messId);
+          allow write: if isAdmin(messId) && !isMonthLocked(messId, dayYearMonth(day));
         }
       }
 
@@ -201,12 +270,19 @@ service cloud.firestore {
       }
     }
 
+    // Join lookup by exact code only — no list (blocks code scraping).
     match /mess_codes/{code} {
-      allow read, create, update: if signedIn();
+      allow get: if signedIn() && code.size() == 6;
+      allow list: if false;
+      allow create: if signedIn() &&
+        code.size() == 6 &&
+        request.resource.data.messId is string &&
+        messCreatedBy(request.resource.data.messId) == request.auth.uid;
+      allow update: if signedIn() &&
+        request.resource.data.messId == resource.data.messId;
       allow delete: if false;
     }
 
-    // Counters may be bumped by any signed-in user (like / comment).
     function onlyPostCountersChanged() {
       return request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly(['likeCount', 'commentCount']);
@@ -251,7 +327,6 @@ service cloud.firestore {
     }
 
     match /friend_requests/{requestId} {
-      // Missing docs must allow get (profile UI listens before a request exists).
       allow get: if signedIn() && (
         resource == null ||
         resource.data.fromUid == request.auth.uid ||
@@ -278,7 +353,6 @@ service cloud.firestore {
     }
 
     match /friendships/{friendshipId} {
-      // Any signed-in user can check friendship existence (needed for chat gate).
       allow read: if signedIn();
       allow create: if signedIn() &&
         request.auth.uid in request.resource.data.uids &&
@@ -288,7 +362,6 @@ service cloud.firestore {
     }
 
     match /conversations/{convId} {
-      // Allow get on missing docs when convId includes this user (create + first listen race).
       allow get: if signedIn() && (
         resource == null
           ? (convId.matches('^' + request.auth.uid + '_.+') ||

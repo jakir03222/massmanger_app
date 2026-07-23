@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../services/community_post_service.dart';
 import '../../theme/app_colors.dart';
 
@@ -39,11 +39,12 @@ class _CreateVacancyPostScreenState extends State<CreateVacancyPostScreen> {
         includeMessCode: _includeCode,
       );
       if (!mounted) return;
+      final s = AppStrings.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'পোস্ট আপলোড হয়েছে',
-            style: GoogleFonts.notoSansBengali(),
+            s.postUploaded,
+            style: appFont(context: context),
           ),
         ),
       );
@@ -52,7 +53,7 @@ class _CreateVacancyPostScreenState extends State<CreateVacancyPostScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$e', style: GoogleFonts.notoSansBengali()),
+          content: Text('$e', style: appFont(context: context)),
         ),
       );
     } finally {
@@ -62,12 +63,13 @@ class _CreateVacancyPostScreenState extends State<CreateVacancyPostScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
       appBar: AppBar(
         title: Text(
-          'ভ্যাকান্সি পোস্ট',
-          style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
+          s.vacancyPost,
+          style: appFont(context: context, fontWeight: FontWeight.w700),
         ),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textDark,
@@ -77,8 +79,9 @@ class _CreateVacancyPostScreenState extends State<CreateVacancyPostScreen> {
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            'খালি সিটের সংখ্যা',
-            style: GoogleFonts.notoSansBengali(
+            s.seatsCountLabel,
+            style: appFont(
+              context: context,
               fontWeight: FontWeight.w600,
               fontSize: 13,
             ),
@@ -87,13 +90,14 @@ class _CreateVacancyPostScreenState extends State<CreateVacancyPostScreen> {
           TextField(
             controller: _seatsController,
             keyboardType: TextInputType.number,
-            style: GoogleFonts.notoSansBengali(),
-            decoration: _dec('যেমন: ২'),
+            style: appFont(context: context),
+            decoration: _dec(context, s.seatsHint),
           ),
           const SizedBox(height: 14),
           Text(
-            'ভাড়া / খরচ (ঐচ্ছিক)',
-            style: GoogleFonts.notoSansBengali(
+            s.rentOptional,
+            style: appFont(
+              context: context,
               fontWeight: FontWeight.w600,
               fontSize: 13,
             ),
@@ -101,13 +105,14 @@ class _CreateVacancyPostScreenState extends State<CreateVacancyPostScreen> {
           const SizedBox(height: 6),
           TextField(
             controller: _rentController,
-            style: GoogleFonts.notoSansBengali(),
-            decoration: _dec('যেমন: মাসিক ~৩৫০০ টাকা'),
+            style: appFont(context: context),
+            decoration: _dec(context, s.rentHintExample),
           ),
           const SizedBox(height: 14),
           Text(
-            'বিবরণ',
-            style: GoogleFonts.notoSansBengali(
+            s.description,
+            style: appFont(
+              context: context,
               fontWeight: FontWeight.w600,
               fontSize: 13,
             ),
@@ -116,15 +121,15 @@ class _CreateVacancyPostScreenState extends State<CreateVacancyPostScreen> {
           TextField(
             controller: _bodyController,
             maxLines: 5,
-            style: GoogleFonts.notoSansBengali(),
-            decoration: _dec('মেসের পরিবেশ, নিয়ম, লোকেশন ইত্যাদি…'),
+            style: appFont(context: context),
+            decoration: _dec(context, s.descriptionHint),
           ),
           const SizedBox(height: 8),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(
-              'মেস জয়েন কোড পোস্টে দেখাও',
-              style: GoogleFonts.notoSansBengali(fontSize: 13),
+              s.showMessCodeOnPost,
+              style: appFont(context: context, fontSize: 13),
             ),
             value: _includeCode,
             activeThumbColor: AppColors.primaryGreen,
@@ -147,8 +152,9 @@ class _CreateVacancyPostScreenState extends State<CreateVacancyPostScreen> {
                     ),
                   )
                 : Text(
-                    'পোস্ট করুন',
-                    style: GoogleFonts.notoSansBengali(
+                    s.publishPost,
+                    style: appFont(
+                      context: context,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -158,18 +164,18 @@ class _CreateVacancyPostScreenState extends State<CreateVacancyPostScreen> {
     );
   }
 
-  InputDecoration _dec(String hint) => InputDecoration(
+  InputDecoration _dec(BuildContext context, String hint) => InputDecoration(
         hintText: hint,
-        hintStyle: GoogleFonts.notoSansBengali(color: AppColors.textGrey),
+        hintStyle: appFont(context: context, color: AppColors.textGrey),
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.borderGrey),
+          borderSide: BorderSide(color: AppColors.borderGrey),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.borderGrey),
+          borderSide: BorderSide(color: AppColors.borderGrey),
         ),
       );
 }

@@ -1,9 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../models/app_user.dart';
 import '../../models/community_post.dart';
 import '../../services/community_post_service.dart';
@@ -21,6 +21,7 @@ class CommunityFeedTab extends StatelessWidget {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     final postService = CommunityPostService();
     final userService = UserService();
+    final s = AppStrings.of(context);
 
     return StreamBuilder<AppUser?>(
       stream: uid == null ? null : userService.watchUser(uid),
@@ -36,8 +37,9 @@ class CommunityFeedTab extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      'মেসে সিট খালি? বা খুঁজছেন?',
-                      style: GoogleFonts.notoSansBengali(
+                      s.vacancyFeedHint,
+                      style: appFont(
+                        context: context,
                         fontSize: 13,
                         color: AppColors.textGrey,
                       ),
@@ -54,8 +56,9 @@ class CommunityFeedTab extends StatelessWidget {
                       },
                       icon: const Icon(Icons.add_rounded, size: 18),
                       label: Text(
-                        'পোস্ট',
-                        style: GoogleFonts.notoSansBengali(
+                        s.post,
+                        style: appFont(
+                          context: context,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -79,9 +82,10 @@ class CommunityFeedTab extends StatelessWidget {
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: Text(
-                          'ফিড লোড ব্যর্থ। ইন্টারনেট/ইন্ডেক্স চেক করুন।\n${snap.error}',
+                          s.feedLoadFailed(snap.error!),
                           textAlign: TextAlign.center,
-                          style: GoogleFonts.notoSansBengali(
+                          style: appFont(
+                            context: context,
                             color: AppColors.textGrey,
                           ),
                         ),
@@ -92,8 +96,9 @@ class CommunityFeedTab extends StatelessWidget {
                   if (posts.isEmpty) {
                     return Center(
                       child: Text(
-                        'এখনো কোনো ভ্যাকান্সি পোস্ট নেই।',
-                        style: GoogleFonts.notoSansBengali(
+                        s.noVacancyPosts,
+                        style: appFont(
+                          context: context,
                           color: AppColors.textGrey,
                         ),
                       ),
@@ -120,25 +125,27 @@ class _PostCard extends StatelessWidget {
 
   final CommunityPost post;
 
-  Future<void> _share() async {
+  Future<void> _share(BuildContext context) async {
+    final s = AppStrings.of(context);
     final buffer = StringBuffer()
-      ..writeln('${post.messName} — সিট খালি: ${post.seatsAvailable}')
+      ..writeln(s.seatsVacantShare(post.messName, post.seatsAvailable))
       ..writeln(post.body);
     if (post.messLocation != null && post.messLocation!.isNotEmpty) {
-      buffer.writeln('ঠিকানা: ${post.messLocation}');
+      buffer.writeln(s.addressLine(post.messLocation!));
     }
     if (post.rentHint != null && post.rentHint!.isNotEmpty) {
-      buffer.writeln('ভাড়া/খরচ: ${post.rentHint}');
+      buffer.writeln(s.rentCostLine(post.rentHint!));
     }
     if (post.messCode != null && post.messCode!.isNotEmpty) {
-      buffer.writeln('মেস কোড: ${post.messCode}');
+      buffer.writeln(s.messCodeLine(post.messCode!));
     }
-    buffer.writeln('\n— ম্যাস ম্যানেজার কমিউনিটি');
+    buffer.writeln('\n${s.communityShareFooter}');
     await SharePlus.instance.share(ShareParams(text: buffer.toString()));
   }
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     final date = post.createdAt != null
         ? DateFormat('d MMM, h:mm a').format(post.createdAt!)
         : '';
@@ -146,7 +153,7 @@ class _PostCard extends StatelessWidget {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     return Material(
-      color: Colors.white,
+      color: AppColors.card,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -189,7 +196,7 @@ class _PostCard extends StatelessWidget {
                                       ? post.authorName[0]
                                       : '?')
                                   .toUpperCase(),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: AppColors.primaryGreen,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -204,14 +211,16 @@ class _PostCard extends StatelessWidget {
                       children: [
                         Text(
                           post.authorName,
-                          style: GoogleFonts.notoSansBengali(
+                          style: appFont(
+                            context: context,
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
                           ),
                         ),
                         Text(
                           '${post.messName}${date.isNotEmpty ? ' · $date' : ''}',
-                          style: GoogleFonts.notoSansBengali(
+                          style: appFont(
+                            context: context,
                             fontSize: 11,
                             color: AppColors.textGrey,
                           ),
@@ -227,8 +236,9 @@ class _PostCard extends StatelessWidget {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      '${post.seatsAvailable} সিট',
-                      style: GoogleFonts.notoSansBengali(
+                      s.seatsCount(post.seatsAvailable),
+                      style: appFont(
+                        context: context,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: AppColors.primaryGreen,
@@ -242,7 +252,8 @@ class _PostCard extends StatelessWidget {
                 post.body,
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.notoSansBengali(
+                style: appFont(
+                  context: context,
                   fontSize: 13,
                   height: 1.4,
                   color: AppColors.textDark,
@@ -253,7 +264,8 @@ class _PostCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   '📍 ${post.messLocation}',
-                  style: GoogleFonts.notoSansBengali(
+                  style: appFont(
+                    context: context,
                     fontSize: 12,
                     color: AppColors.textGrey,
                   ),
@@ -280,7 +292,8 @@ class _PostCard extends StatelessWidget {
                           ),
                           label: Text(
                             '${post.likeCount}',
-                            style: GoogleFonts.notoSansBengali(
+                            style: appFont(
+                              context: context,
                               fontSize: 12,
                               color: AppColors.textGrey,
                             ),
@@ -291,7 +304,8 @@ class _PostCard extends StatelessWidget {
                   else
                     Text(
                       '❤ ${post.likeCount}',
-                      style: GoogleFonts.notoSansBengali(
+                      style: appFont(
+                        context: context,
                         fontSize: 12,
                         color: AppColors.textGrey,
                       ),
@@ -304,29 +318,31 @@ class _PostCard extends StatelessWidget {
                         ),
                       );
                     },
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.chat_bubble_outline_rounded,
                       size: 18,
                       color: AppColors.textGrey,
                     ),
                     label: Text(
                       '${post.commentCount}',
-                      style: GoogleFonts.notoSansBengali(
+                      style: appFont(
+                        context: context,
                         fontSize: 12,
                         color: AppColors.textGrey,
                       ),
                     ),
                   ),
                   TextButton.icon(
-                    onPressed: _share,
-                    icon: const Icon(
+                    onPressed: () => _share(context),
+                    icon: Icon(
                       Icons.share_outlined,
                       size: 18,
                       color: AppColors.textGrey,
                     ),
                     label: Text(
-                      'শেয়ার',
-                      style: GoogleFonts.notoSansBengali(
+                      s.share,
+                      style: appFont(
+                        context: context,
                         fontSize: 12,
                         color: AppColors.textGrey,
                       ),

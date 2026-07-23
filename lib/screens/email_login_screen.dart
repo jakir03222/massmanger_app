@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../l10n/app_strings.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 import 'register_screen.dart';
@@ -42,7 +42,9 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
     } on AuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message, style: GoogleFonts.notoSansBengali())),
+        SnackBar(
+          content: Text(e.message, style: appFont(context: context)),
+        ),
       );
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -50,54 +52,59 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
   }
 
   Future<void> _forgotPassword() async {
+    final s = AppStrings.of(context);
     final controller = TextEditingController(text: _emailController.text.trim());
     final email = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'পাসওয়ার্ড রিসেট',
-          style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'আপনার ইমেইলে পাসওয়ার্ড রিসেট লিংক পাঠানো হবে।',
-              style: GoogleFonts.notoSansBengali(fontSize: 13),
+      builder: (context) {
+        final ds = AppStrings.of(context);
+        return AlertDialog(
+          title: Text(
+            ds.passwordResetTitle,
+            style: appFont(context: context, fontWeight: FontWeight.w700),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                ds.passwordResetBody,
+                style: appFont(context: context, fontSize: 13),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.emailAddress,
+                autofocus: true,
+                style: appFont(context: context),
+                decoration: InputDecoration(
+                  labelText: ds.email,
+                  labelStyle: appFont(context: context),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(ds.cancel, style: appFont(context: context)),
             ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: controller,
-              keyboardType: TextInputType.emailAddress,
-              autofocus: true,
-              style: GoogleFonts.notoSansBengali(),
-              decoration: InputDecoration(
-                labelText: 'ইমেইল',
-                labelStyle: GoogleFonts.notoSansBengali(),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+            TextButton(
+              onPressed: () => Navigator.pop(context, controller.text.trim()),
+              child: Text(
+                ds.sendLink,
+                style: appFont(
+                  context: context,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryGreen,
                 ),
               ),
             ),
           ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('বাতিল', style: GoogleFonts.notoSansBengali()),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: Text(
-              'লিংক পাঠান',
-              style: GoogleFonts.notoSansBengali(
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryGreen,
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
 
     if (email == null || email.isEmpty || !mounted) return;
@@ -107,21 +114,24 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'রিসেট লিংক পাঠানো হয়েছে — ইমেইল চেক করুন',
-            style: GoogleFonts.notoSansBengali(),
+            s.resetLinkSent,
+            style: appFont(context: context),
           ),
         ),
       );
     } on AuthException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message, style: GoogleFonts.notoSansBengali())),
+        SnackBar(
+          content: Text(e.message, style: appFont(context: context)),
+        ),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
       appBar: AppBar(
@@ -129,8 +139,9 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
         elevation: 0,
         foregroundColor: AppColors.textDark,
         title: Text(
-          'ইমেইল লগইন',
-          style: GoogleFonts.notoSansBengali(
+          s.emailLoginTitle,
+          style: appFont(
+            context: context,
             fontWeight: FontWeight.w600,
             color: AppColors.textDark,
           ),
@@ -145,8 +156,9 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'আপনার ইমেইল ও পাসওয়ার্ড দিয়ে লগইন করুন',
-                  style: GoogleFonts.notoSansBengali(
+                  s.emailLoginSubtitle,
+                  style: appFont(
+                    context: context,
                     fontSize: 15,
                     color: AppColors.textGrey,
                     height: 1.4,
@@ -155,19 +167,19 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                 const SizedBox(height: 28),
                 _AuthTextField(
                   controller: _emailController,
-                  label: 'ইমেইল',
+                  label: s.email,
                   keyboardType: TextInputType.emailAddress,
                   validator: (value) {
                     final v = value?.trim() ?? '';
-                    if (v.isEmpty) return 'ইমেইল দিন';
-                    if (!v.contains('@')) return 'সঠিক ইমেইল দিন';
+                    if (v.isEmpty) return s.emailRequired;
+                    if (!v.contains('@')) return s.emailInvalid;
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
                 _AuthTextField(
                   controller: _passwordController,
-                  label: 'পাসওয়ার্ড',
+                  label: s.password,
                   obscureText: _obscurePassword,
                   suffixIcon: IconButton(
                     onPressed: () =>
@@ -180,7 +192,9 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                     ),
                   ),
                   validator: (value) {
-                    if (value == null || value.isEmpty) return 'পাসওয়ার্ড দিন';
+                    if (value == null || value.isEmpty) {
+                      return s.passwordRequired;
+                    }
                     return null;
                   },
                 ),
@@ -189,8 +203,9 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                   child: TextButton(
                     onPressed: _loading ? null : _forgotPassword,
                     child: Text(
-                      'পাসওয়ার্ড ভুলে গেছেন?',
-                      style: GoogleFonts.notoSansBengali(
+                      s.forgotPassword,
+                      style: appFont(
+                        context: context,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
                         color: AppColors.primaryGreen,
@@ -222,11 +237,12 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                             ),
                           )
                         : Text(
-                            'লগইন করুন',
-                            style: GoogleFonts.notoSansBengali(
+                            s.loginAction,
+                            style: appFont(
+                              context: context,
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                              color: AppColors.card,
                             ),
                           ),
                   ),
@@ -243,8 +259,9 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                           );
                         },
                   child: Text(
-                    'নতুন অ্যাকাউন্ট তৈরি করুন',
-                    style: GoogleFonts.notoSansBengali(
+                    s.createNewAccount,
+                    style: appFont(
+                      context: context,
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
                       color: AppColors.primaryGreen,
@@ -284,24 +301,24 @@ class _AuthTextField extends StatelessWidget {
       obscureText: obscureText,
       keyboardType: keyboardType,
       validator: validator,
-      style: GoogleFonts.notoSansBengali(color: AppColors.textDark),
+      style: appFont(context: context, color: AppColors.textDark),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: GoogleFonts.notoSansBengali(color: AppColors.textGrey),
+        labelStyle: appFont(context: context, color: AppColors.textGrey),
         filled: true,
         fillColor: Colors.white,
         suffixIcon: suffixIcon,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.borderGrey),
+          borderSide: BorderSide(color: AppColors.borderGrey),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.borderGrey),
+          borderSide: BorderSide(color: AppColors.borderGrey),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primaryGreen, width: 1.5),
+          borderSide: BorderSide(color: AppColors.primaryGreen, width: 1.5),
         ),
       ),
     );

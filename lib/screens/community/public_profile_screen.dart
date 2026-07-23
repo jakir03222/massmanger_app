@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../../l10n/app_strings.dart';
 import '../../models/app_user.dart';
 import '../../models/social.dart';
 import '../../services/chat_service.dart';
@@ -21,13 +21,14 @@ class PublicProfileScreen extends StatelessWidget {
     final userService = UserService();
     final social = SocialService();
     final isSelf = me == uid;
+    final s = AppStrings.of(context);
 
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
       appBar: AppBar(
         title: Text(
-          'প্রোফাইল',
-          style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
+          s.profile,
+          style: appFont(context: context, fontWeight: FontWeight.w700),
         ),
         backgroundColor: Colors.white,
         foregroundColor: AppColors.textDark,
@@ -43,8 +44,8 @@ class PublicProfileScreen extends StatelessWidget {
           if (user == null) {
             return Center(
               child: Text(
-                'ইউজার পাওয়া যায়নি',
-                style: GoogleFonts.notoSansBengali(),
+                s.userNotFound,
+                style: appFont(context: context),
               ),
             );
           }
@@ -67,7 +68,7 @@ class PublicProfileScreen extends StatelessWidget {
                                           ? user.email[0]
                                           : '?'))
                               .toUpperCase(),
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 28,
                             color: AppColors.primaryGreen,
                             fontWeight: FontWeight.w700,
@@ -80,9 +81,10 @@ class PublicProfileScreen extends StatelessWidget {
               Text(
                 user.name?.trim().isNotEmpty == true
                     ? user.name!
-                    : 'নাম নেই',
+                    : s.noName,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.notoSansBengali(
+                style: appFont(
+                  context: context,
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
                 ),
@@ -90,10 +92,11 @@ class PublicProfileScreen extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 user.hasMess
-                    ? 'মেস: ${user.messName ?? 'যুক্ত'}'
-                    : 'এখনো কোনো মেসে নেই',
+                    ? s.messColon(user.messName ?? s.messJoinedShort)
+                    : s.notInAnyMess,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.notoSansBengali(
+                style: appFont(
+                  context: context,
                   fontSize: 13,
                   color: AppColors.textGrey,
                 ),
@@ -103,7 +106,8 @@ class PublicProfileScreen extends StatelessWidget {
                 Text(
                   user.bio!,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.notoSansBengali(
+                  style: appFont(
+                    context: context,
                     fontSize: 14,
                     height: 1.4,
                   ),
@@ -114,8 +118,8 @@ class PublicProfileScreen extends StatelessWidget {
                 OutlinedButton(
                   onPressed: () => _editBio(context, user),
                   child: Text(
-                    'বায়ো এডিট',
-                    style: GoogleFonts.notoSansBengali(),
+                    s.editBio,
+                    style: appFont(context: context),
                   ),
                 ),
               ] else if (me != null) ...[
@@ -130,33 +134,35 @@ class PublicProfileScreen extends StatelessWidget {
   }
 
   Future<void> _editBio(BuildContext context, AppUser user) async {
+    final s = AppStrings.of(context);
     final controller = TextEditingController(text: user.bio ?? '');
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(
-          'বায়ো',
-          style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
+          s.bio,
+          style: appFont(context: context, fontWeight: FontWeight.w700),
         ),
         content: TextField(
           controller: controller,
           maxLines: 3,
-          style: GoogleFonts.notoSansBengali(),
+          style: appFont(context: context),
           decoration: InputDecoration(
-            hintText: 'নিজের সম্পর্কে লিখুন…',
-            hintStyle: GoogleFonts.notoSansBengali(),
+            hintText: s.bioHint,
+            hintStyle: appFont(context: context),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('বাতিল', style: GoogleFonts.notoSansBengali()),
+            child: Text(s.cancel, style: appFont(context: context)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, controller.text),
             child: Text(
-              'সেভ',
-              style: GoogleFonts.notoSansBengali(
+              s.save,
+              style: appFont(
+                context: context,
                 fontWeight: FontWeight.w600,
                 color: AppColors.primaryGreen,
               ),
@@ -184,6 +190,7 @@ class _SocialActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Column(
       children: [
         StreamBuilder<bool>(
@@ -204,15 +211,15 @@ class _SocialActions extends StatelessWidget {
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content:
-                            Text('$e', style: GoogleFonts.notoSansBengali()),
+                        content: Text('$e', style: appFont(context: context)),
                       ),
                     );
                   }
                 },
                 child: Text(
-                  following ? 'আনফলো' : 'ফলো',
-                  style: GoogleFonts.notoSansBengali(
+                  following ? s.unfollow : s.follow,
+                  style: appFont(
+                    context: context,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -241,7 +248,7 @@ class _SocialActions extends StatelessWidget {
                           builder: (_) => ChatThreadScreen(
                             conversationId: convId,
                             otherUid: target.uid,
-                            otherName: target.name ?? 'ফ্রেন্ড',
+                            otherName: target.name ?? s.friendFallback,
                             otherPhotoUrl: target.photoUrl,
                           ),
                         ),
@@ -251,15 +258,16 @@ class _SocialActions extends StatelessWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content:
-                              Text('$e', style: GoogleFonts.notoSansBengali()),
+                              Text('$e', style: appFont(context: context)),
                         ),
                       );
                     }
                   },
                   icon: const Icon(Icons.chat_rounded),
                   label: Text(
-                    'মেসেজ',
-                    style: GoogleFonts.notoSansBengali(
+                    s.message,
+                    style: appFont(
+                      context: context,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -280,8 +288,8 @@ class _SocialActions extends StatelessWidget {
                     child: OutlinedButton(
                       onPressed: null,
                       child: Text(
-                        'রিকোয়েস্ট পাঠানো হয়েছে',
-                        style: GoogleFonts.notoSansBengali(),
+                        s.requestSent,
+                        style: appFont(context: context),
                       ),
                     ),
                   );
@@ -297,8 +305,9 @@ class _SocialActions extends StatelessWidget {
                             backgroundColor: AppColors.primaryGreen,
                           ),
                           child: Text(
-                            'একসেপ্ট',
-                            style: GoogleFonts.notoSansBengali(
+                            s.acceptRequest,
+                            style: appFont(
+                              context: context,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -310,8 +319,8 @@ class _SocialActions extends StatelessWidget {
                           onPressed: () =>
                               social.rejectFriendRequest(req.id),
                           child: Text(
-                            'রিজেক্ট',
-                            style: GoogleFonts.notoSansBengali(),
+                            s.rejectRequest,
+                            style: appFont(context: context),
                           ),
                         ),
                       ),
@@ -329,8 +338,8 @@ class _SocialActions extends StatelessWidget {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text(
-                              'ফ্রেন্ড রিকোয়েস্ট পাঠানো হয়েছে',
-                              style: GoogleFonts.notoSansBengali(),
+                              s.friendRequestSentSnack,
+                              style: appFont(context: context),
                             ),
                           ),
                         );
@@ -340,7 +349,7 @@ class _SocialActions extends StatelessWidget {
                           SnackBar(
                             content: Text(
                               '$e',
-                              style: GoogleFonts.notoSansBengali(),
+                              style: appFont(context: context),
                             ),
                           ),
                         );
@@ -350,8 +359,9 @@ class _SocialActions extends StatelessWidget {
                       backgroundColor: AppColors.primaryGreen,
                     ),
                     child: Text(
-                      'ফ্রেন্ড রিকোয়েস্ট',
-                      style: GoogleFonts.notoSansBengali(
+                      s.friendRequest,
+                      style: appFont(
+                        context: context,
                         fontWeight: FontWeight.w700,
                       ),
                     ),

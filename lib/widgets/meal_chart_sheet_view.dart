@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../l10n/app_strings.dart';
 import '../models/monthly_meal_chart.dart';
 import '../theme/app_colors.dart';
-import '../utils/bn_date_format.dart';
 
 /// Excel-like scrollable meal chart sheet for in-app viewing.
 class MealChartSheetView extends StatelessWidget {
@@ -36,15 +35,17 @@ class MealChartSheetView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     final members = chart.members;
-    final title = messName != null && messName!.trim().isNotEmpty
-        ? 'মিল চার্ট — ${messName!.trim()} — ${chart.monthLabel}'
-        : 'মিল চার্ট — ${chart.monthLabel}';
+    final title = s.mealChartTitle(
+      s.monthLabel(chart.month),
+      messName: messName,
+    );
 
     return Container(
       margin: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _borderColor, width: 1.5),
         boxShadow: const [
@@ -71,10 +72,11 @@ class MealChartSheetView extends StatelessWidget {
             child: Text(
               title,
               textAlign: TextAlign.center,
-              style: GoogleFonts.notoSans(
+              style: appFont(
+                context: context,
                 fontSize: 15,
                 fontWeight: FontWeight.w800,
-                color: Colors.white,
+                color: AppColors.card,
               ),
             ),
           ),
@@ -87,9 +89,10 @@ class MealChartSheetView extends StatelessWidget {
               border: Border.all(color: _borderColor.withValues(alpha: 0.5)),
             ),
             child: Text(
-              'সকাল  ·  বিকাল  ·  রাত',
+              s.morningEveningNight,
               textAlign: TextAlign.center,
-              style: GoogleFonts.notoSans(
+              style: appFont(
+                context: context,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
                 color: _titleGreenDark,
@@ -115,12 +118,14 @@ class MealChartSheetView extends StatelessWidget {
                           child: Column(
                             children: [
                               _cell(
-                                'তারিখ',
+                                context,
+                                s.date,
                                 height: _nameRowHeight,
                                 bg: _headerYellow,
                                 bold: true,
                               ),
                               _cell(
+                                context,
                                 '',
                                 height: _bldRowHeight,
                                 bg: _headerYellow,
@@ -128,7 +133,8 @@ class MealChartSheetView extends StatelessWidget {
                               ),
                               for (var di = 0; di < chart.days.length; di++)
                                 _cell(
-                                  formatBnDayLabel(chart.days[di].day),
+                                  context,
+                                  s.formatDate(chart.days[di].day),
                                   height: _rowHeight,
                                   bg: di.isEven ? Colors.white : _zebraGray,
                                   align: TextAlign.left,
@@ -136,13 +142,15 @@ class MealChartSheetView extends StatelessWidget {
                                       const EdgeInsets.symmetric(horizontal: 8),
                                 ),
                               _cell(
-                                'মোট',
+                                context,
+                                s.total,
                                 height: _rowHeight,
                                 bg: _totalsGold,
                                 bold: true,
                               ),
                               _cell(
-                                'সর্বমোট',
+                                context,
+                                s.grandTotal,
                                 height: _rowHeight,
                                 bg: _titleGreen,
                                 bold: true,
@@ -161,6 +169,7 @@ class MealChartSheetView extends StatelessWidget {
                                   children: [
                                     for (var i = 0; i < members.length; i++)
                                       _cell(
+                                        context,
                                         members[i].name,
                                         width: _bldWidth * 3,
                                         height: _nameRowHeight,
@@ -169,7 +178,8 @@ class MealChartSheetView extends StatelessWidget {
                                         fontSize: 11,
                                       ),
                                     _cell(
-                                      'মোট মিল',
+                                      context,
+                                      s.totalMeals,
                                       width: _totalWidth,
                                       height: _nameRowHeight,
                                       bg: _totalOrangeDark,
@@ -182,7 +192,8 @@ class MealChartSheetView extends StatelessWidget {
                                   children: [
                                     for (var i = 0; i < members.length; i++) ...[
                                       _cell(
-                                        'সকাল',
+                                        context,
+                                        s.morning,
                                         width: _bldWidth,
                                         height: _bldRowHeight,
                                         bg: _memberColor(i),
@@ -190,7 +201,8 @@ class MealChartSheetView extends StatelessWidget {
                                         fontSize: 10,
                                       ),
                                       _cell(
-                                        'বিকাল',
+                                        context,
+                                        s.evening,
                                         width: _bldWidth,
                                         height: _bldRowHeight,
                                         bg: _memberColor(i),
@@ -198,7 +210,8 @@ class MealChartSheetView extends StatelessWidget {
                                         fontSize: 10,
                                       ),
                                       _cell(
-                                        'রাত',
+                                        context,
+                                        s.night,
                                         width: _bldWidth,
                                         height: _bldRowHeight,
                                         bg: _memberColor(i),
@@ -207,7 +220,8 @@ class MealChartSheetView extends StatelessWidget {
                                       ),
                                     ],
                                     _cell(
-                                      'মোট',
+                                      context,
+                                      s.total,
                                       width: _totalWidth,
                                       height: _bldRowHeight,
                                       bg: _totalOrangeDark,
@@ -234,6 +248,7 @@ class MealChartSheetView extends StatelessWidget {
                                             return Row(
                                               children: [
                                                 _cell(
+                                                  context,
                                                   MonthlyMealChart.formatQty(
                                                     bld.b,
                                                   ),
@@ -242,6 +257,7 @@ class MealChartSheetView extends StatelessWidget {
                                                   bg: bg,
                                                 ),
                                                 _cell(
+                                                  context,
                                                   MonthlyMealChart.formatQty(
                                                     bld.l,
                                                   ),
@@ -250,6 +266,7 @@ class MealChartSheetView extends StatelessWidget {
                                                   bg: bg,
                                                 ),
                                                 _cell(
+                                                  context,
                                                   MonthlyMealChart.formatQty(
                                                     bld.d,
                                                   ),
@@ -262,6 +279,7 @@ class MealChartSheetView extends StatelessWidget {
                                           }),
                                         ],
                                         _cell(
+                                          context,
                                           MonthlyMealChart.formatQty(
                                             row.dayTotal,
                                           ),
@@ -277,6 +295,7 @@ class MealChartSheetView extends StatelessWidget {
                                   children: [
                                     for (var i = 0; i < members.length; i++) ...[
                                       _cell(
+                                        context,
                                         MonthlyMealChart.formatQtyOrZero(
                                           chart.memberB[i],
                                         ),
@@ -286,6 +305,7 @@ class MealChartSheetView extends StatelessWidget {
                                         bold: true,
                                       ),
                                       _cell(
+                                        context,
                                         MonthlyMealChart.formatQtyOrZero(
                                           chart.memberL[i],
                                         ),
@@ -295,6 +315,7 @@ class MealChartSheetView extends StatelessWidget {
                                         bold: true,
                                       ),
                                       _cell(
+                                        context,
                                         MonthlyMealChart.formatQtyOrZero(
                                           chart.memberD[i],
                                         ),
@@ -305,6 +326,7 @@ class MealChartSheetView extends StatelessWidget {
                                       ),
                                     ],
                                     _cell(
+                                      context,
                                       MonthlyMealChart.formatQtyOrZero(
                                         chart.grandTotal,
                                       ),
@@ -319,6 +341,7 @@ class MealChartSheetView extends StatelessWidget {
                                   children: [
                                     for (var i = 0; i < members.length; i++)
                                       _cell(
+                                        context,
                                         MonthlyMealChart.formatQtyOrZero(
                                           chart.personTotal(i),
                                         ),
@@ -329,6 +352,7 @@ class MealChartSheetView extends StatelessWidget {
                                         textColor: Colors.white,
                                       ),
                                     _cell(
+                                      context,
                                       MonthlyMealChart.formatQtyOrZero(
                                         chart.grandTotal,
                                       ),
@@ -354,9 +378,10 @@ class MealChartSheetView extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(10, 4, 10, 10),
             child: Text(
-              'বামে স্ক্রল → মেম্বার · উপরে-নিচে → তারিখ  ·  সকাল / বিকাল / রাত',
+              s.mealChartScrollHint,
               textAlign: TextAlign.center,
-              style: GoogleFonts.notoSansBengali(
+              style: appFont(
+                context: context,
                 fontSize: 11,
                 color: AppColors.textGrey,
               ),
@@ -368,6 +393,7 @@ class MealChartSheetView extends StatelessWidget {
   }
 
   Widget _cell(
+    BuildContext context,
     String text, {
     double? width,
     required double height,
@@ -392,10 +418,11 @@ class MealChartSheetView extends StatelessWidget {
         textAlign: align,
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: GoogleFonts.notoSans(
+        style: appFont(
+          context: context,
           fontSize: fontSize,
           fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
-          color: textColor ?? const Color(0xFF212121),
+          color: textColor ?? AppColors.textDark,
         ),
       ),
     );

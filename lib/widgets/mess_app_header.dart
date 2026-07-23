@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
+import '../l10n/app_strings.dart';
 import '../theme/app_colors.dart';
 
 class MessAppHeader extends StatelessWidget {
@@ -8,79 +8,71 @@ class MessAppHeader extends StatelessWidget {
     super.key,
     this.title,
     this.subtitle,
+    this.trailing,
   });
 
   final String? title;
   final String? subtitle;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     final displayTitle = (title == null || title!.trim().isEmpty)
-        ? 'মেস ম্যানেজার'
+        ? s.appTitle
         : title!.trim();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      padding: const EdgeInsets.fromLTRB(20, 10, 12, 0),
       child: Row(
         children: [
-          const Icon(Icons.location_on, color: AppColors.primaryGreen, size: 22),
-          const SizedBox(width: 8),
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.featureGreenBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.home_work_rounded,
+              color: AppColors.primaryGreen,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
           Expanded(
-            child: subtitle == null
-                ? Text(
-                    displayTitle,
-                    style: GoogleFonts.notoSansBengali(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.darkGreen,
-                    ),
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        displayTitle,
-                        style: GoogleFonts.notoSansBengali(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.darkGreen,
-                          height: 1.2,
-                        ),
-                      ),
-                      Text(
-                        subtitle!,
-                        style: GoogleFonts.notoSansBengali(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          color: AppColors.textGrey,
-                          height: 1.3,
-                        ),
-                      ),
-                    ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: appFont(
+                    context: context,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.darkGreen,
+                    height: 1.2,
                   ),
-          ),
-          IconButton(
-            tooltip: 'নোটিফিকেশন',
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'নতুন কোনো নোটিফিকেশন নেই',
-                    style: GoogleFonts.notoSansBengali(),
-                  ),
-                  duration: const Duration(seconds: 2),
                 ),
-              );
-            },
-            icon: const Icon(
-              Icons.notifications_outlined,
-              color: AppColors.headerIcon,
-            ),
-            style: IconButton.styleFrom(
-              minimumSize: const Size(44, 44),
-              tapTargetSize: MaterialTapTargetSize.padded,
+                if (subtitle != null && subtitle!.trim().isNotEmpty)
+                  Text(
+                    subtitle!.trim(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: appFont(
+                      context: context,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: AppColors.textGrey,
+                      height: 1.3,
+                    ),
+                  ),
+              ],
             ),
           ),
+          if (trailing != null) trailing!,
         ],
       ),
     );

@@ -12,8 +12,11 @@ import '../services/mess_service.dart';
 import '../services/month_lock_service.dart';
 import '../services/user_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_theme_palette.dart';
+import '../theme/theme_controller.dart';
 import '../widgets/mess_app_header.dart';
 import '../widgets/mess_session_builder.dart' show yearMonthKey;
+import '../widgets/month_navigator.dart';
 import 'mess_bills_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -28,7 +31,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _userService = UserService();
   final _messService = MessService();
 
-  static const _avatarColors = [
+  static final _avatarColors = [
     AppColors.primaryGreen,
     Color(0xFFFFE0B2),
     Color(0xFFF8BBD0),
@@ -41,7 +44,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
-      return const Center(child: Text('লগইন নেই'));
+      final s = AppStrings.of(context);
+      return Center(
+        child: Text(s.noLogin, style: appFont(context: context)),
+      );
     }
 
     return StreamBuilder(
@@ -49,7 +55,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context, userSnap) {
         final messId = userSnap.data?.messId;
         if (messId == null || messId.isEmpty) {
-          return const Center(
+          return Center(
             child: CircularProgressIndicator(color: AppColors.primaryGreen),
           );
         }
@@ -113,11 +119,12 @@ class _MessInfoCard extends StatelessWidget {
   Future<void> _copyCode(BuildContext context, String code) async {
     await Clipboard.setData(ClipboardData(text: code));
     if (!context.mounted) return;
+    final s = AppStrings.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'মেস কোড কপি হয়েছে',
-          style: GoogleFonts.notoSansBengali(),
+          s.messCodeCopied,
+          style: appFont(context: context),
         ),
         duration: const Duration(seconds: 2),
       ),
@@ -125,17 +132,16 @@ class _MessInfoCard extends StatelessWidget {
   }
 
   Future<void> _shareCode(BuildContext context, String code, String name) async {
+    final s = AppStrings.of(context);
     await SharePlus.instance.share(
-      ShareParams(
-        text:
-            'আমাদের মেস "$name"-এ যোগ দিন।\nমেস কোড: $code\nMass Manager অ্যাপে কোড দিয়ে জয়েন করুন।',
-      ),
+      ShareParams(text: s.shareMessInvite(name, code)),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final name = mess?.name ?? 'লোড হচ্ছে...';
+    final s = AppStrings.of(context);
+    final name = mess?.name ?? s.loadingEllipsis;
     final location = mess?.location ?? '';
     final code = mess?.code ?? '------';
     final canUseCode = code != '------' && code.isNotEmpty;
@@ -143,7 +149,7 @@ class _MessInfoCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -171,7 +177,8 @@ class _MessInfoCard extends StatelessWidget {
                         children: [
                           Text(
                             name,
-                            style: GoogleFonts.notoSansBengali(
+                            style: appFont(
+                              context: context,
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
                               color: AppColors.textDark,
@@ -182,7 +189,7 @@ class _MessInfoCard extends StatelessWidget {
                             const SizedBox(height: 6),
                             Row(
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.location_on_outlined,
                                   size: 15,
                                   color: AppColors.textGrey,
@@ -191,7 +198,8 @@ class _MessInfoCard extends StatelessWidget {
                                 Flexible(
                                   child: Text(
                                     location,
-                                    style: GoogleFonts.notoSansBengali(
+                                    style: appFont(
+                                      context: context,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w400,
                                       color: AppColors.textGrey,
@@ -219,8 +227,9 @@ class _MessInfoCard extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'মেস কোড',
-                            style: GoogleFonts.notoSansBengali(
+                            s.messCode,
+                            style: appFont(
+                              context: context,
                               fontSize: 11,
                               fontWeight: FontWeight.w500,
                               color: AppColors.textGrey,
@@ -241,21 +250,21 @@ class _MessInfoCard extends StatelessWidget {
                               ),
                               if (canUseCode) ...[
                                 IconButton(
-                                  tooltip: 'কপি',
+                                  tooltip: s.copy,
                                   visualDensity: VisualDensity.compact,
                                   constraints: const BoxConstraints(
                                     minWidth: 40,
                                     minHeight: 40,
                                   ),
                                   onPressed: () => _copyCode(context, code),
-                                  icon: const Icon(
+                                  icon: Icon(
                                     Icons.copy_rounded,
                                     size: 18,
                                     color: AppColors.primaryGreen,
                                   ),
                                 ),
                                 IconButton(
-                                  tooltip: 'শেয়ার',
+                                  tooltip: s.share,
                                   visualDensity: VisualDensity.compact,
                                   constraints: const BoxConstraints(
                                     minWidth: 40,
@@ -263,7 +272,7 @@ class _MessInfoCard extends StatelessWidget {
                                   ),
                                   onPressed: () =>
                                       _shareCode(context, code, name),
-                                  icon: const Icon(
+                                  icon: Icon(
                                     Icons.share_rounded,
                                     size: 18,
                                     color: AppColors.primaryGreen,
@@ -297,23 +306,24 @@ class _SettingsTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Column(
       children: [
         Row(
           children: [
             _TabItem(
-              label: 'মেম্বার',
+              label: s.members,
               selected: index == 0,
               onTap: () => onChanged(0),
             ),
             _TabItem(
-              label: 'সেটিংস',
+              label: s.settings,
               selected: index == 1,
               onTap: () => onChanged(1),
             ),
           ],
         ),
-        const Divider(height: 1, color: AppColors.borderGrey),
+        Divider(height: 1, color: AppColors.borderGrey),
       ],
     );
   }
@@ -342,7 +352,8 @@ class _TabItem extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 12),
               child: Text(
                 label,
-                style: GoogleFonts.notoSansBengali(
+                style: appFont(
+                  context: context,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                   color: selected ? AppColors.darkGreen : AppColors.textGrey,
@@ -375,15 +386,15 @@ class _MembersTab extends StatelessWidget {
 
   void _shareCode(BuildContext context) {
     if (messCode.isEmpty) return;
-    final text =
-        'আমাদের মেসে যোগ দিন।\nমেস কোড: $messCode\nMass Manager অ্যাপে কোড দিয়ে জয়েন করুন।';
+    final s = AppStrings.of(context);
+    final text = s.shareMessInviteCode(messCode);
     SharePlus.instance.share(ShareParams(text: text));
     Clipboard.setData(ClipboardData(text: messCode));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'মেস কোড শেয়ার/কপি হয়েছে',
-          style: GoogleFonts.notoSansBengali(),
+          s.messCodeSharedCopied,
+          style: appFont(context: context),
         ),
         duration: const Duration(seconds: 2),
       ),
@@ -400,7 +411,7 @@ class _MembersTab extends StatelessWidget {
       ),
     );
     if (result == true && context.mounted) {
-      _toast(context, 'নতুন মেম্বার যোগ হয়েছে');
+      _toast(context, AppStrings.of(context).memberAdded);
     }
   }
 
@@ -410,7 +421,7 @@ class _MembersTab extends StatelessWidget {
     MessMember member,
   ) async {
     if (!member.canBeManagedBy(actor) && member.uid != actor.uid) {
-      _toast(context, 'এই মেম্বার ম্যানেজ করার অনুমতি নেই।');
+      _toast(context, AppStrings.of(context).noPermissionManageMember);
       return;
     }
 
@@ -427,93 +438,100 @@ class _MembersTab extends StatelessWidget {
 
     final action = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            Text(
-              member.name,
-              style: GoogleFonts.notoSansBengali(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            Text(
-              member.roleBnLabel,
-              style: GoogleFonts.notoSansBengali(
-                fontSize: 12,
-                color: AppColors.textGrey,
-              ),
-            ),
-            const SizedBox(height: 8),
-            if (canEditRoom)
-              ListTile(
-                leading: const Icon(Icons.meeting_room_outlined,
-                    color: AppColors.primaryGreen),
-                title: Text('রুম নম্বর সম্পাদনা',
-                    style: GoogleFonts.notoSansBengali()),
-                onTap: () => Navigator.pop(context, 'room'),
-              ),
-            if (canChangeRole)
-              ListTile(
-                leading: Icon(
-                  member.isRegularAdmin
-                      ? Icons.person_outline
-                      : Icons.admin_panel_settings_outlined,
-                  color: AppColors.primaryGreen,
+      builder: (context) {
+        final s = AppStrings.of(context);
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Text(
+                member.name,
+                style: appFont(
+                  context: context,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
                 ),
-                title: Text(
-                  member.isRegularAdmin
-                      ? 'অ্যাডমিন থেকে সরান'
-                      : 'অ্যাডমিন বানান',
-                  style: GoogleFonts.notoSansBengali(),
+              ),
+              Text(
+                member.roleLabel(bn: s.isBengali),
+                style: appFont(
+                  context: context,
+                  fontSize: 12,
+                  color: AppColors.textGrey,
                 ),
-                subtitle: Text(
-                  'শুধু সুপার অ্যাডমিন করতে পারে',
-                  style: GoogleFonts.notoSansBengali(
-                    fontSize: 11,
-                    color: AppColors.textGrey,
+              ),
+              const SizedBox(height: 8),
+              if (canEditRoom)
+                ListTile(
+                  leading: Icon(Icons.meeting_room_outlined,
+                      color: AppColors.primaryGreen),
+                  title: Text(s.editRoomNumber,
+                      style: appFont(context: context)),
+                  onTap: () => Navigator.pop(context, 'room'),
+                ),
+              if (canChangeRole)
+                ListTile(
+                  leading: Icon(
+                    member.isRegularAdmin
+                        ? Icons.person_outline
+                        : Icons.admin_panel_settings_outlined,
+                    color: AppColors.primaryGreen,
                   ),
-                ),
-                onTap: () => Navigator.pop(context, 'role'),
-              ),
-            if (canTransfer)
-              ListTile(
-                leading: const Icon(Icons.swap_horiz_rounded,
-                    color: AppColors.darkGreen),
-                title: Text(
-                  'সুপার অ্যাডমিন হস্তান্তর',
-                  style: GoogleFonts.notoSansBengali(),
-                ),
-                subtitle: Text(
-                  'মেসের মালিকানা এঁকে দিবেন',
-                  style: GoogleFonts.notoSansBengali(
-                    fontSize: 11,
-                    color: AppColors.textGrey,
+                  title: Text(
+                    member.isRegularAdmin ? s.removeAsAdmin : s.makeAdmin,
+                    style: appFont(context: context),
                   ),
+                  subtitle: Text(
+                    s.onlySuperAdminCan,
+                    style: appFont(
+                      context: context,
+                      fontSize: 11,
+                      color: AppColors.textGrey,
+                    ),
+                  ),
+                  onTap: () => Navigator.pop(context, 'role'),
                 ),
-                onTap: () => Navigator.pop(context, 'transfer'),
-              ),
-            if (canRemove)
-              ListTile(
-                leading: const Icon(Icons.person_remove_outlined,
-                    color: Color(0xFFC62828)),
-                title: Text(
-                  'মেস থেকে রিমুভ',
-                  style: GoogleFonts.notoSansBengali(
-                      color: const Color(0xFFC62828)),
+              if (canTransfer)
+                ListTile(
+                  leading: Icon(Icons.swap_horiz_rounded,
+                      color: AppColors.darkGreen),
+                  title: Text(
+                    s.transferSuperAdmin,
+                    style: appFont(context: context),
+                  ),
+                  subtitle: Text(
+                    s.transferOwnershipHint,
+                    style: appFont(
+                      context: context,
+                      fontSize: 11,
+                      color: AppColors.textGrey,
+                    ),
+                  ),
+                  onTap: () => Navigator.pop(context, 'transfer'),
                 ),
-                onTap: () => Navigator.pop(context, 'remove'),
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
+              if (canRemove)
+                ListTile(
+                  leading: const Icon(Icons.person_remove_outlined,
+                      color: Color(0xFFC62828)),
+                  title: Text(
+                    s.removeFromMess,
+                    style: appFont(
+                      context: context,
+                      color: const Color(0xFFC62828),
+                    ),
+                  ),
+                  onTap: () => Navigator.pop(context, 'remove'),
+                ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
     );
 
     if (action == null || !context.mounted) return;
@@ -537,34 +555,38 @@ class _MembersTab extends StatelessWidget {
     final makeAdmin = !member.isRegularAdmin;
     final ok = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          makeAdmin ? 'অ্যাডমিন বানাবেন?' : 'অ্যাডমিন থেকে সরাবেন?',
-          style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
-        ),
-        content: Text(
-          makeAdmin
-              ? '${member.name} কে অ্যাডমিন করা হবে। অ্যাডমিন মেম্বার ম্যানেজ করতে পারবে, কিন্তু সুপার অ্যাডমিনের রোল বদলাতে পারবে না।'
-              : '${member.name} কে সাধারণ মেম্বার করা হবে।',
-          style: GoogleFonts.notoSansBengali(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('বাতিল', style: GoogleFonts.notoSansBengali()),
+      builder: (context) {
+        final s = AppStrings.of(context);
+        return AlertDialog(
+          title: Text(
+            makeAdmin ? s.makeAdminConfirmTitle : s.removeAdminConfirmTitle,
+            style: appFont(context: context, fontWeight: FontWeight.w700),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              makeAdmin ? 'অ্যাডমিন বানান' : 'সরান',
-              style: GoogleFonts.notoSansBengali(
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryGreen,
+          content: Text(
+            makeAdmin
+                ? s.makeAdminConfirmBody(member.name)
+                : s.demoteToMemberBody(member.name),
+            style: appFont(context: context),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(s.cancel, style: appFont(context: context)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(
+                makeAdmin ? s.makeAdmin : s.removeRoleAction,
+                style: appFont(
+                  context: context,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryGreen,
+                ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
     if (ok != true || !context.mounted) return;
     await messService.setMemberRole(
@@ -573,7 +595,11 @@ class _MembersTab extends StatelessWidget {
       makeAdmin: makeAdmin,
     );
     if (context.mounted) {
-      _toast(context, makeAdmin ? 'অ্যাডমিন করা হয়েছে' : 'অ্যাডমিন সরানো হয়েছে');
+      final s = AppStrings.of(context);
+      _toast(
+        context,
+        makeAdmin ? s.adminMadeSuccess : s.adminRemovedSuccess,
+      );
     }
   }
 
@@ -583,33 +609,36 @@ class _MembersTab extends StatelessWidget {
   ) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          'সুপার অ্যাডমিন হস্তান্তর?',
-          style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
-        ),
-        content: Text(
-          '${member.name} সুপার অ্যাডমিন হবেন। আপনি অ্যাডমিন হয়ে যাবেন। '
-          'এই কাজ পরে আর উল্টানো যায় না সহজে।',
-          style: GoogleFonts.notoSansBengali(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('বাতিল', style: GoogleFonts.notoSansBengali()),
+      builder: (context) {
+        final s = AppStrings.of(context);
+        return AlertDialog(
+          title: Text(
+            s.transferSuperAdminTitle,
+            style: appFont(context: context, fontWeight: FontWeight.w700),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(
-              'হস্তান্তর করুন',
-              style: GoogleFonts.notoSansBengali(
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFFC62828),
+          content: Text(
+            s.transferSuperAdminBody(member.name),
+            style: appFont(context: context),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(s.cancel, style: appFont(context: context)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(
+                s.transferAction,
+                style: appFont(
+                  context: context,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFC62828),
+                ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
     if (ok != true || !context.mounted) return;
     await messService.transferSuperAdmin(
@@ -617,7 +646,7 @@ class _MembersTab extends StatelessWidget {
       newSuperAdminUid: member.uid,
     );
     if (context.mounted) {
-      _toast(context, 'সুপার অ্যাডমিন হস্তান্তর হয়েছে');
+      _toast(context, AppStrings.of(context).transferSuccess);
     }
   }
 
@@ -625,34 +654,39 @@ class _MembersTab extends StatelessWidget {
     final controller = TextEditingController(text: member.room ?? '');
     final room = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('রুম নম্বর',
-            style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700)),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: GoogleFonts.notoSansBengali(),
-          decoration: InputDecoration(
-            hintText: 'যেমন: A-১',
-            hintStyle: GoogleFonts.notoSansBengali(),
-            border:
-                OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+      builder: (context) {
+        final s = AppStrings.of(context);
+        return AlertDialog(
+          title: Text(s.roomNumber,
+              style: appFont(context: context, fontWeight: FontWeight.w700)),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            style: appFont(context: context),
+            decoration: InputDecoration(
+              hintText: s.roomHint,
+              hintStyle: appFont(context: context),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('বাতিল', style: GoogleFonts.notoSansBengali()),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: Text('সেভ',
-                style: GoogleFonts.notoSansBengali(
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(s.cancel, style: appFont(context: context)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, controller.text.trim()),
+              child: Text(s.save,
+                  style: appFont(
+                    context: context,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.primaryGreen)),
-          ),
-        ],
-      ),
+                    color: AppColors.primaryGreen,
+                  )),
+            ),
+          ],
+        );
+      },
     );
     if (room == null || !context.mounted) return;
     await messService.updateMemberRoom(
@@ -660,42 +694,51 @@ class _MembersTab extends StatelessWidget {
       uid: member.uid,
       room: room,
     );
-    if (context.mounted) _toast(context, 'রুম হালনাগাদ হয়েছে');
+    if (context.mounted) {
+      _toast(context, AppStrings.of(context).roomUpdated);
+    }
   }
 
   Future<void> _confirmRemove(BuildContext context, MessMember member) async {
     final ok = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('মেম্বার রিমুভ?',
-            style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700)),
-        content: Text(
-          '${member.name} কে মেস থেকে রিমুভ করা হবে।',
-          style: GoogleFonts.notoSansBengali(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('না', style: GoogleFonts.notoSansBengali()),
+      builder: (context) {
+        final s = AppStrings.of(context);
+        return AlertDialog(
+          title: Text(s.removeMemberTitle,
+              style: appFont(context: context, fontWeight: FontWeight.w700)),
+          content: Text(
+            s.removeMemberBody(member.name),
+            style: appFont(context: context),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('রিমুভ',
-                style: GoogleFonts.notoSansBengali(
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(s.no, style: appFont(context: context)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(s.removeAction,
+                  style: appFont(
+                    context: context,
                     color: const Color(0xFFC62828),
-                    fontWeight: FontWeight.w600)),
-          ),
-        ],
-      ),
+                    fontWeight: FontWeight.w600,
+                  )),
+            ),
+          ],
+        );
+      },
     );
     if (ok != true || !context.mounted) return;
     await messService.removeMember(messId: messId, uid: member.uid);
-    if (context.mounted) _toast(context, 'মেম্বার রিমুভ হয়েছে');
+    if (context.mounted) {
+      _toast(context, AppStrings.of(context).memberRemoved);
+    }
   }
 
   void _toast(BuildContext context, String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg, style: GoogleFonts.notoSansBengali())),
+      SnackBar(content: Text(msg, style: appFont(context: context))),
     );
   }
 
@@ -706,7 +749,7 @@ class _MembersTab extends StatelessWidget {
       stream: messService.watchMembers(messId),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting && !snap.hasData) {
-          return const Padding(
+          return Padding(
             padding: EdgeInsets.all(40),
             child: Center(
               child: CircularProgressIndicator(color: AppColors.primaryGreen),
@@ -749,11 +792,11 @@ class _MembersTab extends StatelessWidget {
                           Container(
                             width: 64,
                             height: 64,
-                            decoration: const BoxDecoration(
+                            decoration: BoxDecoration(
                               color: AppColors.featureGreenBg,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.group_outlined,
                               size: 32,
                               color: AppColors.primaryGreen,
@@ -761,8 +804,9 @@ class _MembersTab extends StatelessWidget {
                           ),
                           const SizedBox(height: 14),
                           Text(
-                            'এখনো কোনো মেম্বার নেই',
-                            style: GoogleFonts.notoSansBengali(
+                            AppStrings.of(context).noMembersYet,
+                            style: appFont(
+                              context: context,
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textDark,
@@ -770,9 +814,10 @@ class _MembersTab extends StatelessWidget {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'কোড শেয়ার করে বা নতুন অ্যাকাউন্ট তৈরি করে যোগ করুন',
+                            AppStrings.of(context).noMembersHint,
                             textAlign: TextAlign.center,
-                            style: GoogleFonts.notoSansBengali(
+                            style: appFont(
+                              context: context,
                               fontSize: 13,
                               color: AppColors.textGrey,
                               height: 1.4,
@@ -800,8 +845,13 @@ class _MembersTab extends StatelessWidget {
                         padding: const EdgeInsets.only(bottom: 10),
                         child: _MemberCard(
                           letter: letter,
-                          name: m.name + (m.uid == myUid ? ' (আপনি)' : ''),
-                          room: m.room?.isNotEmpty == true ? m.room! : 'রুম —',
+                          name: m.name +
+                              (m.uid == myUid
+                                  ? ' (${AppStrings.of(context).you})'
+                                  : ''),
+                          room: m.room?.isNotEmpty == true
+                              ? m.room!
+                              : AppStrings.of(context).roomEmpty,
                           authProvider: providers[m.uid] ??
                               UserService.resolveLoginStatus(
                                 authProvider: m.authProvider,
@@ -840,7 +890,7 @@ class _MembersTab extends StatelessWidget {
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(
+                            Icon(
                               Icons.info_outline_rounded,
                               size: 18,
                               color: AppColors.primaryGreen,
@@ -849,9 +899,10 @@ class _MembersTab extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 me.isSuperAdmin
-                                    ? 'সুপার অ্যাডমিন: ইমেইল দিয়ে মেম্বার যোগ করতে পারেন, অ্যাডমিন বানাতে পারেন ও মেম্বার ম্যানেজ করতে পারেন।'
-                                    : 'অ্যাডমিন: শুধু সাধারণ মেম্বার ম্যানেজ করতে পারবেন। সুপার অ্যাডমিনের রোল বদলানো যায় না।',
-                                style: GoogleFonts.notoSansBengali(
+                                    ? AppStrings.of(context).superAdminManageHint
+                                    : AppStrings.of(context).adminManageHint,
+                                style: appFont(
+                                  context: context,
                                   fontSize: 12,
                                   height: 1.45,
                                   color: AppColors.textDark,
@@ -902,7 +953,7 @@ class _MemberCard extends StatelessWidget {
         : AppColors.primaryGreen;
     final isGoogle = authProvider == 'google';
     return Material(
-      color: Colors.white,
+      color: AppColors.card,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
@@ -910,7 +961,7 @@ class _MemberCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.card,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppColors.borderGrey.withValues(alpha: 0.9)),
             boxShadow: [
@@ -928,7 +979,8 @@ class _MemberCard extends StatelessWidget {
                 backgroundColor: color,
                 child: Text(
                   letter,
-                  style: GoogleFonts.notoSansBengali(
+                  style: appFont(
+                    context: context,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                     color: textColor,
@@ -945,7 +997,8 @@ class _MemberCard extends StatelessWidget {
                         Flexible(
                           child: Text(
                             name,
-                            style: GoogleFonts.notoSansBengali(
+                            style: appFont(
+                              context: context,
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
                               color: AppColors.textDark,
@@ -965,11 +1018,12 @@ class _MemberCard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
-                              member.roleBnLabel,
-                              style: GoogleFonts.notoSansBengali(
+                              member.roleLabel(bn: AppStrings.of(context).isBengali),
+                              style: appFont(
+                                context: context,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                                color: AppColors.card,
                               ),
                             ),
                           ),
@@ -979,7 +1033,8 @@ class _MemberCard extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       room,
-                      style: GoogleFonts.notoSansBengali(
+                      style: appFont(
+                        context: context,
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
                         color: AppColors.textGrey,
@@ -1011,8 +1066,11 @@ class _MemberCard extends StatelessWidget {
                           ),
                           SizedBox(width: isGoogle ? 0 : 4),
                           Text(
-                            isGoogle ? 'Google লগইন' : 'ইমেইল লগইন',
-                            style: GoogleFonts.notoSansBengali(
+                            isGoogle
+                                ? AppStrings.of(context).googleLogin
+                                : AppStrings.of(context).emailLoginTitle,
+                            style: appFont(
+                              context: context,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: isGoogle
@@ -1066,11 +1124,12 @@ class _AddMemberButton extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                'মেম্বার যোগ করুন',
-                style: GoogleFonts.notoSansBengali(
+                AppStrings.of(context).addMember,
+                style: appFont(
+                  context: context,
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: AppColors.card,
                 ),
               ),
             ],
@@ -1126,7 +1185,7 @@ class _AddMemberDialogState extends State<_AddMemberDialog> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(e.message, style: GoogleFonts.notoSansBengali()),
+          content: Text(e.message, style: appFont(context: context)),
         ),
       );
     } finally {
@@ -1136,10 +1195,11 @@ class _AddMemberDialogState extends State<_AddMemberDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return AlertDialog(
       title: Text(
-        'নতুন মেম্বার যোগ',
-        style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
+        s.addNewMemberTitle,
+        style: appFont(context: context, fontWeight: FontWeight.w700),
       ),
       content: Form(
         key: _formKey,
@@ -1149,8 +1209,9 @@ class _AddMemberDialogState extends State<_AddMemberDialog> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'ইমেইল ও পাসওয়ার্ড দিয়ে নতুন অ্যাকাউন্ট তৈরি হবে এবং এই মেসে যোগ হবে।',
-                style: GoogleFonts.notoSansBengali(
+                s.addMemberHint,
+                style: appFont(
+                  context: context,
                   fontSize: 13,
                   color: AppColors.textGrey,
                   height: 1.4,
@@ -1162,15 +1223,15 @@ class _AddMemberDialogState extends State<_AddMemberDialog> {
                 enabled: !_loading,
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
-                  labelText: 'নাম',
-                  labelStyle: GoogleFonts.notoSansBengali(),
+                  labelText: s.name,
+                  labelStyle: appFont(context: context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                style: GoogleFonts.notoSansBengali(),
+                style: appFont(context: context),
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'নাম দিন';
+                  if (v == null || v.trim().isEmpty) return s.nameRequired;
                   return null;
                 },
               ),
@@ -1181,8 +1242,8 @@ class _AddMemberDialogState extends State<_AddMemberDialog> {
                 keyboardType: TextInputType.emailAddress,
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
-                  labelText: 'ইমেইল',
-                  labelStyle: GoogleFonts.notoSansBengali(),
+                  labelText: s.email,
+                  labelStyle: appFont(context: context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -1190,8 +1251,8 @@ class _AddMemberDialogState extends State<_AddMemberDialog> {
                 style: GoogleFonts.inter(),
                 validator: (v) {
                   final value = v?.trim() ?? '';
-                  if (value.isEmpty) return 'ইমেইল দিন';
-                  if (!value.contains('@')) return 'সঠিক ইমেইল দিন';
+                  if (value.isEmpty) return s.emailRequired;
+                  if (!value.contains('@')) return s.emailInvalid;
                   return null;
                 },
               ),
@@ -1203,8 +1264,8 @@ class _AddMemberDialogState extends State<_AddMemberDialog> {
                 textInputAction: TextInputAction.done,
                 onFieldSubmitted: (_) => _loading ? null : _submit(),
                 decoration: InputDecoration(
-                  labelText: 'পাসওয়ার্ড',
-                  labelStyle: GoogleFonts.notoSansBengali(),
+                  labelText: s.password,
+                  labelStyle: appFont(context: context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -1224,7 +1285,7 @@ class _AddMemberDialogState extends State<_AddMemberDialog> {
                 style: GoogleFonts.inter(),
                 validator: (v) {
                   if (v == null || v.length < 6) {
-                    return 'কমপক্ষে ৬ অক্ষরের পাসওয়ার্ড দিন';
+                    return s.passwordMinLengthShort;
                   }
                   return null;
                 },
@@ -1236,7 +1297,7 @@ class _AddMemberDialogState extends State<_AddMemberDialog> {
       actions: [
         TextButton(
           onPressed: _loading ? null : () => Navigator.of(context).pop(false),
-          child: Text('বাতিল', style: GoogleFonts.notoSansBengali()),
+          child: Text(s.cancel, style: appFont(context: context)),
         ),
         FilledButton(
           onPressed: _loading ? null : _submit,
@@ -1253,8 +1314,9 @@ class _AddMemberDialogState extends State<_AddMemberDialog> {
                   ),
                 )
               : Text(
-                  'যোগ করুন',
-                  style: GoogleFonts.notoSansBengali(
+                  s.add,
+                  style: appFont(
+                    context: context,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -1286,15 +1348,16 @@ class _InviteMemberButton extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(
+                Icon(
                   Icons.ios_share_rounded,
                   color: AppColors.primaryGreen,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  'মেস কোড শেয়ার করুন',
-                  style: GoogleFonts.notoSansBengali(
+                  AppStrings.of(context).shareMessCode,
+                  style: appFont(
+                    context: context,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.primaryGreen,
@@ -1360,23 +1423,216 @@ class _SettingsTabContent extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(title,
-            style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700)),
+            style: appFont(context: context, fontWeight: FontWeight.w700)),
         content: SingleChildScrollView(
           child: Text(
             body,
-            style: GoogleFonts.notoSansBengali(fontSize: 14, height: 1.5),
+            style: appFont(context: context, fontSize: 14, height: 1.5),
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(s.close,
-                style: GoogleFonts.notoSansBengali(
+                style: appFont(
+                    context: context,
                     fontWeight: FontWeight.w600,
                     color: AppColors.primaryGreen)),
           ),
         ],
       ),
+    );
+  }
+
+  Future<void> _showThemePicker(BuildContext context) async {
+    final s = AppStrings.of(context);
+    final theme = ThemeScope.maybeOf(context);
+    if (theme == null) return;
+
+    const customSwatches = <Color>[
+      Color(0xFF2E7D32),
+      Color(0xFF1976D2),
+      Color(0xFF00897B),
+      Color(0xFFEF6C00),
+      Color(0xFF3949AB),
+      Color(0xFFC62828),
+      Color(0xFF6A1B9A),
+      Color(0xFF00838F),
+      Color(0xFF5D4037),
+      Color(0xFF455A64),
+      Color(0xFFAD1457),
+      Color(0xFF558B2F),
+    ];
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.borderGrey,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    s.chooseTheme,
+                    style: appFont(
+                      context: ctx,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    s.appThemeTapHint,
+                    style: appFont(
+                      context: ctx,
+                      fontSize: 12,
+                      color: AppColors.textGrey,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    s.pickThemeColor,
+                    style: appFont(
+                      context: ctx,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      for (final color in customSwatches)
+                        GestureDetector(
+                          onTap: () async {
+                            await theme.setCustomColor(color);
+                            if (!ctx.mounted) return;
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  s.themeApplied,
+                                  style: appFont(context: context),
+                                ),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: color,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: theme.themeId == AppThemeId.custom &&
+                                        theme.customPrimary.toARGB32() ==
+                                            color.toARGB32()
+                                    ? AppColors.textDark
+                                    : Colors.transparent,
+                                width: 2.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: color.withValues(alpha: 0.35),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: theme.themeId == AppThemeId.custom &&
+                                    theme.customPrimary.toARGB32() ==
+                                        color.toARGB32()
+                                ? const Icon(Icons.check_rounded,
+                                    color: Colors.white, size: 18)
+                                : null,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(
+                      s.darkMode,
+                      style: appFont(
+                        context: ctx,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    value: theme.isDark,
+                    activeThumbColor: AppColors.primaryGreen,
+                    onChanged: (v) async {
+                      if (theme.themeId == AppThemeId.custom) {
+                        await theme.setCustomDark(v);
+                      } else if (v) {
+                        await theme.setTheme(AppThemeId.midnight);
+                      } else {
+                        await theme.setTheme(AppThemeId.forest);
+                      }
+                      if (!ctx.mounted) return;
+                      Navigator.pop(ctx);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            s.themeApplied,
+                            style: appFont(context: context),
+                          ),
+                          duration: const Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  for (final palette in AppThemePalette.all) ...[
+                    _ThemeOptionTile(
+                      palette: palette,
+                      selected: theme.themeId == palette.id,
+                      title: s.themeName(palette.id.name),
+                      onTap: () async {
+                        await theme.setTheme(palette.id);
+                        if (!ctx.mounted) return;
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              s.themeApplied,
+                              style: appFont(context: context),
+                            ),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1386,20 +1642,21 @@ class _SettingsTabContent extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(s.leaveMess,
-            style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700)),
+            style: appFont(context: context, fontWeight: FontWeight.w700)),
         content: Text(
-          'আপনি এই মেস থেকে বের হয়ে যাবেন। পরে আবার কোড দিয়ে যোগ দিতে পারবেন।',
-          style: GoogleFonts.notoSansBengali(),
+          s.leaveMessConfirmBody,
+          style: appFont(context: context),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: Text(s.cancel, style: GoogleFonts.notoSansBengali()),
+            child: Text(s.cancel, style: appFont(context: context)),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             child: Text(s.leaveMess,
-                style: GoogleFonts.notoSansBengali(
+                style: appFont(
+                    context: context,
                     color: const Color(0xFFC62828),
                     fontWeight: FontWeight.w600)),
           ),
@@ -1413,12 +1670,12 @@ class _SettingsTabContent extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
             content:
-                Text('মেস ছেড়ে দেওয়া হয়েছে', style: GoogleFonts.notoSansBengali())),
+                Text(s.leftMessSuccess, style: appFont(context: context))),
       );
     } on MessException catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message, style: GoogleFonts.notoSansBengali())),
+        SnackBar(content: Text(e.message, style: appFont(context: context))),
       );
     }
   }
@@ -1427,10 +1684,45 @@ class _SettingsTabContent extends StatelessWidget {
     required BuildContext context,
     required bool currentlyLocked,
     required String yearMonth,
+    required String monthLabel,
   }) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     final s = AppStrings.of(context);
+
+    if (!currentlyLocked) {
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(
+            s.closeMonthTitle,
+            style: appFont(context: context, fontWeight: FontWeight.w700),
+          ),
+          content: Text(
+            '$monthLabel\n\n${s.closeMonthConfirm}',
+            style: appFont(context: context, height: 1.45, fontSize: 14),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(s.cancel, style: appFont(context: context)),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.monthRed,
+              ),
+              child: Text(
+                s.closeMonthAction,
+                style: appFont(context: context, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      );
+      if (ok != true || !context.mounted) return;
+    }
+
     try {
       await MonthLockService().setLocked(
         messId: messId,
@@ -1442,8 +1734,8 @@ class _SettingsTabContent extends StatelessWidget {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            currentlyLocked ? s.unlockMonth : s.lockMonth,
-            style: GoogleFonts.notoSansBengali(),
+            currentlyLocked ? s.monthUnlockedSuccess : s.monthClosedSuccess,
+            style: appFont(context: context),
           ),
         ),
       );
@@ -1451,7 +1743,7 @@ class _SettingsTabContent extends StatelessWidget {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('$e', style: GoogleFonts.notoSansBengali()),
+          content: Text('$e', style: appFont(context: context)),
         ),
       );
     }
@@ -1461,22 +1753,38 @@ class _SettingsTabContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
     final locale = LocaleScope.maybeOf(context);
-    final yearMonth = yearMonthKey(DateTime.now());
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         children: [
-          if (locale != null)
-            _SettingsTile(
-              icon: Icons.translate_rounded,
-              title: s.language,
-              subtitle: locale.isBengali ? s.languageBn : s.languageEn,
-              onTap: () async {
-                await locale.toggle();
-              },
-            ),
+          if (locale != null) ...[
+            _LanguageSwitcherCard(locale: locale),
+            const SizedBox(height: 10),
+          ],
+          Builder(
+            builder: (context) {
+              final theme = ThemeScope.maybeOf(context);
+              if (theme == null) return const SizedBox.shrink();
+              return _SettingsTile(
+                icon: Icons.palette_outlined,
+                title: s.appTheme,
+                subtitle:
+                    '${s.themeName(theme.themeId.name)} · ${s.appThemeTapHint}',
+                trailing: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: theme.palette.preview,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.borderGrey),
+                  ),
+                ),
+                onTap: () => _showThemePicker(context),
+              );
+            },
+          ),
           _SettingsTile(
             icon: Icons.receipt_long_outlined,
             title: s.monthlyBills,
@@ -1494,21 +1802,19 @@ class _SettingsTabContent extends StatelessWidget {
               final me = members.where((m) => m.uid == uid);
               final isAdmin = me.isNotEmpty && me.first.isAdmin;
               if (!isAdmin) return const SizedBox.shrink();
-              return StreamBuilder<bool>(
-                stream: MonthLockService().watchLocked(messId, yearMonth),
-                builder: (context, lockSnap) {
-                  final locked = lockSnap.data ?? false;
-                  return _SettingsTile(
-                    icon: locked ? Icons.lock_rounded : Icons.lock_open_rounded,
-                    title: locked ? s.unlockMonth : s.lockMonth,
-                    subtitle: locked ? s.monthLocked : s.monthLockedHint,
-                    onTap: () => _toggleMonthLock(
+              return _MonthClosePanel(
+                messId: messId,
+                onToggle: ({
+                  required bool currentlyLocked,
+                  required String yearMonth,
+                  required String monthLabel,
+                }) =>
+                    _toggleMonthLock(
                       context: context,
-                      currentlyLocked: locked,
+                      currentlyLocked: currentlyLocked,
                       yearMonth: yearMonth,
+                      monthLabel: monthLabel,
                     ),
-                  );
-                },
               );
             },
           ),
@@ -1519,7 +1825,7 @@ class _SettingsTabContent extends StatelessWidget {
             onTap: () => _showInfo(
               context,
               s.notifications,
-              'মিল/বাজার অনুমোদন ও বিল যোগ হলে নোটিফিকেশন পাবেন। ডিভাইস পারমিশন চালু রাখুন।',
+              s.notificationsInfoBody,
             ),
           ),
           _SettingsTile(
@@ -1528,7 +1834,7 @@ class _SettingsTabContent extends StatelessWidget {
             onTap: () => _showInfo(
               context,
               s.privacy,
-              'আপনার তথ্য শুধুমাত্র আপনার মেসের হিসাব পরিচালনার জন্য ব্যবহৃত হয়। মেসের ডেটা শুধু মেসের মেম্বাররাই দেখতে পারে। আমরা কোনো তথ্য তৃতীয় পক্ষের কাছে বিক্রি করি না।',
+              s.privacyInfoBody,
             ),
           ),
           _SettingsTile(
@@ -1537,21 +1843,17 @@ class _SettingsTabContent extends StatelessWidget {
             onTap: () => _showInfo(
               context,
               s.help,
-              '• মিল: প্রতিদিন সকাল/বিকাল/রাতের মিল যোগ করুন।\n'
-                  '• বাজার: বাজার এন্ট্রি দিন — অ্যাডমিন অনুমোদন করবে।\n'
-                  '• রিপোর্ট: মাসিক/দৈনিক হিসাব দেখুন।\n'
-                  '• মাসিক বিল: অ্যাডমিন বিল যোগ করে মাস শেষে PDF এক্সপোর্ট করতে পারে।\n'
-                  '• মেম্বার যোগ: সুপার অ্যাডমিন ইমেইল/পাসওয়ার্ড দিয়ে অ্যাকাউন্ট তৈরি করতে পারে, অথবা মেস কোড শেয়ার করুন।',
+              s.helpInfoBody,
             ),
           ),
           _SettingsTile(
             icon: Icons.info_outline,
             title: s.about,
-            subtitle: 'মেস ম্যানেজার · সংস্করণ ১.০.০',
+            subtitle: s.aboutSubtitle,
             onTap: () => _showInfo(
               context,
               s.appTitle,
-              'সংস্করণ ১.০.০\n\nমেস/হোস্টেলের মিল, বাজার, বিল ও মাসিক হিসাব সহজে পরিচালনার অ্যাপ। সব মেম্বারের হিসাব এক জায়গায়, স্বচ্ছভাবে।',
+              s.aboutBody,
             ),
           ),
           const SizedBox(height: 6),
@@ -1568,45 +1870,175 @@ class _SettingsTabContent extends StatelessWidget {
   }
 }
 
+class _MonthClosePanel extends StatefulWidget {
+  const _MonthClosePanel({
+    required this.messId,
+    required this.onToggle,
+  });
+
+  final String messId;
+  final Future<void> Function({
+    required bool currentlyLocked,
+    required String yearMonth,
+    required String monthLabel,
+  }) onToggle;
+
+  @override
+  State<_MonthClosePanel> createState() => _MonthClosePanelState();
+}
+
+class _MonthClosePanelState extends State<_MonthClosePanel> {
+  late DateTime _month;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _month = DateTime(now.year, now.month);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+    final ym = yearMonthKey(_month);
+    final label = s.monthLabel(_month);
+
+    return StreamBuilder<bool>(
+      stream: MonthLockService().watchLocked(widget.messId, ym),
+      builder: (context, lockSnap) {
+        final locked = lockSnap.data ?? false;
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.borderGrey),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    locked ? Icons.lock_rounded : Icons.lock_open_rounded,
+                    color: locked ? AppColors.monthRed : AppColors.primaryGreen,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      locked ? s.monthLocked : s.lockMonth,
+                      style: appFont(
+                        context: context,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                s.monthLockedHint,
+                style: appFont(
+                  context: context,
+                  fontSize: 12,
+                  height: 1.4,
+                  color: AppColors.textGrey,
+                ),
+              ),
+              const SizedBox(height: 10),
+              MonthNavigator(
+                month: _month,
+                locked: locked,
+                margin: EdgeInsets.zero,
+                onChanged: (m) => setState(() {
+                  _month = DateTime(m.year, m.month);
+                }),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 46,
+                child: FilledButton.icon(
+                  onPressed: () => widget.onToggle(
+                    currentlyLocked: locked,
+                    yearMonth: ym,
+                    monthLabel: label,
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor:
+                        locked ? AppColors.primaryGreen : AppColors.monthRed,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  icon: Icon(
+                    locked ? Icons.lock_open_rounded : Icons.lock_rounded,
+                    size: 18,
+                  ),
+                  label: Text(
+                    locked ? s.unlockMonth : s.closeMonthAction,
+                    style: appFont(
+                      context: context,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _LogoutTile extends StatelessWidget {
   const _LogoutTile();
 
   @override
   Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
     return Material(
-      color: Colors.white,
+      color: AppColors.card,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: () async {
           final confirmed = await showDialog<bool>(
             context: context,
-            builder: (context) => AlertDialog(
-              title: Text(
-                'লগআউট',
-                style: GoogleFonts.notoSansBengali(fontWeight: FontWeight.w700),
-              ),
-              content: Text(
-                'আপনি কি লগআউট করতে চান?',
-                style: GoogleFonts.notoSansBengali(),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false),
-                  child: Text('না', style: GoogleFonts.notoSansBengali()),
+            builder: (context) {
+              final ds = AppStrings.of(context);
+              return AlertDialog(
+                title: Text(
+                  ds.logout,
+                  style: appFont(context: context, fontWeight: FontWeight.w700),
                 ),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: Text(
-                    'হ্যাঁ, লগআউট',
-                    style: GoogleFonts.notoSansBengali(
-                      color: const Color(0xFFC62828),
-                      fontWeight: FontWeight.w600,
+                content: Text(
+                  ds.logoutConfirm,
+                  style: appFont(context: context),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: Text(ds.no, style: appFont(context: context)),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: Text(
+                      ds.yesLogout,
+                      style: appFont(
+                        context: context,
+                        color: const Color(0xFFC62828),
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              );
+            },
           );
           if (confirmed != true) return;
 
@@ -1617,8 +2049,8 @@ class _LogoutTile extends StatelessWidget {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(
-                  'লগআউট ব্যর্থ হয়েছে। আবার চেষ্টা করুন।',
-                  style: GoogleFonts.notoSansBengali(),
+                  AppStrings.of(context).logoutFailed,
+                  style: appFont(context: context),
                 ),
               ),
             );
@@ -1638,8 +2070,9 @@ class _LogoutTile extends StatelessWidget {
               const Icon(Icons.logout_rounded, color: Color(0xFFC62828), size: 22),
               const SizedBox(width: 10),
               Text(
-                'লগআউট',
-                style: GoogleFonts.notoSansBengali(
+                s.logout,
+                style: appFont(
+                  context: context,
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
                   color: const Color(0xFFC62828),
@@ -1653,6 +2086,260 @@ class _LogoutTile extends StatelessWidget {
   }
 }
 
+class _ThemeOptionTile extends StatelessWidget {
+  const _ThemeOptionTile({
+    required this.palette,
+    required this.selected,
+    required this.title,
+    required this.onTap,
+  });
+
+  final AppThemePalette palette;
+  final bool selected;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+    return Material(
+      color: selected
+          ? palette.primary.withValues(alpha: 0.12)
+          : AppColors.inputBackground,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? palette.primary : AppColors.borderGrey,
+              width: selected ? 1.6 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: palette.primary,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: palette.primary.withValues(alpha: 0.35),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: selected
+                    ? const Icon(Icons.check_rounded,
+                        color: Colors.white, size: 22)
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: appFont(
+                        context: context,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textDark,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        _MiniSwatch(
+                            color: palette.primary, label: s.themePreviewPrimary),
+                        const SizedBox(width: 8),
+                        _MiniSwatch(
+                            color: palette.textDark, label: s.themePreviewText),
+                        const SizedBox(width: 8),
+                        _MiniSwatch(
+                            color: palette.pageBackground,
+                            label: s.themePreviewBg,
+                            bordered: true),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniSwatch extends StatelessWidget {
+  const _MiniSwatch({
+    required this.color,
+    required this.label,
+    this.bordered = false,
+  });
+
+  final Color color;
+  final String label;
+  final bool bordered;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            border: bordered
+                ? Border.all(color: AppColors.borderGrey)
+                : null,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: appFont(
+            context: context,
+            fontSize: 10,
+            color: AppColors.textGrey,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LanguageSwitcherCard extends StatelessWidget {
+  const _LanguageSwitcherCard({required this.locale});
+
+  final LocaleController locale;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.borderGrey),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.translate_rounded,
+                  color: AppColors.primaryGreen, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      s.language,
+                      style: appFont(
+                        context: context,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      s.chooseLanguage,
+                      style: appFont(
+                        context: context,
+                        fontSize: 11,
+                        color: AppColors.textGrey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<bool>(
+              segments: [
+                ButtonSegment<bool>(
+                  value: true,
+                  label: Text(
+                    s.languageBn,
+                    style: appFont(
+                      context: context,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  icon: const Icon(Icons.language, size: 16),
+                ),
+                ButtonSegment<bool>(
+                  value: false,
+                  label: Text(
+                    s.languageEn,
+                    style: appFont(
+                      context: context,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  icon: const Icon(Icons.translate, size: 16),
+                ),
+              ],
+              selected: {locale.isBengali},
+              onSelectionChanged: (set) async {
+                final wantBn = set.first;
+                await locale.setBengali(wantBn);
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      AppStrings.of(context).languageChanged,
+                      style: appFont(context: context),
+                    ),
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
+              },
+              style: ButtonStyle(
+                backgroundColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
+                    return AppColors.primaryGreen;
+                  }
+                  return AppColors.inputBackground;
+                }),
+                foregroundColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) {
+                    return Colors.white;
+                  }
+                  return AppColors.textDark;
+                }),
+                side: WidgetStatePropertyAll(
+                  BorderSide(color: AppColors.borderGrey),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SettingsTile extends StatelessWidget {
   const _SettingsTile({
     required this.icon,
@@ -1660,6 +2347,7 @@ class _SettingsTile extends StatelessWidget {
     this.subtitle,
     this.onTap,
     this.danger = false,
+    this.trailing,
   });
 
   final IconData icon;
@@ -1667,12 +2355,13 @@ class _SettingsTile extends StatelessWidget {
   final String? subtitle;
   final VoidCallback? onTap;
   final bool danger;
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
     final accent = danger ? const Color(0xFFC62828) : AppColors.primaryGreen;
     return Material(
-      color: Colors.white,
+      color: AppColors.card,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
@@ -1696,7 +2385,8 @@ class _SettingsTile extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: GoogleFonts.notoSansBengali(
+                      style: appFont(
+                        context: context,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
                         color: danger ? accent : AppColors.textDark,
@@ -1705,7 +2395,8 @@ class _SettingsTile extends StatelessWidget {
                     if (subtitle != null)
                       Text(
                         subtitle!,
-                        style: GoogleFonts.notoSansBengali(
+                        style: appFont(
+                          context: context,
                           fontSize: 11,
                           color: AppColors.textGrey,
                         ),
@@ -1713,7 +2404,11 @@ class _SettingsTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
+              if (trailing != null) ...[
+                trailing!,
+                const SizedBox(width: 6),
+              ],
+              Icon(
                 Icons.chevron_right_rounded,
                 color: AppColors.textGrey,
                 size: 22,
