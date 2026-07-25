@@ -53,5 +53,16 @@
             <action android:name="android.intent.action.VIEW"/>
             <data android:mimeType="application/pdf"/>
         </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="http"/>
+        </intent>
+        <package android:name="com.google.android.youtube"/>
+        <package android:name="com.facebook.katana"/>
+        <package android:name="com.facebook.lite"/>
     </queries>
 </manifest>

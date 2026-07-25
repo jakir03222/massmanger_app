@@ -240,6 +240,89 @@ class _MealBodyState extends State<_MealBody> {
     }
   }
 
+  Future<void> _openBulkAdd() async {
+    if (!_isAdmin) return;
+    final admin = _me;
+    if (admin == null || widget.members.isEmpty) return;
+
+    final result = await showModalBottomSheet<_BulkMealResult>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (context) => _BulkMealAddSheet(
+        members: widget.members,
+        initialDate: _selectedDate,
+      ),
+    );
+    if (result == null || !mounted) return;
+
+    setState(() {
+      _adding = true;
+      _selectedDate = result.date;
+      _memberFilterUid = null; // show all so new meals are visible
+    });
+    try {
+      final outcome = await _mealService.addMealsBulk(
+        messId: widget.mess.id,
+        day: dateKey(result.date),
+        memberMeals: result.memberMeals,
+        addedByUid: admin.uid,
+        addedByName: admin.name,
+      );
+      if (!mounted) return;
+      final s = AppStrings.of(context);
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(
+            s.bulkAddSuccessTitle,
+            style: appFont(context: ctx, fontWeight: FontWeight.w700),
+          ),
+          content: Text(
+            s.bulkAddSuccessBody(
+              members: outcome.memberCount,
+              items: outcome.written,
+              morning: BulkMealAddResult.fmt(outcome.morningTotal),
+              evening: BulkMealAddResult.fmt(outcome.eveningTotal),
+              night: BulkMealAddResult.fmt(outcome.nightTotal),
+              total: BulkMealAddResult.fmt(outcome.grandTotal),
+              date: formatBnDate(result.date),
+            ),
+            style: appFont(context: ctx, height: 1.45),
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primaryGreen,
+              ),
+              child: Text(
+                s.close,
+                style: appFont(
+                  context: ctx,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$e', style: appFont(context: context)),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _adding = false);
+    }
+  }
+
   Future<void> _approve(MealEntry entry) async {
     setState(() => _busyIds.add(entry.id));
     try {
@@ -492,6 +575,43 @@ class _MealBodyState extends State<_MealBody> {
                         ],
                       ),
                     ),
+                    if (_isAdmin) ...[
+                      const SizedBox(height: 10),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: SizedBox(
+                          width: double.infinity,
+                          height: 46,
+                          child: FilledButton.icon(
+                            onPressed: _adding ? null : _openBulkAdd,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.primaryGreen,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            icon: _adding
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.group_add_rounded, size: 20),
+                            label: Text(
+                              s.bulkAddMeals,
+                              style: appFont(
+                                context: context,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                     if (!_isAdmin) ...[
                       const SizedBox(height: 8),
                       Padding(
@@ -666,6 +786,718 @@ class _MealBodyState extends State<_MealBody> {
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: selected ? Colors.white : AppColors.textGrey,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BulkMealResult {
+  const _BulkMealResult({
+    required this.memberMeals,
+    required this.date,
+  });
+
+  final List<
+      ({
+        String uid,
+        String name,
+        Map<MealType, double> quantities,
+      })> memberMeals;
+  final DateTime date;
+}
+
+class _BulkMealAddSheet extends StatefulWidget {
+  const _BulkMealAddSheet({
+    required this.members,
+    required this.initialDate,
+  });
+
+  final List<MessMember> members;
+  final DateTime initialDate;
+
+  @override
+  State<_BulkMealAddSheet> createState() => _BulkMealAddSheetState();
+}
+
+class _BulkMealAddSheetState extends State<_BulkMealAddSheet> {
+  late final Set<String> _selectedUids;
+  final Map<MealType, bool> _typeOn = {
+    MealType.morning: true,
+    MealType.evening: true,
+    MealType.night: true,
+  };
+  final Map<MealType, double> _defaults = {
+    MealType.morning: 1,
+    MealType.evening: 1,
+    MealType.night: 1,
+  };
+  /// uid → type → qty
+  late final Map<String, Map<MealType, double>> _memberQty;
+  late DateTime _date;
+
+  static const _types = [
+    MealType.morning,
+    MealType.evening,
+    MealType.night,
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedUids = widget.members.map((m) => m.uid).toSet();
+    _date = widget.initialDate;
+    _memberQty = {
+      for (final m in widget.members)
+        m.uid: {
+          MealType.morning: 1,
+          MealType.evening: 1,
+          MealType.night: 1,
+        },
+    };
+  }
+
+  String _fmtQty(double q) =>
+      q % 1 == 0 ? q.toInt().toString() : q.toStringAsFixed(1);
+
+  void _bumpDefault(MealType type, double delta) {
+    setState(() {
+      final next =
+          double.parse(((_defaults[type] ?? 1) + delta).toStringAsFixed(1));
+      if (next < 0.5 || next > 20) return;
+      _defaults[type] = next;
+    });
+  }
+
+  void _bumpMember(String uid, MealType type, double delta) {
+    setState(() {
+      final map = _memberQty.putIfAbsent(
+        uid,
+        () => {
+          MealType.morning: 1,
+          MealType.evening: 1,
+          MealType.night: 1,
+        },
+      );
+      final next =
+          double.parse(((map[type] ?? 1) + delta).toStringAsFixed(1));
+      if (next < 0.5 || next > 20) return;
+      map[type] = next;
+    });
+  }
+
+  void _applyDefaultsToAll() {
+    setState(() {
+      for (final uid in _memberQty.keys) {
+        for (final type in _types) {
+          if (_typeOn[type] == true) {
+            _memberQty[uid]![type] = _defaults[type] ?? 1;
+          }
+        }
+      }
+    });
+  }
+
+  void _applyPreset({
+    required double morning,
+    required double evening,
+    required double night,
+    bool morningOn = true,
+    bool eveningOn = true,
+    bool nightOn = true,
+  }) {
+    setState(() {
+      _typeOn[MealType.morning] = morningOn;
+      _typeOn[MealType.evening] = eveningOn;
+      _typeOn[MealType.night] = nightOn;
+      _defaults[MealType.morning] = morning;
+      _defaults[MealType.evening] = evening;
+      _defaults[MealType.night] = night;
+      for (final uid in _memberQty.keys) {
+        _memberQty[uid]![MealType.morning] = morning;
+        _memberQty[uid]![MealType.evening] = evening;
+        _memberQty[uid]![MealType.night] = night;
+      }
+      _selectedUids
+        ..clear()
+        ..addAll(widget.members.map((m) => m.uid));
+    });
+  }
+
+  ({int members, double morning, double evening, double night, double total})
+      _liveTotals() {
+    var morning = 0.0;
+    var evening = 0.0;
+    var night = 0.0;
+    var members = 0;
+    for (final m in widget.members) {
+      if (!_selectedUids.contains(m.uid)) continue;
+      members++;
+      final q = _memberQty[m.uid];
+      if (_typeOn[MealType.morning] == true) {
+        morning += q?[MealType.morning] ?? 0;
+      }
+      if (_typeOn[MealType.evening] == true) {
+        evening += q?[MealType.evening] ?? 0;
+      }
+      if (_typeOn[MealType.night] == true) {
+        night += q?[MealType.night] ?? 0;
+      }
+    }
+    return (
+      members: members,
+      morning: morning,
+      evening: evening,
+      night: night,
+      total: morning + evening + night,
+    );
+  }
+
+  Future<void> _pickDate() async {
+    final s = AppStrings.of(context);
+    final picked = await showBnDatePicker(
+      context: context,
+      initialDate: _date,
+      firstDate: DateTime(2024),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+      helpText: s.selectMealDate,
+    );
+    if (picked == null) return;
+    setState(() => _date = picked);
+  }
+
+  Future<void> _submit() async {
+    final s = AppStrings.of(context);
+    if (_selectedUids.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            s.pickAtLeastOneMember,
+            style: appFont(context: context),
+          ),
+        ),
+      );
+      return;
+    }
+    if (!_typeOn.values.any((v) => v)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            s.pickAtLeastOneMealType,
+            style: appFont(context: context),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final memberMeals = <({
+      String uid,
+      String name,
+      Map<MealType, double> quantities,
+    })>[];
+
+    for (final m in widget.members) {
+      if (!_selectedUids.contains(m.uid)) continue;
+      final qmap = <MealType, double>{};
+      for (final type in _types) {
+        if (_typeOn[type] != true) continue;
+        qmap[type] = _memberQty[m.uid]?[type] ?? _defaults[type] ?? 1;
+      }
+      if (qmap.isEmpty) continue;
+      memberMeals.add((uid: m.uid, name: m.name, quantities: qmap));
+    }
+
+    if (memberMeals.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            s.pickAtLeastOneMealType,
+            style: appFont(context: context),
+          ),
+        ),
+      );
+      return;
+    }
+
+    final live = _liveTotals();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          s.confirmBulkAddTitle,
+          style: appFont(context: ctx, fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          '${s.confirmBulkAddBody}\n\n'
+          '${s.bulkLiveCalc(
+            members: live.members,
+            morning: _fmtQty(live.morning),
+            evening: _fmtQty(live.evening),
+            night: _fmtQty(live.night),
+            total: _fmtQty(live.total),
+          )}\n'
+          '${formatBnDate(_date)}',
+          style: appFont(context: ctx, height: 1.45),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(s.cancel, style: appFont(context: ctx)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primaryGreen,
+            ),
+            child: Text(
+              s.bulkAddConfirm,
+              style: appFont(
+                context: ctx,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    Navigator.pop(
+      context,
+      _BulkMealResult(memberMeals: memberMeals, date: _date),
+    );
+  }
+
+  Widget _miniQty({
+    required double value,
+    required bool enabled,
+    required VoidCallback? onDec,
+    required VoidCallback? onInc,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          padding: EdgeInsets.zero,
+          onPressed: enabled ? onDec : null,
+          icon: const Icon(Icons.remove_circle_outline, size: 18),
+          color: AppColors.primaryGreen,
+        ),
+        SizedBox(
+          width: 28,
+          child: Text(
+            _fmtQty(value),
+            textAlign: TextAlign.center,
+            style: appFont(
+              context: context,
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: enabled ? AppColors.darkGreen : AppColors.textGrey,
+            ),
+          ),
+        ),
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          padding: EdgeInsets.zero,
+          onPressed: enabled ? onInc : null,
+          icon: const Icon(Icons.add_circle_outline, size: 18),
+          color: AppColors.primaryGreen,
+        ),
+      ],
+    );
+  }
+
+  Widget _defaultTypeRow(String label, MealType type) {
+    final on = _typeOn[type] == true;
+    final q = _defaults[type] ?? 1;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(4, 2, 4, 2),
+      decoration: BoxDecoration(
+        color: on
+            ? AppColors.featureGreenBg
+            : AppColors.borderGrey.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: on
+              ? AppColors.primaryGreen.withValues(alpha: 0.25)
+              : AppColors.borderGrey,
+        ),
+      ),
+      child: Row(
+        children: [
+          Checkbox(
+            value: on,
+            activeColor: AppColors.primaryGreen,
+            onChanged: (v) => setState(() => _typeOn[type] = v == true),
+          ),
+          Expanded(
+            child: Text(
+              label,
+              style: appFont(
+                context: context,
+                fontWeight: FontWeight.w700,
+                color: on ? AppColors.textDark : AppColors.textGrey,
+              ),
+            ),
+          ),
+          _miniQty(
+            value: q,
+            enabled: on,
+            onDec: q > 0.5 ? () => _bumpDefault(type, -0.5) : null,
+            onInc: q < 20 ? () => _bumpDefault(type, 0.5) : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _memberCard(MessMember m, AppStrings s) {
+    final selected = _selectedUids.contains(m.uid);
+    final q = _memberQty[m.uid] ??
+        {
+          MealType.morning: 1,
+          MealType.evening: 1,
+          MealType.night: 1,
+        };
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: selected
+              ? AppColors.primaryGreen.withValues(alpha: 0.35)
+              : AppColors.borderGrey,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          CheckboxListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            value: selected,
+            onChanged: (v) {
+              setState(() {
+                if (v == true) {
+                  _selectedUids.add(m.uid);
+                } else {
+                  _selectedUids.remove(m.uid);
+                }
+              });
+            },
+            title: Text(
+              m.name,
+              style: appFont(
+                context: context,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            subtitle: Text(
+              m.roleBnLabel,
+              style: appFont(
+                context: context,
+                fontSize: 11,
+                color: AppColors.textGrey,
+              ),
+            ),
+            controlAffinity: ListTileControlAffinity.leading,
+            activeColor: AppColors.primaryGreen,
+          ),
+          if (selected) ...[
+            const Divider(height: 8),
+            for (final type in _types)
+              if (_typeOn[type] == true)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8, right: 0),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 52,
+                        child: Text(
+                          type.label(bn: s.isBengali),
+                          style: appFont(
+                            context: context,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      _miniQty(
+                        value: q[type] ?? 1,
+                        enabled: true,
+                        onDec: (q[type] ?? 1) > 0.5
+                            ? () => _bumpMember(m.uid, type, -0.5)
+                            : null,
+                        onInc: (q[type] ?? 1) < 20
+                            ? () => _bumpMember(m.uid, type, 0.5)
+                            : null,
+                      ),
+                    ],
+                  ),
+                ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+    final bottom = MediaQuery.viewInsetsOf(context).bottom;
+    final allSelected = _selectedUids.length == widget.members.length;
+
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottom),
+      child: SafeArea(
+        child: SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.9,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        s.bulkAddMealsTitle,
+                        style: appFont(
+                          context: context,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
+                child: Text(
+                  s.bulkAddMealsHint,
+                  style: appFont(
+                    context: context,
+                    fontSize: 12,
+                    color: AppColors.textGrey,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                  children: [
+                    Text(
+                      s.selectMealDate,
+                      style: appFont(
+                        context: context,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    OutlinedButton.icon(
+                      onPressed: _pickDate,
+                      icon: const Icon(Icons.calendar_today_outlined, size: 18),
+                      label: Text(
+                        formatBnDate(_date),
+                        style: appFont(context: context),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      s.quickPresets,
+                      style: appFont(
+                        context: context,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ActionChip(
+                          label: Text(
+                            s.presetAllOne,
+                            style: appFont(context: context, fontSize: 12),
+                          ),
+                          onPressed: () => _applyPreset(
+                            morning: 1,
+                            evening: 1,
+                            night: 1,
+                          ),
+                        ),
+                        ActionChip(
+                          label: Text(
+                            s.presetHalfMorning,
+                            style: appFont(context: context, fontSize: 12),
+                          ),
+                          onPressed: () => _applyPreset(
+                            morning: 0.5,
+                            evening: 1,
+                            night: 1,
+                          ),
+                        ),
+                        ActionChip(
+                          label: Text(
+                            s.presetMorningOnly,
+                            style: appFont(context: context, fontSize: 12),
+                          ),
+                          onPressed: () => _applyPreset(
+                            morning: 1,
+                            evening: 1,
+                            night: 1,
+                            morningOn: true,
+                            eveningOn: false,
+                            nightOn: false,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      s.defaultMealAmounts,
+                      style: appFont(
+                        context: context,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _defaultTypeRow(s.morning, MealType.morning),
+                    _defaultTypeRow(s.evening, MealType.evening),
+                    _defaultTypeRow(s.night, MealType.night),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: _applyDefaultsToAll,
+                        icon: const Icon(Icons.copy_all_rounded, size: 18),
+                        label: Text(
+                          s.applyDefaultsToAll,
+                          style: appFont(
+                            context: context,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primaryGreen,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            s.perMemberAmounts,
+                            style: appFont(
+                              context: context,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              if (allSelected) {
+                                _selectedUids.clear();
+                              } else {
+                                _selectedUids
+                                  ..clear()
+                                  ..addAll(widget.members.map((m) => m.uid));
+                              }
+                            });
+                          },
+                          child: Text(
+                            allSelected ? s.clearMembers : s.selectAllMembers,
+                            style: appFont(
+                              context: context,
+                              color: AppColors.primaryGreen,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    ...widget.members.map((m) => _memberCard(m, s)),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Builder(
+                      builder: (context) {
+                        final live = _liveTotals();
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.featureGreenBg,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '${s.liveMealTotal}: ${s.bulkLiveCalc(
+                              members: live.members,
+                              morning: _fmtQty(live.morning),
+                              evening: _fmtQty(live.evening),
+                              night: _fmtQty(live.night),
+                              total: _fmtQty(live.total),
+                            )}',
+                            style: appFont(
+                              context: context,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.darkGreen,
+                              height: 1.35,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 48,
+                      child: FilledButton.icon(
+                        onPressed: _submit,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.primaryGreen,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: const Icon(Icons.notifications_active_outlined),
+                        label: Text(
+                          s.bulkAddConfirm,
+                          style: appFont(
+                            context: context,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),

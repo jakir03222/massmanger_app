@@ -158,6 +158,162 @@ class MealService {
     }
   }
 
+  /// Admin/super-admin bulk add with per-member × per-type quantities.
+  /// Writes approved meals, recalculates via live streams, and notifies
+  /// each affected member with their own meal summary.
+  Future<BulkMealAddResult> addMealsBulk({
+    required String messId,
+    required String day,
+    required List<
+            ({
+              String uid,
+              String name,
+              Map<MealType, double> quantities,
+            })>
+        memberMeals,
+    required String addedByUid,
+    required String addedByName,
+  }) async {
+    final rows = <({String uid, String name, MealType type, double qty})>[];
+    for (final m in memberMeals) {
+      for (final e in m.quantities.entries) {
+        if (e.key != MealType.morning &&
+            e.key != MealType.evening &&
+            e.key != MealType.night) {
+          continue;
+        }
+        if (e.value < 0.5) continue;
+        rows.add((
+          uid: m.uid,
+          name: m.name,
+          type: e.key,
+          qty: e.value,
+        ));
+      }
+    }
+    if (rows.isEmpty) {
+      return const BulkMealAddResult(
+        written: 0,
+        memberCount: 0,
+        morningTotal: 0,
+        eveningTotal: 0,
+        nightTotal: 0,
+      );
+    }
+    await _locks.assertUnlocked(
+      messId,
+      MonthLockService.yearMonthFromDateKey(day),
+    );
+
+    var written = 0;
+    var morningTotal = 0.0;
+    var eveningTotal = 0.0;
+    var nightTotal = 0.0;
+    WriteBatch? batch;
+    var opsInBatch = 0;
+
+    Future<void> commitBatch() async {
+      if (batch == null || opsInBatch == 0) return;
+      await batch!.commit();
+      batch = null;
+      opsInBatch = 0;
+    }
+
+    for (final row in rows) {
+      final qty = row.qty < 0.5 ? 0.5 : row.qty;
+      batch ??= _firestore.batch();
+      final ref = _items(messId, day).doc();
+      final data = <String, dynamic>{
+        'uid': row.uid,
+        'name': row.name,
+        'type': row.type.firestoreValue,
+        'rateValue': qty,
+        'status': MealStatus.approved.firestoreValue,
+        'dateKey': day,
+        'messId': messId,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+      if (addedByUid != row.uid) {
+        data['addedByUid'] = addedByUid;
+        data['addedByName'] = addedByName;
+      }
+      batch!.set(ref, data);
+      opsInBatch++;
+      written++;
+      switch (row.type) {
+        case MealType.morning:
+          morningTotal += qty;
+        case MealType.evening:
+          eveningTotal += qty;
+        case MealType.night:
+          nightTotal += qty;
+        case MealType.rate:
+          break;
+      }
+      if (opsInBatch >= 450) {
+        await commitBatch();
+      }
+    }
+    await commitBatch();
+
+    final memberCount = memberMeals.map((m) => m.uid).toSet().length;
+
+    final grand = morningTotal + eveningTotal + nightTotal;
+    final grandLabel =
+        grand % 1 == 0 ? grand.toInt().toString() : grand.toStringAsFixed(1);
+
+    // Personal inbox notification for each member who received meals.
+    for (final m in memberMeals) {
+      if (m.uid == addedByUid) continue;
+      final partsBn = <String>[];
+      final partsEn = <String>[];
+      for (final type in [
+        MealType.morning,
+        MealType.evening,
+        MealType.night,
+      ]) {
+        final q = m.quantities[type];
+        if (q == null || q < 0.5) continue;
+        final qLabel =
+            q % 1 == 0 ? q.toInt().toString() : q.toStringAsFixed(1);
+        partsBn.add('${type.label(bn: true)} $qLabel');
+        partsEn.add('${type.label(bn: false)} $qLabel');
+      }
+      if (partsBn.isEmpty) continue;
+      await _notifications.notifyUsers(
+        uids: [m.uid],
+        titleBn: 'আপনার মিল যোগ হয়েছে ✅',
+        titleEn: 'Your meals were added ✅',
+        bodyBn: '$addedByName যোগ করেছেন · ${partsBn.join(' · ')} ($day)',
+        bodyEn: '$addedByName added · ${partsEn.join(' · ')} ($day)',
+        type: 'meal_bulk_personal',
+        data: {'messId': messId, 'day': day},
+      );
+    }
+
+    // Broadcast so other members / devices also see a mess-wide update.
+    await _notifications.notifyMessMembers(
+      messId: messId,
+      excludeUid: addedByUid,
+      titleBn: 'মেসে নতুন মিল যোগ',
+      titleEn: 'New meals in mess',
+      bodyBn: '$addedByName — $memberCount মেম্বার · মোট $grandLabel মিল ($day)',
+      bodyEn:
+          '$addedByName — $memberCount members · total $grandLabel meals ($day)',
+      type: 'meal_bulk_approved',
+      data: {'messId': messId, 'day': day},
+    );
+
+    return BulkMealAddResult(
+      written: written,
+      memberCount: memberCount,
+      morningTotal: morningTotal,
+      eveningTotal: eveningTotal,
+      nightTotal: nightTotal,
+    );
+  }
+
   Future<void> approveMeal({
     required String messId,
     required String day,
@@ -390,4 +546,25 @@ class MealService {
   ) {
     return watchMonthMealCounts(messId, month).first;
   }
+}
+
+class BulkMealAddResult {
+  const BulkMealAddResult({
+    required this.written,
+    required this.memberCount,
+    required this.morningTotal,
+    required this.eveningTotal,
+    required this.nightTotal,
+  });
+
+  final int written;
+  final int memberCount;
+  final double morningTotal;
+  final double eveningTotal;
+  final double nightTotal;
+
+  double get grandTotal => morningTotal + eveningTotal + nightTotal;
+
+  static String fmt(double v) =>
+      v % 1 == 0 ? v.toInt().toString() : v.toStringAsFixed(1);
 }

@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../config/social_links.dart';
 import '../l10n/app_strings.dart';
 import '../l10n/locale_controller.dart';
 import '../models/mess.dart';
@@ -1444,6 +1446,28 @@ class _SettingsTabContent extends StatelessWidget {
     );
   }
 
+  Future<void> _openExternalLink(BuildContext context, String url) async {
+    final s = AppStrings.of(context);
+    final uri = Uri.parse(url);
+    try {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(s.openLinkFailed, style: appFont(context: context)),
+          ),
+        );
+      }
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(s.openLinkFailed, style: appFont(context: context)),
+        ),
+      );
+    }
+  }
+
   Future<void> _showThemePicker(BuildContext context) async {
     final s = AppStrings.of(context);
     final theme = ThemeScope.maybeOf(context);
@@ -1826,6 +1850,24 @@ class _SettingsTabContent extends StatelessWidget {
               context,
               s.notifications,
               s.notificationsInfoBody,
+            ),
+          ),
+          _SettingsTile(
+            icon: Icons.play_circle_outline_rounded,
+            title: s.youtubeChannel,
+            subtitle: s.youtubeChannelSubtitle,
+            onTap: () => _openExternalLink(
+              context,
+              SocialLinks.youtubeChannel,
+            ),
+          ),
+          _SettingsTile(
+            icon: Icons.facebook_rounded,
+            title: s.facebookPage,
+            subtitle: s.facebookPageSubtitle,
+            onTap: () => _openExternalLink(
+              context,
+              SocialLinks.facebookPage,
             ),
           ),
           _SettingsTile(

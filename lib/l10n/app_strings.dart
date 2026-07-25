@@ -349,6 +349,74 @@ class AppStrings {
   String get addEvening => _t('বিকাল যোগ', 'Add evening');
   String get addNight => _t('রাত যোগ', 'Add night');
   String get addRate => _t('রেট যোগ', 'Add rate');
+  String get bulkAddMeals =>
+      _t('সব মেম্বারের মিল যোগ', 'Add meals for all members');
+  String get bulkAddMealsTitle =>
+      _t('একসাথে মিল যোগ', 'Bulk add meals');
+  String get bulkAddMealsHint => _t(
+        'কুইক প্রিসেট বা ডিফল্ট সেট করে সব মেম্বারে প্রয়োগ করুন। প্রতি মেম্বার আলাদা পরিমাণও দিতে পারবেন। যোগ হলে হিসাব আপডেট ও নোটিফিকেশন যাবে।',
+        'Use quick presets or defaults, apply to all, then tweak per member. Meals calculate instantly and members get notified.',
+      );
+  String get applyDefaultsToAll =>
+      _t('সব মেম্বারে প্রয়োগ', 'Apply to all members');
+  String get defaultMealAmounts =>
+      _t('ডিফল্ট পরিমাণ', 'Default amounts');
+  String get perMemberAmounts =>
+      _t('প্রতি মেম্বারের পরিমাণ', 'Per-member amounts');
+  String get quickPresets => _t('কুইক প্রিসেট', 'Quick presets');
+  String get presetAllOne => _t('সবাই ১·১·১', 'All 1·1·1');
+  String get presetHalfMorning =>
+      _t('সকাল ০.৫ · বিকাল/রাত ১', 'AM 0.5 · rest 1');
+  String get presetMorningOnly => _t('শুধু সকাল ১', 'Morning only 1');
+  String get liveMealTotal => _t('লাইভ মোট', 'Live total');
+  String bulkLiveCalc({
+    required int members,
+    required String morning,
+    required String evening,
+    required String night,
+    required String total,
+  }) =>
+      _bn
+          ? '$members মেম্বার · সকাল $morning · বিকাল $evening · রাত $night · মোট $total'
+          : '$members members · AM $morning · Eve $evening · Night $night · total $total';
+  String get confirmBulkAddTitle =>
+      _t('মিল যোগ নিশ্চিত?', 'Confirm meal add?');
+  String get confirmBulkAddBody => _t(
+        'সিলেক্টেড মেম্বারদের অনুমোদিত মিল যোগ হবে, হিসাব আপডেট হবে এবং নোটিফিকেশন পাঠানো হবে।',
+        'Approved meals will be added for selected members, totals update, and notifications are sent.',
+      );
+  String get bulkAddSuccessTitle =>
+      _t('মিল যোগ সম্পন্ন', 'Meals added');
+  String bulkAddSuccessBody({
+    required int members,
+    required int items,
+    required String morning,
+    required String evening,
+    required String night,
+    required String total,
+    required String date,
+  }) =>
+      _bn
+          ? '$date\n$members মেম্বার · $items এন্ট্রি\nসকাল $morning · বিকাল $evening · রাত $night\nমোট মিল: $total\nমেম্বারদের নোটিফিকেশন পাঠানো হয়েছে।'
+          : '$date\n$members members · $items entries\nAM $morning · Eve $evening · Night $night\nTotal meals: $total\nMembers have been notified.';
+  String get selectMealTypes =>
+      _t('মিলের ধরন সিলেক্ট করুন', 'Select meal types');
+  String get selectMembers =>
+      _t('মেম্বার সিলেক্ট করুন', 'Select members');
+  String get selectAllMembers =>
+      _t('সব সিলেক্ট', 'Select all');
+  String get clearMembers => _t('ক্লিয়ার', 'Clear');
+  String get bulkAddConfirm =>
+      _t('মিল যোগ করুন', 'Add meals');
+  String get pickAtLeastOneMember =>
+      _t('কমপক্ষে একজন মেম্বার সিলেক্ট করুন', 'Select at least one member');
+  String get pickAtLeastOneMealType => _t(
+        'কমপক্ষে একটি মিল (সকাল/বিকাল/রাত) সিলেক্ট করুন',
+        'Select at least one meal type',
+      );
+  String bulkMealsAdded(int members, int items, String date) => _bn
+      ? '$members মেম্বার · $items মিল যোগ হয়েছে ($date)'
+      : '$members members · $items meals added ($date)';
   String get mealPendingHint => _t(
         'মুছতে পারবেন না · অ্যাডমিন অনুমোদন করলে হিসাব/তালিকায় যোগ হবে',
         'Cannot delete after send · admin approval adds to accounts',
@@ -946,6 +1014,16 @@ class AppStrings {
   String get notificationsInfoBody => _t(
         'মিল/বাজার অনুমোদন ও বিল যোগ হলে নোটিফিকেশন পাবেন। ডিভাইস পারমিশন চালু রাখুন।',
         'You will get notifications for meal/bazaar approvals and new bills. Keep device permission on.',
+      );
+  String get youtubeChannel => _t('ইউটিউব চ্যানেল', 'YouTube channel');
+  String get youtubeChannelSubtitle =>
+      _t('Journey English Daily দেখুন', 'Watch Journey English Daily');
+  String get facebookPage => _t('ফেসবুক পেজ', 'Facebook page');
+  String get facebookPageSubtitle =>
+      _t('আমাদের ফেসবুক পেজ খুলুন', 'Open our Facebook page');
+  String get openLinkFailed => _t(
+        'লিংক খোলা যায়নি। আবার চেষ্টা করুন।',
+        'Could not open the link. Try again.',
       );
   String get privacyInfoBody => _t(
         'আপনার তথ্য শুধুমাত্র আপনার মেসের হিসাব পরিচালনার জন্য ব্যবহৃত হয়। মেসের ডেটা শুধু মেসের মেম্বাররাই দেখতে পারে। আমরা কোনো তথ্য তৃতীয় পক্ষের কাছে বিক্রি করি না।',
