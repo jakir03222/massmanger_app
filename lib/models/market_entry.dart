@@ -1,4 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/firestore_parsers.dart';
+import 'approval_status.dart';
 
 enum MarketStatus {
   pending,
@@ -6,41 +7,21 @@ enum MarketStatus {
   rejected;
 
   static MarketStatus fromString(String? value) {
-    switch (value) {
-      case 'pending':
+    switch (ApprovalStatus.fromString(value)) {
+      case ApprovalStatus.pending:
         return MarketStatus.pending;
-      case 'rejected':
+      case ApprovalStatus.rejected:
         return MarketStatus.rejected;
-      case 'approved':
-      default:
-        // Old docs without status count as approved.
+      case ApprovalStatus.approved:
         return MarketStatus.approved;
     }
   }
 
   String get firestoreValue => name;
 
-  String get bnLabel {
-    switch (this) {
-      case MarketStatus.pending:
-        return 'অপেক্ষমাণ';
-      case MarketStatus.approved:
-        return 'অনুমোদিত';
-      case MarketStatus.rejected:
-        return 'বাতিল';
-    }
-  }
+  String get bnLabel => label(bn: true);
 
-  String label({required bool bn}) {
-    switch (this) {
-      case MarketStatus.pending:
-        return bn ? 'অপেক্ষমাণ' : 'Pending';
-      case MarketStatus.approved:
-        return bn ? 'অনুমোদিত' : 'Approved';
-      case MarketStatus.rejected:
-        return bn ? 'বাতিল' : 'Rejected';
-    }
-  }
+  String label({required bool bn}) => ApprovalStatus.values[index].label(bn: bn);
 }
 
 class MarketItem {
@@ -62,9 +43,9 @@ class MarketItem {
 
   factory MarketItem.fromMap(Map<String, dynamic> data) {
     return MarketItem(
-      name: data['name'] as String? ?? '',
-      quantity: data['quantity'] as String? ?? '',
-      amount: (data['amount'] as num?)?.toDouble() ?? 0,
+      name: readString(data['name']),
+      quantity: readString(data['quantity']),
+      amount: readDouble(data['amount']),
     );
   }
 }
@@ -111,33 +92,23 @@ class MarketEntry {
       editedByName != null && editedByName!.trim().isNotEmpty;
 
   factory MarketEntry.fromMap(String id, Map<String, dynamic> data) {
-    final createdAtRaw = data['createdAt'];
-    final updatedAtRaw = data['updatedAt'];
-    final rawItems = data['items'];
-    final items = <MarketItem>[];
-    if (rawItems is List) {
-      for (final item in rawItems) {
-        if (item is Map<String, dynamic>) {
-          items.add(MarketItem.fromMap(item));
-        } else if (item is Map) {
-          items.add(MarketItem.fromMap(Map<String, dynamic>.from(item)));
-        }
-      }
-    }
+    final items = [
+      for (final item in readMapList(data['items'])) MarketItem.fromMap(item),
+    ];
 
     return MarketEntry(
       id: id,
-      shopperUid: data['shopperUid'] as String? ?? '',
-      shopperName: data['shopperName'] as String? ?? '',
-      amount: (data['amount'] as num?)?.toDouble() ?? 0,
-      notes: data['notes'] as String? ?? '',
-      dateKey: data['dateKey'] as String? ?? '',
-      yearMonth: data['yearMonth'] as String? ?? '',
+      shopperUid: readString(data['shopperUid']),
+      shopperName: readString(data['shopperName']),
+      amount: readDouble(data['amount']),
+      notes: readString(data['notes']),
+      dateKey: readString(data['dateKey']),
+      yearMonth: readString(data['yearMonth']),
       items: items,
       status: MarketStatus.fromString(data['status'] as String?),
-      isDue: data['isDue'] as bool? ?? false,
-      createdAt: createdAtRaw is Timestamp ? createdAtRaw.toDate() : null,
-      updatedAt: updatedAtRaw is Timestamp ? updatedAtRaw.toDate() : null,
+      isDue: readBool(data['isDue']),
+      createdAt: readTimestamp(data['createdAt']),
+      updatedAt: readTimestamp(data['updatedAt']),
       editedByUid: data['editedByUid'] as String?,
       editedByName: data['editedByName'] as String?,
     );

@@ -64,7 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '524958440002',
     projectId: 'massmanager-ebfc8',
     storageBucket: 'massmanager-ebfc8.firebasestorage.app',
-    iosBundleId: 'com.example.massmanager',
+    iosBundleId: 'app.massmanager',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -73,7 +73,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '524958440002',
     projectId: 'massmanager-ebfc8',
     storageBucket: 'massmanager-ebfc8.firebasestorage.app',
-    iosBundleId: 'com.example.massmanager',
+    iosBundleId: 'app.massmanager',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

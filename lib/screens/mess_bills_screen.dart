@@ -44,6 +44,7 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
   Future<void> _openEditor({
     required String messId,
     required MessMember me,
+    required List<MessMember> members,
     MessBill? existing,
   }) async {
     final result = await showModalBottomSheet<_BillFormResult>(
@@ -56,6 +57,7 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
       builder: (context) => _BillFormSheet(
         initial: existing,
         defaultMonth: _month,
+        members: members,
       ),
     );
     if (result == null || !mounted) return;
@@ -70,6 +72,7 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
           adminUid: me.uid,
           adminName: me.name,
           note: result.note,
+          assignedMemberUids: result.assignedMemberUids,
         );
       } else {
         await _service.updateBill(
@@ -79,6 +82,7 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
           amount: result.amount,
           yearMonth: result.yearMonth,
           note: result.note,
+          assignedMemberUids: result.assignedMemberUids,
         );
       }
       if (!mounted) return;
@@ -101,15 +105,15 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
           }
         }
       }
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
       final s = AppStrings.of(context);
+      final msg = e is StateError
+          ? s.billSelectMembersRequired
+          : s.saveFailedRetry;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            s.saveFailedRetry,
-            style: appFont(context: context),
-          ),
+          content: Text(msg, style: appFont(context: context)),
         ),
       );
     }
@@ -133,7 +137,7 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
 
       final result = await _pdfDownload.saveAndOpen(
         bytes: bytes,
-        filename: 'mess-hisab-$_yearMonth.pdf',
+        filename: 'invoice-report-$_yearMonth.pdf',
       );
       if (!mounted) return;
       final s = AppStrings.of(context);
@@ -264,7 +268,11 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
           ),
           floatingActionButton: isAdmin && me != null
               ? FloatingActionButton.extended(
-                  onPressed: () => _openEditor(messId: mess.id, me: me),
+                  onPressed: () => _openEditor(
+                    messId: mess.id,
+                    me: me,
+                    members: members,
+                  ),
                   backgroundColor: AppColors.primaryGreen,
                   icon: const Icon(Icons.add, color: Colors.white),
                   label: Text(
@@ -422,12 +430,14 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
                         ...bills.map(
                           (b) => _BillCard(
                             bill: b,
+                            members: members,
                             icon: _iconFor(b.type),
                             isAdmin: isAdmin,
                             onEdit: isAdmin && me != null
                                 ? () => _openEditor(
                                       messId: mess.id,
                                       me: me,
+                                      members: members,
                                       existing: b,
                                     )
                                 : null,
@@ -452,6 +462,7 @@ class _MessBillsScreenState extends State<MessBillsScreen> {
 class _BillCard extends StatelessWidget {
   const _BillCard({
     required this.bill,
+    required this.members,
     required this.icon,
     required this.isAdmin,
     this.onEdit,
@@ -459,6 +470,7 @@ class _BillCard extends StatelessWidget {
   });
 
   final MessBill bill;
+  final List<MessMember> members;
   final IconData icon;
   final bool isAdmin;
   final VoidCallback? onEdit;
@@ -467,6 +479,16 @@ class _BillCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
+    final allUids = members.map((m) => m.uid).toList();
+    final assigneeIds = bill.assigneeUids(allMemberUids: allUids);
+    final assigneeNames = members
+        .where((m) => assigneeIds.contains(m.uid))
+        .map((m) => m.name)
+        .toList();
+    final shareCount = assigneeIds.isEmpty ? 0 : assigneeIds.length;
+    final shareEach =
+        shareCount == 0 ? 0.0 : bill.amount / shareCount;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
@@ -476,6 +498,7 @@ class _BillCard extends StatelessWidget {
         border: Border.all(color: AppColors.borderGrey),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 44,
@@ -507,6 +530,28 @@ class _BillCard extends StatelessWidget {
                     color: AppColors.darkGreen,
                   ),
                 ),
+                if (assigneeNames.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    '${s.billAssignedTo(assigneeNames.length)}'
+                    '${bill.hasExplicitAssignees ? '' : ' (all)'}'
+                    ' · ${s.billShareHint(shareCount, formatTaka(shareEach))}',
+                    style: appFont(
+                      context: context,
+                      fontSize: 11,
+                      color: AppColors.primaryGreen,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    assigneeNames.join(', '),
+                    style: appFont(
+                      context: context,
+                      fontSize: 12,
+                      color: AppColors.textGrey,
+                    ),
+                  ),
+                ],
                 if (bill.note.isNotEmpty)
                   Text(
                     bill.note,
@@ -547,22 +592,26 @@ class _BillFormResult {
     required this.amount,
     required this.yearMonth,
     required this.note,
+    required this.assignedMemberUids,
   });
 
   final MessBillType type;
   final double amount;
   final String yearMonth;
   final String note;
+  final List<String> assignedMemberUids;
 }
 
 class _BillFormSheet extends StatefulWidget {
   const _BillFormSheet({
     this.initial,
     required this.defaultMonth,
+    required this.members,
   });
 
   final MessBill? initial;
   final DateTime defaultMonth;
+  final List<MessMember> members;
 
   @override
   State<_BillFormSheet> createState() => _BillFormSheetState();
@@ -573,6 +622,7 @@ class _BillFormSheetState extends State<_BillFormSheet> {
   late DateTime _month;
   late final TextEditingController _amountCtrl;
   late final TextEditingController _noteCtrl;
+  late final Set<String> _selectedUids;
 
   @override
   void initState() {
@@ -595,6 +645,14 @@ class _BillFormSheetState extends State<_BillFormSheet> {
               : init.amount.toStringAsFixed(2)),
     );
     _noteCtrl = TextEditingController(text: init?.note ?? '');
+    if (init != null && init.assignedMemberUids.isNotEmpty) {
+      _selectedUids = init.assignedMemberUids.toSet();
+    } else if (init != null && init.assignedMemberUids.isEmpty) {
+      // Legacy bill → show all selected for edit.
+      _selectedUids = widget.members.map((m) => m.uid).toSet();
+    } else {
+      _selectedUids = <String>{};
+    }
   }
 
   @override
@@ -618,6 +676,17 @@ class _BillFormSheetState extends State<_BillFormSheet> {
       );
       return;
     }
+    if (_selectedUids.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            s.billSelectMembersRequired,
+            style: appFont(context: context),
+          ),
+        ),
+      );
+      return;
+    }
     Navigator.pop(
       context,
       _BillFormResult(
@@ -625,6 +694,7 @@ class _BillFormSheetState extends State<_BillFormSheet> {
         amount: amount,
         yearMonth: yearMonthKey(_month),
         note: _noteCtrl.text.trim(),
+        assignedMemberUids: _selectedUids.toList(),
       ),
     );
   }
@@ -633,6 +703,12 @@ class _BillFormSheetState extends State<_BillFormSheet> {
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
     final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final amount = double.tryParse(_amountCtrl.text.trim()) ?? 0;
+    final shareCount = _selectedUids.length;
+    final shareEach = shareCount == 0 ? 0.0 : amount / shareCount;
+    final sortedMembers = [...widget.members]
+      ..sort((a, b) => a.name.compareTo(b.name));
+
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottom),
       child: SingleChildScrollView(
@@ -748,6 +824,7 @@ class _BillFormSheetState extends State<_BillFormSheet> {
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
               ],
+              onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 hintText: s.amountExampleHint,
                 hintStyle: appFont(
@@ -760,6 +837,108 @@ class _BillFormSheetState extends State<_BillFormSheet> {
                 suffixText: '৳',
               ),
               style: appFont(context: context),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    s.billAssignMembers,
+                    style: appFont(
+                      context: context,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => setState(() {
+                    _selectedUids
+                      ..clear()
+                      ..addAll(widget.members.map((m) => m.uid));
+                  }),
+                  child: Text(
+                    s.selectAllMembers,
+                    style: appFont(
+                      context: context,
+                      fontSize: 12,
+                      color: AppColors.primaryGreen,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => setState(() => _selectedUids.clear()),
+                  child: Text(
+                    s.clearMembers,
+                    style: appFont(
+                      context: context,
+                      fontSize: 12,
+                      color: AppColors.textGrey,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (shareCount > 0 && amount > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  s.billShareHint(shareCount, formatTaka(shareEach)),
+                  style: appFont(
+                    context: context,
+                    fontSize: 12,
+                    color: AppColors.darkGreen,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 220),
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.borderGrey),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: sortedMembers.length,
+                itemBuilder: (context, index) {
+                  final m = sortedMembers[index];
+                  final selected = _selectedUids.contains(m.uid);
+                  return CheckboxListTile(
+                    dense: true,
+                    value: selected,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    activeColor: AppColors.primaryGreen,
+                    title: Text(
+                      m.name,
+                      style: appFont(
+                        context: context,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    subtitle: Text(
+                      m.roleLabel(bn: s.isBengali),
+                      style: appFont(
+                        context: context,
+                        fontSize: 11,
+                        color: AppColors.textGrey,
+                      ),
+                    ),
+                    onChanged: (v) {
+                      setState(() {
+                        if (v == true) {
+                          _selectedUids.add(m.uid);
+                        } else {
+                          _selectedUids.remove(m.uid);
+                        }
+                      });
+                    },
+                  );
+                },
+              ),
             ),
             const SizedBox(height: 14),
             Text(

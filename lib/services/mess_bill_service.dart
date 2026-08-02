@@ -51,37 +51,40 @@ class MessBillService {
     required String yearMonth,
     required String adminUid,
     required String adminName,
+    required List<String> assignedMemberUids,
     String note = '',
   }) async {
     await _locks.assertUnlocked(messId, yearMonth);
+    final assignees = assignedMemberUids.toSet().toList();
+    if (assignees.isEmpty) {
+      throw StateError('Select at least one member for this bill.');
+    }
     await _col(messId).add({
       'type': type.firestoreValue,
       'amount': amount,
       'yearMonth': yearMonth,
       'note': note,
+      'assignedMemberUids': assignees,
       'createdBy': adminUid,
       'createdByName': adminName,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    final members = await _firestore
-        .collection('messes')
-        .doc(messId)
-        .collection('members')
-        .get();
-    final uids = members.docs.map((d) => d.id).where((id) => id != adminUid);
-    await _notifications.notifyUsers(
-      uids: uids.toList(),
-      titleBn: 'নতুন বিল',
-      titleEn: 'New bill',
-      bodyBn:
-          '${type.label(bn: true)}: ৳${amount.toStringAsFixed(0)} ($yearMonth)',
-      bodyEn:
-          '${type.label(bn: false)}: ৳${amount.toStringAsFixed(0)} ($yearMonth)',
-      type: 'bill_added',
-      data: {'messId': messId, 'yearMonth': yearMonth},
-    );
+    final notifyUids = assignees.where((id) => id != adminUid).toList();
+    if (notifyUids.isNotEmpty) {
+      await _notifications.notifyUsers(
+        uids: notifyUids,
+        titleBn: 'নতুন বিল',
+        titleEn: 'New bill',
+        bodyBn:
+            '${type.label(bn: true)}: ৳${amount.toStringAsFixed(0)} ($yearMonth)',
+        bodyEn:
+            '${type.label(bn: false)}: ৳${amount.toStringAsFixed(0)} ($yearMonth)',
+        type: 'bill_added',
+        data: {'messId': messId, 'yearMonth': yearMonth},
+      );
+    }
   }
 
   Future<void> updateBill({
@@ -90,14 +93,20 @@ class MessBillService {
     required MessBillType type,
     required double amount,
     required String yearMonth,
+    required List<String> assignedMemberUids,
     String note = '',
   }) async {
     await _locks.assertUnlocked(messId, yearMonth);
+    final assignees = assignedMemberUids.toSet().toList();
+    if (assignees.isEmpty) {
+      throw StateError('Select at least one member for this bill.');
+    }
     await _col(messId).doc(billId).update({
       'type': type.firestoreValue,
       'amount': amount,
       'yearMonth': yearMonth,
       'note': note,
+      'assignedMemberUids': assignees,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }

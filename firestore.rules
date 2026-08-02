@@ -57,8 +57,9 @@ service cloud.firestore {
       return day is string && day.size() >= 7 ? day[0:7] : '';
     }
 
-    function messCreatedBy(messId) {
-      return get(/databases/$(database)/documents/messes/$(messId)).data.createdBy;
+    // For batch/transaction: see mess as it will exist after this write.
+    function messCreatedByAfter(messId) {
+      return getAfter(/databases/$(database)/documents/messes/$(messId)).data.createdBy;
     }
 
     // ---- Users ----
@@ -116,12 +117,17 @@ service cloud.firestore {
         request.resource.data.name.size() > 0 &&
         request.resource.data.code is string &&
         request.resource.data.code.size() == 6;
-      allow update, delete: if isAdmin(messId);
+      allow update, delete: if isAdmin(messId) ||
+        (signedIn() && resource.data.createdBy == request.auth.uid);
 
       match /members/{memberId} {
-        allow read: if isMember(messId);
+        // Self can always get own membership (needed before/while joining).
+        allow get: if isMember(messId) || request.auth.uid == memberId;
+        allow list: if isMember(messId);
 
-        // Self join as member OR creator as super_admin OR admin invites member.
+        // Any signed-in user may self-join as member (mess code path).
+        // Creator may self-create as super_admin when creating the mess.
+        // Admin may invite another user as member.
         allow create: if signedIn() && (
           (
             request.auth.uid == memberId &&
@@ -130,7 +136,7 @@ service cloud.firestore {
           (
             request.auth.uid == memberId &&
             request.resource.data.role == 'super_admin' &&
-            messCreatedBy(messId) == request.auth.uid
+            messCreatedByAfter(messId) == request.auth.uid
           ) ||
           (
             isAdmin(messId) &&
@@ -233,14 +239,16 @@ service cloud.firestore {
 
       match /bazaar_schedules/{scheduleId} {
         allow read: if isMember(messId);
-        allow create: if isMember(messId) && (
+        allow create: if isMember(messId) &&
+          !isMonthLocked(messId, request.resource.data.yearMonth) && (
           (isAdmin(messId) &&
             request.resource.data.status in ['approved', 'pending']) ||
           (!isAdmin(messId) &&
             request.resource.data.uid == request.auth.uid &&
             request.resource.data.status == 'pending')
         );
-        allow update: if isMember(messId) && (
+        allow update: if isMember(messId) &&
+          !isMonthLocked(messId, resource.data.yearMonth) && (
           isAdmin(messId) ||
           (
             resource.data.uid == request.auth.uid &&
@@ -249,11 +257,66 @@ service cloud.firestore {
             request.resource.data.status == 'pending'
           )
         );
-        allow delete: if isMember(messId) && (
+        allow delete: if isMember(messId) &&
+          !isMonthLocked(messId, resource.data.yearMonth) && (
           isAdmin(messId) ||
           (resource.data.uid == request.auth.uid &&
             resource.data.status == 'pending')
         );
+      }
+
+      // Member requests swap; admin / super_admin approve or do direct swap.
+      match /bazaar_swap_requests/{swapId} {
+        allow read: if isMember(messId);
+
+        allow create: if isMember(messId) &&
+          !isMonthLocked(messId, request.resource.data.yearMonth) && (
+          // Member: pending request for self
+          (
+            request.resource.data.requesterUid == request.auth.uid &&
+            request.resource.data.status == 'pending' &&
+            request.resource.data.targetUid is string &&
+            request.resource.data.targetUid != request.auth.uid &&
+            request.resource.data.scheduleId is string &&
+            request.resource.data.targetScheduleId is string
+          ) ||
+          // Admin / super_admin: direct swap audit (already approved)
+          (
+            isAdmin(messId) &&
+            request.resource.data.status == 'approved' &&
+            request.resource.data.directByAdmin == true
+          )
+        );
+
+        allow update: if isMember(messId) &&
+          !isMonthLocked(messId, resource.data.yearMonth) && (
+          (
+            isAdmin(messId) &&
+            resource.data.status == 'pending' &&
+            request.resource.data.status in ['approved', 'rejected']
+          ) ||
+          (
+            resource.data.requesterUid == request.auth.uid &&
+            resource.data.status == 'pending' &&
+            request.resource.data.status == 'cancelled' &&
+            request.resource.data.requesterUid == resource.data.requesterUid
+          )
+        );
+
+        allow delete: if isAdmin(messId);
+      }
+
+      match /payments/{yearMonth} {
+        allow read: if isMember(messId);
+        allow write: if false;
+
+        match /members/{uid} {
+          allow read: if isMember(messId);
+          allow create, update: if isAdmin(messId) &&
+            !isMonthLocked(messId, yearMonth);
+          allow delete: if isAdmin(messId) &&
+            !isMonthLocked(messId, yearMonth);
+        }
       }
 
       match /bills/{billId} {
@@ -277,10 +340,12 @@ service cloud.firestore {
       allow create: if signedIn() &&
         code.size() == 6 &&
         request.resource.data.messId is string &&
-        messCreatedBy(request.resource.data.messId) == request.auth.uid;
+        messCreatedByAfter(request.resource.data.messId) == request.auth.uid;
       allow update: if signedIn() &&
         request.resource.data.messId == resource.data.messId;
-      allow delete: if false;
+      // Creator may remove a code if create rolled back.
+      allow delete: if signedIn() &&
+        resource.data.createdBy == request.auth.uid;
     }
 
     function onlyPostCountersChanged() {
@@ -362,16 +427,17 @@ service cloud.firestore {
     }
 
     match /conversations/{convId} {
+      // Conv ids are `{uidA}_{uidB}` (sorted). Allow get if caller is one side,
+      // even when the doc does not exist yet (needed before create).
       allow get: if signedIn() && (
-        resource == null
-          ? (convId.matches('^' + request.auth.uid + '_.+') ||
-             convId.matches('.+_' + request.auth.uid + '$'))
-          : request.auth.uid in resource.data.memberIds
+        convId.matches('^' + request.auth.uid + '_.+') ||
+        convId.matches('.+_' + request.auth.uid + '$')
       );
       allow list: if signedIn() &&
         request.auth.uid in resource.data.memberIds;
       allow create: if signedIn() &&
         request.auth.uid in request.resource.data.memberIds &&
+        request.resource.data.memberIds is list &&
         request.resource.data.memberIds.size() == 2 &&
         areFriends(
           request.resource.data.memberIds[0],
@@ -379,20 +445,30 @@ service cloud.firestore {
         );
       allow update: if signedIn() &&
         request.auth.uid in resource.data.memberIds &&
-        request.resource.data.memberIds == resource.data.memberIds;
+        request.resource.data.memberIds == resource.data.memberIds &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['lastMessage', 'updatedAt', 'memberIds']);
 
       match /messages/{messageId} {
         allow read: if signedIn() &&
-          exists(/databases/$(database)/documents/conversations/$(convId)) &&
-          request.auth.uid in
-            get(/databases/$(database)/documents/conversations/$(convId)).data.memberIds;
+          (
+            convId.matches('^' + request.auth.uid + '_.+') ||
+            convId.matches('.+_' + request.auth.uid + '$')
+          );
         allow create: if signedIn() &&
           request.resource.data.senderId == request.auth.uid &&
           request.resource.data.text is string &&
           request.resource.data.text.size() > 0 &&
-          exists(/databases/$(database)/documents/conversations/$(convId)) &&
-          request.auth.uid in
-            get(/databases/$(database)/documents/conversations/$(convId)).data.memberIds;
+          request.resource.data.text.size() <= 4000 &&
+          (
+            convId.matches('^' + request.auth.uid + '_.+') ||
+            convId.matches('.+_' + request.auth.uid + '$')
+          ) &&
+          (
+            !exists(/databases/$(database)/documents/conversations/$(convId)) ||
+            request.auth.uid in
+              get(/databases/$(database)/documents/conversations/$(convId)).data.memberIds
+          );
       }
     }
   }

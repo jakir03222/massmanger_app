@@ -50,9 +50,12 @@ dependencies:
   open_filex: ^4.7.0
   flutter_local_notifications: ^22.0.1
   shared_preferences: ^2.5.5
-  # 16.4.2 requires unpublished FirebasePlugin rename in firebase_core_platform_interface
+  # Pin FlutterFire leaf packages to the pre-FirebasePlugin rename set.
+  # Newer crashlytics/messaging need firebase_core_platform_interface >= 8.0.0.
   firebase_messaging: 16.4.1
+  firebase_crashlytics: 5.2.4
   excel: ^4.0.6
+  timezone: ^0.11.1
   bangla_pdf: ^1.0.6
   url_launcher: ^6.3.2
 

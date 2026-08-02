@@ -17,7 +17,7 @@ class MessException implements Exception {
   String toString() => message;
 }
 
-/// Admin creates a mess. Other users join with the 6-digit code as members.
+/// Any signed-in user can create a mess. Others join with the 6-digit code as members.
 class MessService {
   MessService({
     FirebaseFirestore? firestore,
@@ -56,7 +56,7 @@ class MessService {
     );
   }
 
-  /// Admin creates mess. [linkUser] false = show code dialog before Home.
+  /// Admin creates mess. Any signed-in user without a mess can create — no special permission.
   Future<Mess> createMess({
     required String name,
     required String location,
@@ -92,9 +92,8 @@ class MessService {
               ? user.displayName!.trim()
               : (user.email ?? trimmedName));
 
-      final batch = _firestore.batch();
-
-      batch.set(doc, {
+      // Sequential writes so rules can read the new mess (no special role needed).
+      await doc.set({
         'name': trimmedName,
         'location': trimmedLocation,
         'code': code,
@@ -102,22 +101,34 @@ class MessService {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      batch.set(doc.collection('members').doc(user.uid), {
-        'name': memberName,
-        'role': 'super_admin',
-        'room': null,
-        'authProvider': UserService.detectAuthProvider(user),
-        'joinedAt': FieldValue.serverTimestamp(),
-      });
+      try {
+        await doc.collection('members').doc(user.uid).set({
+          'name': memberName,
+          'role': 'super_admin',
+          'room': null,
+          'authProvider': UserService.detectAuthProvider(user),
+          'joinedAt': FieldValue.serverTimestamp(),
+        });
 
-      // Reliable join lookup for other users (no collection query needed).
-      batch.set(_messCodes.doc(code), {
-        'messId': doc.id,
-        'createdBy': user.uid,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      await batch.commit();
+        // Reliable join lookup for other users (no collection query needed).
+        await _messCodes.doc(code).set({
+          'messId': doc.id,
+          'createdBy': user.uid,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        // Best-effort rollback so a half-created mess is not left orphaned.
+        try {
+          await doc.collection('members').doc(user.uid).delete();
+        } catch (_) {}
+        try {
+          await _messCodes.doc(code).delete();
+        } catch (_) {}
+        try {
+          await doc.delete();
+        } catch (_) {}
+        rethrow;
+      }
 
       if (linkUser) {
         await _userService.setMessId(
@@ -344,16 +355,35 @@ class MessService {
               : (user.email ?? _t('সদস্য', 'Member')));
 
       final memberRef = messRef.collection('members').doc(user.uid);
-      final existingMember = await memberRef.get();
       final authProvider = UserService.detectAuthProvider(user);
-      if (!existingMember.exists) {
-        await memberRef.set({
-          'name': memberName,
-          'role': 'member',
-          'room': null,
-          'authProvider': authProvider,
-          'joinedAt': FieldValue.serverTimestamp(),
-        });
+      // Prefer create-as-member; if already a member, merge profile fields.
+      var alreadyMember = false;
+      try {
+        final existingMember = await memberRef.get();
+        alreadyMember = existingMember.exists;
+      } on FirebaseException catch (e) {
+        if (e.code != 'permission-denied') rethrow;
+      }
+
+      if (!alreadyMember) {
+        try {
+          await memberRef.set({
+            'name': memberName,
+            'role': 'member',
+            'room': null,
+            'authProvider': authProvider,
+            'joinedAt': FieldValue.serverTimestamp(),
+          });
+        } on FirebaseException catch (e) {
+          // Race: already joined — continue and link user.
+          if (e.code != 'already-exists' && e.code != 'permission-denied') {
+            rethrow;
+          }
+          await memberRef.set({
+            'name': memberName,
+            'authProvider': authProvider,
+          }, SetOptions(merge: true));
+        }
       } else {
         await memberRef.set({
           'name': memberName,

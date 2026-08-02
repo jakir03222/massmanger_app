@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/meal_entry.dart';
-import '../widgets/mess_session_builder.dart' show dateKey;
+import '../utils/date_formatters.dart' show dateKey;
 import 'month_lock_service.dart';
 import 'notification_service.dart';
 
@@ -249,6 +249,7 @@ class MealService {
         case MealType.night:
           nightTotal += qty;
         case MealType.rate:
+        case MealType.guest:
           break;
       }
       if (opsInBatch >= 450) {

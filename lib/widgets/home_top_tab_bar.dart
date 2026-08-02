@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../config/feature_flags.dart';
 import '../l10n/app_strings.dart';
 import '../l10n/locale_controller.dart';
 import '../theme/app_colors.dart';
@@ -8,14 +7,11 @@ import '../theme/theme_controller.dart';
 
 /// Facebook-style top tab bar using custom asset icons.
 class HomeTopTabBar extends StatelessWidget {
-  const HomeTopTabBar({
-    super.key,
-    required this.controller,
-  });
+  const HomeTopTabBar({super.key, required this.controller});
 
   final TabController controller;
 
-  static int get tabCount => FeatureFlags.communityEnabled ? 6 : 5;
+  static int get tabCount => 5;
 
   static List<_FbTab> _tabs(BuildContext context) {
     final s = AppStrings.of(context);
@@ -35,11 +31,6 @@ class HomeTopTabBar extends StatelessWidget {
         asset: 'assets/images/tab/market.png',
         fallback: Icons.storefront_rounded,
       ),
-      if (FeatureFlags.communityEnabled)
-        _FbTab(
-          label: s.navCommunity,
-          fallback: Icons.groups_rounded,
-        ),
       _FbTab(
         label: s.navReport,
         asset: 'assets/images/tab/report.png',
@@ -112,11 +103,7 @@ class HomeTopTabBar extends StatelessWidget {
 }
 
 class _FbTab {
-  const _FbTab({
-    required this.label,
-    required this.fallback,
-    this.asset,
-  });
+  const _FbTab({required this.label, required this.fallback, this.asset});
 
   final String label;
   final String? asset;
@@ -148,11 +135,7 @@ class _FbTabItem extends StatelessWidget {
           height: 28,
           child: tab.asset == null
               ? Icon(tab.fallback, size: 26, color: color)
-              : ImageIcon(
-                  AssetImage(tab.asset!),
-                  size: 26,
-                  color: color,
-                ),
+              : ImageIcon(AssetImage(tab.asset!), size: 26, color: color),
         ),
         const SizedBox(height: 3),
         Text(

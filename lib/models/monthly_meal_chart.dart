@@ -2,7 +2,7 @@ import '../models/meal_entry.dart';
 import '../models/mess.dart';
 import '../services/meal_service.dart';
 import '../utils/bn_date_format.dart';
-import '../widgets/mess_session_builder.dart' show dateKey;
+import '../utils/date_formatters.dart' show dateKey;
 
 class MealBld {
   const MealBld({this.b = 0, this.l = 0, this.d = 0});
@@ -50,21 +50,24 @@ class MonthlyMealChart {
   double personTotal(int index) =>
       memberB[index] + memberL[index] + memberD[index];
 
+  /// Distinct pastel per member (no plain white — always readable in PDF/Excel).
   static const memberColorValues = [
-    0xFFB3E5FC,
-    0xFFFFCDD2,
-    0xFFFFFFFF,
-    0xFFE1BEE7,
-    0xFFFFF9C4,
-    0xFFBBDEFB,
-    0xFFC8E6C9,
-    0xFFD1C4E9,
-    0xFFFFE0B2,
-    0xFFF3E5F5,
-    0xFFC5E1A5,
-    0xFFB2EBF2,
-    0xFFF8BBD0,
-    0xFFDCEDC8,
+    0xFFB3E5FC, // light blue
+    0xFFFFCDD2, // light pink
+    0xFFFFE0B2, // light orange
+    0xFFE1BEE7, // light purple
+    0xFFFFF59D, // light yellow
+    0xFFBBDEFB, // sky blue
+    0xFFC8E6C9, // light green
+    0xFFD1C4E9, // soft violet
+    0xFFFFCCBC, // peach
+    0xFFF8BBD0, // rose
+    0xFFC5E1A5, // lime
+    0xFFB2EBF2, // cyan
+    0xFFDCEDC8, // mint
+    0xFFFFECB3, // amber
+    0xFFD7CCC8, // taupe
+    0xFFCFD8DC, // blue grey
   ];
 
   static String formatQty(double n) {
@@ -117,6 +120,9 @@ class MonthlyMealChartBuilder {
             cell.d += e.rateValue; // রাত
           case MealType.rate:
             // রেট মিল রাত কলামে যোগ হয়
+            cell.d += e.rateValue;
+          case MealType.guest:
+            // Guest meals count toward day total (night column).
             cell.d += e.rateValue;
         }
       }

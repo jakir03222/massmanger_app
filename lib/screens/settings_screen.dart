@@ -12,14 +12,19 @@ import '../models/mess.dart';
 import '../services/auth_service.dart';
 import '../services/mess_service.dart';
 import '../services/month_lock_service.dart';
+import '../services/reminder_service.dart';
 import '../services/user_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme_palette.dart';
 import '../theme/theme_controller.dart';
+import '../widgets/app_surface.dart';
 import '../widgets/mess_app_header.dart';
-import '../widgets/mess_session_builder.dart' show yearMonthKey;
+import '../utils/date_formatters.dart' show yearMonthKey;
 import '../widgets/month_navigator.dart';
+import 'analytics_trends_screen.dart';
 import 'mess_bills_screen.dart';
+import 'notification_inbox_screen.dart';
+import 'privacy_policy_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -79,10 +84,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       children: [
                         const SizedBox(height: 12),
                         _MessInfoCard(mess: mess),
-                        const SizedBox(height: 20),
-                        _SettingsTabBar(
-                          index: _tabIndex,
-                          onChanged: (i) => setState(() => _tabIndex = i),
+                        const SizedBox(height: 16),
+                        Builder(
+                          builder: (context) {
+                            final s = AppStrings.of(context);
+                            return AppSegmentedControl(
+                              labels: [s.members, s.settings],
+                              index: _tabIndex,
+                              onChanged: (i) => setState(() => _tabIndex = i),
+                            );
+                          },
                         ),
                         const SizedBox(height: 16),
                         if (_tabIndex == 0)
@@ -153,10 +164,11 @@ class _MessInfoCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderGrey),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
             offset: const Offset(0, 3),
           ),
         ],
@@ -289,82 +301,6 @@ class _MessInfoCard extends StatelessWidget {
                   ],
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _SettingsTabBar extends StatelessWidget {
-  const _SettingsTabBar({
-    required this.index,
-    required this.onChanged,
-  });
-
-  final int index;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final s = AppStrings.of(context);
-    return Column(
-      children: [
-        Row(
-          children: [
-            _TabItem(
-              label: s.members,
-              selected: index == 0,
-              onTap: () => onChanged(0),
-            ),
-            _TabItem(
-              label: s.settings,
-              selected: index == 1,
-              onTap: () => onChanged(1),
-            ),
-          ],
-        ),
-        Divider(height: 1, color: AppColors.borderGrey),
-      ],
-    );
-  }
-}
-
-class _TabItem extends StatelessWidget {
-  const _TabItem({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        behavior: HitTestBehavior.opaque,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                label,
-                style: appFont(
-                  context: context,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? AppColors.darkGreen : AppColors.textGrey,
-                ),
-              ),
-            ),
-            Container(
-              height: 3,
-              color: selected ? AppColors.primaryGreen : Colors.transparent,
             ),
           ],
         ),
@@ -1844,13 +1780,27 @@ class _SettingsTabContent extends StatelessWidget {
           ),
           _SettingsTile(
             icon: Icons.notifications_outlined,
-            title: s.notifications,
+            title: s.notificationsInbox,
             subtitle: s.notificationsSubtitle,
-            onTap: () => _showInfo(
-              context,
-              s.notifications,
-              s.notificationsInfoBody,
-            ),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const NotificationInboxScreen(),
+                ),
+              );
+            },
+          ),
+          const _RemindersToggleTile(),
+          _SettingsTile(
+            icon: Icons.trending_up_rounded,
+            title: s.analyticsTrends,
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const AnalyticsTrendsScreen(),
+                ),
+              );
+            },
           ),
           _SettingsTile(
             icon: Icons.play_circle_outline_rounded,
@@ -1869,6 +1819,17 @@ class _SettingsTabContent extends StatelessWidget {
               context,
               SocialLinks.facebookPage,
             ),
+          ),
+          _SettingsTile(
+            icon: Icons.privacy_tip_outlined,
+            title: s.privacyPolicy,
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const PrivacyPolicyScreen(),
+                ),
+              );
+            },
           ),
           _SettingsTile(
             icon: Icons.lock_outline,
@@ -1908,6 +1869,51 @@ class _SettingsTabContent extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RemindersToggleTile extends StatefulWidget {
+  const _RemindersToggleTile();
+
+  @override
+  State<_RemindersToggleTile> createState() => _RemindersToggleTileState();
+}
+
+class _RemindersToggleTileState extends State<_RemindersToggleTile> {
+  final _reminders = ReminderService();
+  bool? _enabled;
+
+  @override
+  void initState() {
+    super.initState();
+    _reminders.isEnabled().then((v) {
+      if (mounted) setState(() => _enabled = v);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+    final on = _enabled ?? true;
+    return _SettingsTile(
+      icon: Icons.alarm_outlined,
+      title: s.remindersEnabled,
+      subtitle:
+          '${s.mealCutoffReminder} · ${s.bazaarDutyReminder} · ${s.settleUpReminder}',
+      trailing: Switch.adaptive(
+        value: on,
+        activeThumbColor: AppColors.primaryGreen,
+        onChanged: (v) async {
+          setState(() => _enabled = v);
+          await _reminders.setEnabled(v);
+        },
+      ),
+      onTap: () async {
+        final next = !on;
+        setState(() => _enabled = next);
+        await _reminders.setEnabled(next);
+      },
     );
   }
 }
@@ -2043,87 +2049,64 @@ class _LogoutTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
-    return Material(
-      color: AppColors.card,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () async {
-          final confirmed = await showDialog<bool>(
-            context: context,
-            builder: (context) {
-              final ds = AppStrings.of(context);
-              return AlertDialog(
-                title: Text(
-                  ds.logout,
-                  style: appFont(context: context, fontWeight: FontWeight.w700),
+    return AppSettingsTile(
+      icon: Icons.logout_rounded,
+      title: s.logout,
+      danger: true,
+      trailing: const SizedBox.shrink(),
+      onTap: () async {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) {
+            final ds = AppStrings.of(context);
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Text(
+                ds.logout,
+                style: appFont(context: context, fontWeight: FontWeight.w700),
+              ),
+              content: Text(
+                ds.logoutConfirm,
+                style: appFont(context: context),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: Text(ds.no, style: appFont(context: context)),
                 ),
-                content: Text(
-                  ds.logoutConfirm,
-                  style: appFont(context: context),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: Text(ds.no, style: appFont(context: context)),
-                  ),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context, true),
-                    child: Text(
-                      ds.yesLogout,
-                      style: appFont(
-                        context: context,
-                        color: const Color(0xFFC62828),
-                        fontWeight: FontWeight.w600,
-                      ),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text(
+                    ds.yesLogout,
+                    style: appFont(
+                      context: context,
+                      color: AppColors.monthRed,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                ],
-              );
-            },
-          );
-          if (confirmed != true) return;
-
-          try {
-            await AuthService().signOut();
-          } catch (_) {
-            if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  AppStrings.of(context).logoutFailed,
-                  style: appFont(context: context),
                 ),
-              ),
+              ],
             );
-          }
-        },
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: const Color(0xFFFFCDD2)),
-            color: const Color(0xFFFFEBEE),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.logout_rounded, color: Color(0xFFC62828), size: 22),
-              const SizedBox(width: 10),
-              Text(
-                s.logout,
-                style: appFont(
-                  context: context,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFFC62828),
-                ),
+          },
+        );
+        if (confirmed != true) return;
+
+        try {
+          await AuthService().signOut();
+        } catch (_) {
+          if (!context.mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                AppStrings.of(context).logoutFailed,
+                style: appFont(context: context),
               ),
-            ],
-          ),
-        ),
-      ),
+            ),
+          );
+        }
+      },
     );
   }
 }
@@ -2178,8 +2161,8 @@ class _ThemeOptionTile extends StatelessWidget {
                   ],
                 ),
                 child: selected
-                    ? const Icon(Icons.check_rounded,
-                        color: Colors.white, size: 22)
+                    ? Icon(Icons.check_rounded,
+                        color: palette.onPrimary, size: 22)
                     : null,
               ),
               const SizedBox(width: 12),

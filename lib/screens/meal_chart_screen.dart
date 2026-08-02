@@ -8,7 +8,7 @@ import '../services/monthly_meal_chart_pdf_service.dart';
 import '../services/pdf_download_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/meal_chart_sheet_view.dart';
-import '../widgets/mess_session_builder.dart' show yearMonthKey;
+import '../utils/date_formatters.dart' show yearMonthKey;
 
 /// Full-screen smart meal chart for Super Admin / Admin (Excel + PDF).
 class MealChartScreen extends StatefulWidget {
@@ -113,7 +113,13 @@ class _MealChartScreenState extends State<MealChartScreen> {
     if (chart == null || _exportingExcel || _exportingPdf) return;
     setState(() => _exportingPdf = true);
     try {
-      final bytes = await _pdf.generate(chart, messName: widget.mess.name);
+      final bytes = await _pdf.generate(
+        chart,
+        messName: widget.mess.name,
+        messLocation: widget.mess.location,
+        superAdminName:
+            MonthlyMealChartPdfService.resolveSuperAdminName(widget.members),
+      );
       if (!mounted) return;
       final result = await _download.saveAndOpen(
         bytes: bytes,
@@ -154,11 +160,16 @@ class _MealChartScreenState extends State<MealChartScreen> {
     return Scaffold(
       backgroundColor: AppColors.pageBackground,
       appBar: AppBar(
-        backgroundColor: AppColors.primaryGreen,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.pageBackground,
+        foregroundColor: AppColors.textDark,
+        elevation: 0,
         title: Text(
           s.mealChart,
-          style: appFont(context: context, fontWeight: FontWeight.w700),
+          style: appFont(
+            context: context,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textDark,
+          ),
         ),
         actions: [
           if (widget.canDownload && _chart != null) ...[
@@ -166,35 +177,41 @@ class _MealChartScreenState extends State<MealChartScreen> {
               tooltip: s.downloadPdf,
               onPressed: busy ? null : _exportPdf,
               icon: _exportingPdf
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: AppColors.primaryGreen,
                       ),
                     )
-                  : const Icon(Icons.picture_as_pdf_outlined),
+                  : Icon(
+                      Icons.picture_as_pdf_outlined,
+                      color: AppColors.primaryGreen,
+                    ),
             ),
             IconButton(
               tooltip: s.downloadExcel,
               onPressed: busy ? null : _exportExcel,
               icon: _exportingExcel
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: AppColors.primaryGreen,
                       ),
                     )
-                  : const Icon(Icons.grid_on_rounded),
+                  : Icon(
+                      Icons.grid_on_rounded,
+                      color: AppColors.primaryGreen,
+                    ),
             ),
           ],
           IconButton(
             tooltip: s.refresh,
             onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh_rounded),
+            icon: Icon(Icons.refresh_rounded, color: AppColors.textGrey),
           ),
         ],
       ),

@@ -7,10 +7,7 @@ import '../widgets/splash_loading_indicator.dart';
 import '../widgets/splash_logo.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({
-    super.key,
-    required this.onFinished,
-  });
+  const SplashScreen({super.key, required this.onFinished});
 
   final VoidCallback onFinished;
 

@@ -1,3 +1,6 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -7,8 +10,11 @@ import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/google_logo.dart';
 import '../widgets/login_hero_card.dart';
+import '../widgets/app_surface.dart';
 import 'email_login_screen.dart';
 import 'register_screen.dart';
+
+bool get _hideGoogleSignIn => !kIsWeb && Platform.isIOS;
 
 class LoginScreen extends StatelessWidget {
   const LoginScreen({super.key});
@@ -145,13 +151,31 @@ class _LoginCardState extends State<_LoginCard> {
   bool _googleLoading = false;
 
   Future<void> _signInWithGoogle() async {
+    debugPrint('[LoginUI] Google button tapped');
     setState(() => _googleLoading = true);
     try {
       await _authService.signInWithGoogle();
+      debugPrint('[LoginUI] Google sign-in finished OK');
     } on AuthException catch (e) {
+      debugPrint('[LoginUI] Google AuthException shown to user: ${e.message}');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message, style: GoogleFonts.notoSansBengali())),
+        SnackBar(
+          content: Text(e.message, style: GoogleFonts.notoSansBengali()),
+          duration: const Duration(seconds: 8),
+        ),
+      );
+    } catch (e, st) {
+      debugPrint('[LoginUI] Google unexpected: $e\n$st');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppStrings.of(context).somethingWentWrong,
+            style: GoogleFonts.notoSansBengali(),
+          ),
+          duration: const Duration(seconds: 8),
+        ),
       );
     } finally {
       if (mounted) setState(() => _googleLoading = false);
@@ -160,53 +184,58 @@ class _LoginCardState extends State<_LoginCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return AppCard(
       margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 20),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
       child: Column(
         children: [
-          _OutlinedLoginButton(
-            onPressed: _googleLoading ? null : _signInWithGoogle,
-            child: _googleLoading
-                ? SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      color: AppColors.primaryGreen,
-                    ),
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const GoogleLogo(),
-                      const SizedBox(width: 12),
-                      Text(
-                        AppStrings.of(context).continueGoogle,
-                        style: appFont(
-                          context: context,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.textDark,
-                        ),
+          if (!_hideGoogleSignIn) ...[
+            _OutlinedLoginButton(
+              onPressed: _googleLoading ? null : _signInWithGoogle,
+              child: _googleLoading
+                  ? SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: AppColors.primaryGreen,
                       ),
-                    ],
-                  ),
-          ),
-          const SizedBox(height: 20),
-          const _OrDivider(),
-          const SizedBox(height: 20),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const GoogleLogo(),
+                        const SizedBox(width: 12),
+                        Text(
+                          AppStrings.of(context).continueGoogle,
+                          style: appFont(
+                            context: context,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textDark,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+            const SizedBox(height: 16),
+            const _OrDivider(),
+            const SizedBox(height: 16),
+          ] else ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                AppStrings.of(context).googleSignInUnavailableIos,
+                textAlign: TextAlign.center,
+                style: appFont(
+                  context: context,
+                  fontSize: 12,
+                  color: AppColors.textGrey,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
           _FilledLoginButton(
             onPressed: _googleLoading
                 ? null

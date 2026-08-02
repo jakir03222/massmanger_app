@@ -241,19 +241,19 @@ class AppStrings {
       _t('মেস কোড (৬ ডিজিট)', 'Mess code (6 digits)');
   String get codeExampleHint => _t('যেমন: 482916', 'e.g. 482916');
   String get messSetupIntro => _t(
-        'অ্যাডমিন মেস তৈরি করবে। অন্য ইউজার আলাদা অ্যাকাউন্ট দিয়ে লগইন করে মেস কোড দিয়ে মেম্বার হিসেবে জয়েন করবে।',
-        'Admin creates the mess. Others sign in with their own account and join as members with the mess code.',
+        'লগইনের পর যে কেউ মেস তৈরি করতে পারেন — আলাদা অনুমতি লাগে না। অন্যরা আপনার ৬ ডিজিটের মেস কোড দিয়ে জয়েন করবে।',
+        'After login anyone can create a mess — no special permission needed. Others join with your 6-digit mess code.',
       );
   String get createMessAdmin =>
-      _t('মেস তৈরি (অ্যাডমিন)', 'Create mess (admin)');
+      _t('মেস তৈরি করুন', 'Create mess');
   String get youWillBeAdmin =>
-      _t('আপনি অ্যাডমিন হবেন', 'You will be admin');
+      _t('তৈরি করলে আপনি অ্যাডমিন হবেন', 'You become admin when you create');
   String get joinMessShort => _t('মেসে জয়েন', 'Join mess');
   String get joinAsMember =>
-      _t('মেম্বার হিসেবে যোগ', 'Join as member');
+      _t('কোড দিয়ে যোগ দিন', 'Join with code');
   String get messSetupFooter => _t(
-        'মেস তৈরির পর ৬ ডিজিটের কোড পাবেন। অন্য ইউজার লগইন করে «মেসে যোগ দিন» থেকে সেই কোড দিয়ে জয়েন করবে।',
-        'After creating, you get a 6-digit code. Others sign in and join via “Join mess” with that code.',
+        'মেস তৈরির পর ৬ ডিজিটের কোড পাবেন। যে কেউ লগইন করে সেই কোড দিয়ে জয়েন করতে পারবে।',
+        'After creating, you get a 6-digit code. Anyone signed in can join with that code.',
       );
   String get viewCommunityFindMess =>
       _t('কমিউনিটি দেখুন — মেস খুঁজুন', 'View community — find a mess');
@@ -273,6 +273,61 @@ class AppStrings {
         'কিছু ভুল হয়েছে। আবার চেষ্টা করুন।',
         'Something went wrong. Please try again.',
       );
+  String get profileLoadFailed =>
+      _t('প্রোফাইল লোড হয়নি', 'Could not load profile');
+  String get profileLoadFailedHint => _t(
+        'ইন্টারনেট চেক করে আবার চেষ্টা করুন।',
+        'Check your connection and try again.',
+      );
+  String get sessionLoadFailed =>
+      _t('মেস ডেটা লোড হয়নি', 'Could not load mess data');
+  String get googleSignInUnavailableIos => _t(
+        'iOS-এ Google লগইন এখন উপলব্ধ নয় — ইমেইল ব্যবহার করুন।',
+        'Google sign-in is unavailable on iOS — use email.',
+      );
+  String get payments => _t('পেমেন্ট', 'Payments');
+  String get markPaid => _t('পেইড করুন', 'Mark paid');
+  String get markUnpaid => _t('আনপেইড', 'Mark unpaid');
+  String get paid => _t('পেইড', 'Paid');
+  String get unpaid => _t('বাকি', 'Due');
+  String get paymentNoteOptional =>
+      _t('নোট (ঐচ্ছিক) — যেমন বিকাশ', 'Note (optional) — e.g. bKash');
+  String get paymentUpdated =>
+      _t('পেমেন্ট আপডেট হয়েছে', 'Payment updated');
+  String get notificationsInbox => _t('নোটিফিকেশন', 'Notifications');
+  String get noNotifications =>
+      _t('এখনো কোনো নোটিফিকেশন নেই', 'No notifications yet');
+  String get markAllRead => _t('সব পঠিত', 'Mark all read');
+  String get deleteAllNotifications =>
+      _t('সব মুছুন', 'Delete all');
+  String get deleteAllNotificationsTitle =>
+      _t('সব নোটিফিকেশন মুছবেন?', 'Delete all notifications?');
+  String get deleteAllNotificationsBody => _t(
+        'সব নোটিফিকেশন স্থায়ীভাবে মুছে যাবে।',
+        'All notifications will be permanently deleted.',
+      );
+  String get notificationDeleted =>
+      _t('নোটিফিকেশন মুছে গেছে', 'Notification deleted');
+  String get allNotificationsDeleted =>
+      _t('সব নোটিফিকেশন মুছে গেছে', 'All notifications deleted');
+  String get swipeToDeleteHint =>
+      _t('বামে বা ডানে সোয়াইপ করে মুছুন', 'Swipe left or right to delete');
+  String get addGuestMeal => _t('গেস্ট মিল', 'Guest meal');
+  String get guestMeal => _t('গেস্ট', 'Guest');
+  String get remindersEnabled =>
+      _t('রিমাইন্ডার চালু', 'Reminders on');
+  String get mealCutoffReminder =>
+      _t('মিল রিকোয়েস্ট রিমাইন্ডার', 'Meal request reminder');
+  String get bazaarDutyReminder =>
+      _t('বাজার ডিউটি রিমাইন্ডার', 'Bazaar duty reminder');
+  String get settleUpReminder =>
+      _t('হিসাব পেমেন্ট রিমাইন্ডার', 'Settle-up reminder');
+  String get privacyPolicy => _t('প্রাইভেসি পলিসি', 'Privacy policy');
+  String get analyticsTrends => _t('ট্রেন্ড', 'Trends');
+  String get monthClosePack =>
+      _t('মাস ক্লোজ প্যাক শেয়ার', 'Share month-close pack');
+  String get lastMonthsTrend =>
+      _t('গত কয়েক মাসের হিসাব', 'Recent months');
   String shareMessInvite(String name, String code) => _bn
       ? 'আমাদের মেস "$name"-এ যোগ দিন।\nমেস কোড: $code\nMass Manager অ্যাপে কোড দিয়ে জয়েন করুন।'
       : 'Join our mess "$name".\nMess code: $code\nJoin with the code in the Mass Manager app.';
@@ -293,11 +348,17 @@ class AppStrings {
   String get monthEndAllMembers =>
       _t('মাস শেষ — সব মেম্বারের হিসাব', 'Month end — all members');
   String get smartPdfHint => _t(
-        'Smart PDF — প্রতি মেম্বারের মিল, বাজার, বিল ভাগ ও পাবে/দিবে',
-        'Smart PDF — meals, bazaar, bill share & payable/receivable',
+        'Smart Invoice Report — মিল, বাজার, বিল, পাবে/দিবে + সব মেম্বারের মিল চার্ট',
+        'Smart Invoice Report — meals, bazaar, bills, balance + all-member meal chart',
       );
   String get smartMonthlyPdf =>
-      _t('Smart মাসিক হিসাব PDF', 'Smart monthly statement PDF');
+      _t('Smart Invoice Report PDF', 'Smart Invoice Report PDF');
+  String get smartInvoiceReport =>
+      _t('Smart Invoice Report', 'Smart Invoice Report');
+  String get smartInvoiceReportHint => _t(
+        'মাসিক ইনভয়েস + সব মেম্বারের B/L/D মিল চার্ট এক PDF-এ',
+        'Monthly invoice + all-member B/L/D meal chart in one PDF',
+      );
   String get bills => _t('বিল', 'Bills');
   String get memberSummary =>
       _t('সব মেম্বারের হিসাব (সংক্ষেপ)', 'Member summary');
@@ -327,8 +388,10 @@ class AppStrings {
   String get billShare => _t('বিল ভাগ', 'Bill share');
   String get iMustPay => _t('আমাকে দিতে হবে', 'I owe');
   String get iWillGet => _t('আমি পাব', 'I receive');
-  String get pdfSavedDownloads =>
-      _t('PDF ডাউনলোড ফোল্ডারে সেভ হয়েছে', 'PDF saved to Downloads');
+  String get pdfSavedDownloads => _t(
+        'PDF ডাউনলোড/গ্যালারিতে সেভ হয়েছে',
+        'PDF saved to Downloads / Gallery',
+      );
   String get pdfSaved => _t('PDF সেভ হয়েছে', 'PDF saved');
   String get pdfFailed =>
       _t('PDF তৈরি ব্যর্থ — আবার চেষ্টা করুন', 'PDF failed — try again');
@@ -642,6 +705,10 @@ class AppStrings {
         'এখনো কোনো নির্ধারিত বাজার তারিখ নেই',
         'No scheduled bazaar dates yet',
       );
+  String get noScheduledBazaarDatesBody => _t(
+        'নিচে বাটন দিয়ে তারিখ নির্ধারণ/অনুরোধ করুন — অনুমোদন হলে সবাই দেখবে।',
+        'Use the button below to set/request a date — everyone sees it after approval.',
+      );
   String get setDate => _t('তারিখ নির্ধারণ', 'Set date');
   String get requestDate => _t('তারিখ অনুরোধ', 'Request date');
   String get whoseBazaarDate =>
@@ -660,6 +727,140 @@ class AppStrings {
   String get statusPendingLabel =>
       _t('স্ট্যাটাস: অপেক্ষমাণ', 'Status: Pending');
 
+  // —— Bazaar Swap ——
+  String get bazaarSwap => _t('বাজার swap', 'Bazaar swap');
+  String get bazaarSwapTitle => _t('বাজার তারিখ swap', 'Swap bazaar date');
+  String get bazaarSwapRequests => _t('Swap অনুরোধ', 'Swap requests');
+  String get bazaarSwapRequest => _t('Swap অনুরোধ করুন', 'Request swap');
+  String get bazaarSwapNoteHint =>
+      _t('কারণ বা মন্তব্য (ঐচ্ছিক)', 'Note / reason (optional)');
+  String get bazaarSwapSend => _t('Swap অনুরোধ পাঠান', 'Send swap request');
+  String get bazaarSwapCancel => _t('অনুরোধ প্রত্যাহার', 'Cancel request');
+  String get bazaarSwapApprove => _t('Swap করুন', 'Do swap');
+  String get bazaarSwapReject => _t('বাতিল করুন', 'Reject');
+  String get bazaarSwapNoOpen =>
+      _t('কোনো চলমান swap অনুরোধ নেই', 'No open swap requests');
+  String get bazaarSwapNoSchedule =>
+      _t(
+        'আপনার কোনো অনুমোদিত বাজার তারিখ নেই। আগে বাজার তারিখ request/set করুন, অ্যাডমিন approve করলে তারপর swap করতে পারবেন।',
+        'No approved bazaar date. Request/set a date first; after admin approves you can swap.',
+      );
+  String get bazaarSwapNoOtherSchedules =>
+      _t('swap করার জন্য অন্য কোনো সদস্যের তারিখ নেই',
+          'No other member has a schedule to swap with');
+  String get bazaarSwapPickPartner =>
+      _t('কার সাথে swap করবেন?', 'Swap with whom?');
+  String get bazaarSwapPickPartnerHint =>
+      _t('যে মেম্বারের সাথে swap হবে তার তারিখ সিলেক্ট করুন',
+          'Select the partner member\'s schedule slot');
+  String bazaarSwapSentSnack(String date) =>
+      _bn ? '$date তারিখের swap অনুরোধ পাঠানো হয়েছে' : 'Swap request sent for $date';
+  String bazaarSwapSentWithPartner(String myDate, String partner, String theirDate) =>
+      _bn
+          ? '$myDate ↔ $partner ($theirDate) — অ্যাডমিন অনুমোদনের অপেক্ষায়'
+          : '$myDate ↔ $partner ($theirDate) — awaiting admin approval';
+  String get bazaarSwapApprovedSnack =>
+      _t('Swap সম্পন্ন ✅ — শিডিউল আপডেট হয়েছে', 'Swap done ✅ — schedule updated');
+  String get bazaarSwapRejectedSnack =>
+      _t('Swap অনুরোধ বাতিল করা হয়েছে', 'Swap request rejected');
+  String get bazaarSwapCancelledSnack =>
+      _t('Swap অনুরোধ প্রত্যাহার করা হয়েছে', 'Swap request cancelled');
+  String get bazaarSwapAdminHint => _t(
+        'এই মাসের যেকোনো মেম্বারের বাজার স্লট অদলবদল বা হস্তান্তর করতে পারবেন — রিকোয়েস্ট লাগবে না।',
+        'Change any member\'s bazaar slot this month — no member request needed.',
+      );
+  String get bazaarSwapMemberHint => _t(
+        '১) আপনার তারিখ ২) অন্য মেম্বারের তারিখ সিলেক্ট করে swap অনুরোধ পাঠান।',
+        '1) Pick your date 2) Pick another member\'s date, then send request.',
+      );
+  String get bazaarSwapEligibleDates =>
+      _t('আপনার আসন্ন বাজার তারিখ', 'Your upcoming bazaar dates');
+  String get yourDate => _t('আপনার তারিখ', 'Your date');
+  String get swapWith => _t('swap করুন', 'Swap with');
+  String get bazaarSwapStep1 =>
+      _t('ধাপ ১: আপনার বাজার তারিখ', 'Step 1: Your bazaar date');
+  String get bazaarSwapStep2 =>
+      _t('ধাপ ২: কার সাথে swap করবেন?', 'Step 2: Swap with whom?');
+  String get bazaarSwapApproveConfirm =>
+      _t('এই দুই তারিখ swap করে দিন', 'Confirm this date swap');
+  String get bazaarAdminScheduleChange =>
+      _t('এই মাসের সিডিউল পরিবর্তন', 'Change this month\'s schedule');
+  String get bazaarAdminScheduleChangeSub => _t(
+        'মেম্বার রিকোয়েস্ট লাগবে না · শুধু এই মাস',
+        'No member request needed · this month only',
+      );
+  String get bazaarAdminSwapSlots =>
+      _t('দুই স্লট অদলবদল', 'Swap two slots');
+  String get bazaarAdminReassignSlot =>
+      _t('স্লট হস্তান্তর', 'Reassign slot');
+  String get bazaarAdminNeedTwoSlots => _t(
+        'এই মাসে swap করার মতো কমপক্ষে ২টি অনুমোদিত বাজার স্লট লাগবে।',
+        'Need at least 2 approved bazaar slots this month to swap.',
+      );
+  String get bazaarAdminPickFirstSlot =>
+      _t('কোন স্লট পরিবর্তন করবেন? (এই মাস)', 'Which slot to change? (this month)');
+  String get bazaarAdminPickSecondSlot =>
+      _t('কার সাথে অদলবদল? (এই মাস)', 'Swap with which slot? (this month)');
+  String get bazaarAdminSwapConfirmTitle =>
+      _t('স্লট অদলবদল (এই মাস)', 'Swap slots (this month)');
+  String get bazaarAdminNoRequestNeeded =>
+      _t('মেম্বার রিকোয়েস্ট লাগবে না।', 'No member request needed.');
+  String get bazaarAdminApplyChange =>
+      _t('পরিবর্তন করুন', 'Apply change');
+  String get bazaarAdminNoSlotsThisMonth =>
+      _t('এই মাসে কোনো অনুমোদিত বাজার স্লট নেই।',
+          'No approved bazaar slots this month.');
+  String get bazaarAdminPickSlotToReassign =>
+      _t('কোন তারিখের স্লট বদলাবেন? (এই মাস)',
+          'Which date slot to reassign? (this month)');
+  String get bazaarAdminNoOtherMember =>
+      _t('অন্য কোনো মেম্বার নেই।', 'No other members available.');
+  String get bazaarAdminNewOwner =>
+      _t('নতুন দায়িত্ব কার?', 'Who is the new owner?');
+  String get bazaarAdminReassignTitle =>
+      _t('স্লট হস্তান্তর', 'Reassign slot');
+  String bazaarAdminReassignedSnack(String name) =>
+      _bn ? 'স্লট পরিবর্তন হয়েছে: $name' : 'Slot reassigned to: $name';
+  String get bazaarMySwapRequests =>
+      _t('আমার swap অনুরোধ', 'My swap requests');
+  String get history => _t('ইতিহাস', 'History');
+  String get bazaarHowAdminTitle =>
+      _t('অ্যাডমিন কী করবেন', 'What admins can do');
+  String get bazaarHowMemberTitle =>
+      _t('কীভাবে request করবেন', 'How to request');
+  String get bazaarHowAdminStep1 => _t(
+        'এই মাস: "দুই স্লট অদলবদল" — দুই মেম্বারের তারিখ swap',
+        'This month: "Swap two slots" — exchange two members\' dates',
+      );
+  String get bazaarHowAdminStep2 => _t(
+        'এই মাস: "স্লট হস্তান্তর" — এক স্লট অন্য মেম্বারকে দিন',
+        'This month: "Reassign slot" — give one slot to another member',
+      );
+  String get bazaarHowAdminStep3 =>
+      _t('মেম্বার রিকোয়েস্ট লাগবে না', 'No member request needed');
+  String get bazaarHowAdminStep4 => _t(
+        'চাইলে pending অনুরোধও Approve/Reject করতে পারবেন',
+        'You can still Approve/Reject pending member requests',
+      );
+  String get bazaarHowMemberStep1 => _t(
+        'নিচে সবুজ বাটন: Swap অনুরোধ করুন',
+        'Green button below: Request swap',
+      );
+  String get bazaarHowMemberStep2 => _t(
+        'ধাপ ১: আপনার বাজার তারিখ সিলেক্ট করুন',
+        'Step 1: Select your bazaar date',
+      );
+  String get bazaarHowMemberStep3 => _t(
+        'ধাপ ২: অন্য মেম্বারের তারিখ সিলেক্ট করুন',
+        'Step 2: Select another member\'s date',
+      );
+  String get bazaarHowMemberStep4 => _t(
+        'পাঠান → অ্যাডমিন / সুপার অ্যাডমিন approve করবে',
+        'Send → admin / super admin will approve',
+      );
+  String get noData => _t('কোনো ডেটা নেই', 'No data');
+  String get loadingLabel => _t('লোড হচ্ছে…', 'Loading…');
+
   // —— Mess bills ——
   String get billAdded => _t('বিল যোগ হয়েছে', 'Bill added');
   String get billUpdated =>
@@ -674,16 +875,27 @@ class AppStrings {
   String get billDeleted => _t('বিল মুছে গেছে', 'Bill deleted');
   String get addBill => _t('বিল যোগ', 'Add bill');
   String get billsAdminHint => _t(
-        'অ্যাডমিন বিল যোগ/সম্পাদনা করতে পারবে · মাস শেষে সব মেম্বারের হিসাব PDF এক্সপোর্ট',
-        'Admin can add/edit bills · export all-member PDF at month end',
+        'বিল যোগ করার সময় মেম্বার মার্ক করুন — শুধু তাদের হিসাবে ভাগ হবে',
+        'Mark members when adding a bill — only they share the cost',
       );
   String get billsMemberHint => _t(
-        'এই মাসের মেস বিল — অ্যাডমিন যোগ করেছে',
-        "This month's mess bills — added by admin",
+        'শুধু যে বিলগুলোতে আপনাকে মার্ক করা হয়েছে সেগুলো আপনার হিসাবে আসবে',
+        'Only bills marked for you appear in your account',
       );
+  String get billAssignMembers =>
+      _t('কোন মেম্বারদের হিসাবে যোগ হবে?', 'Assign to which members?');
+  String get billSelectMembersRequired => _t(
+        'কমপক্ষে একজন মেম্বার সিলেক্ট করুন',
+        'Select at least one member',
+      );
+  String billAssignedTo(int count) =>
+      _bn ? '$count জন মেম্বার' : '$count members';
+  String billShareHint(int count, String amount) => _bn
+      ? 'প্রতিজন ≈ $amount (মোট $count জন)'
+      : '≈ $amount each ($count members)';
   String get monthEndClosingPdf => _t(
-        'মাস শেষ ক্লোজিং — সব মেম্বারের হিসাব PDF',
-        'Month-end closing — all members PDF',
+        'Smart Invoice Report PDF',
+        'Smart Invoice Report PDF',
       );
   String get noBillsThisMonth =>
       _t('এই মাসে কোনো বিল নেই', 'No bills this month');
