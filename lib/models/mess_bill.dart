@@ -77,6 +77,7 @@ class MessBill {
     required this.amount,
     required this.yearMonth,
     this.note = '',
+    this.assignedMemberUids = const [],
     this.createdBy,
     this.createdByName,
     this.updatedAt,
@@ -88,20 +89,49 @@ class MessBill {
   final double amount;
   final String yearMonth;
   final String note;
+
+  /// Members who share this bill. Empty = legacy (apply to all members).
+  final List<String> assignedMemberUids;
+
   final String? createdBy;
   final String? createdByName;
   final DateTime? updatedAt;
   final DateTime? createdAt;
 
+  bool get hasExplicitAssignees => assignedMemberUids.isNotEmpty;
+
+  bool appliesTo(String uid, {required List<String> allMemberUids}) {
+    if (assignedMemberUids.isEmpty) {
+      // Legacy bills created before assignee feature → all members.
+      return allMemberUids.contains(uid);
+    }
+    return assignedMemberUids.contains(uid);
+  }
+
+  List<String> assigneeUids({required List<String> allMemberUids}) {
+    if (assignedMemberUids.isEmpty) return List<String>.from(allMemberUids);
+    return assignedMemberUids
+        .where((uid) => allMemberUids.contains(uid))
+        .toList();
+  }
+
   factory MessBill.fromMap(String id, Map<String, dynamic> data) {
     final createdRaw = data['createdAt'];
     final updatedRaw = data['updatedAt'];
+    final rawAssignees = data['assignedMemberUids'];
+    final assignees = <String>[];
+    if (rawAssignees is List) {
+      for (final item in rawAssignees) {
+        if (item is String && item.isNotEmpty) assignees.add(item);
+      }
+    }
     return MessBill(
       id: id,
       type: MessBillType.fromString(data['type'] as String?),
       amount: (data['amount'] as num?)?.toDouble() ?? 0,
       yearMonth: data['yearMonth'] as String? ?? '',
       note: data['note'] as String? ?? '',
+      assignedMemberUids: assignees,
       createdBy: data['createdBy'] as String?,
       createdByName: data['createdByName'] as String?,
       createdAt: createdRaw is Timestamp ? createdRaw.toDate() : null,

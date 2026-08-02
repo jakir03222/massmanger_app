@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
@@ -20,7 +23,9 @@ import 'screens/splash_screen.dart';
 import 'services/app_security.dart';
 import 'services/auth_service.dart';
 import 'services/notification_service.dart';
+import 'services/reminder_service.dart';
 import 'services/user_service.dart';
+import 'theme/app_colors.dart';
 import 'theme/theme_controller.dart';
 import 'widgets/splash_background.dart';
 import 'widgets/splash_loading_indicator.dart';
@@ -30,6 +35,15 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
+  await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(!kDebugMode);
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
@@ -43,6 +57,10 @@ Future<void> main() async {
     themeController.load(),
   ]);
   AppLocale.bind(localeController);
+  // Local meal / settle reminders (best-effort; ignored on unsupported platforms).
+  try {
+    await ReminderService().scheduleDefaults();
+  } catch (_) {}
   runApp(MassManagerApp(
     localeController: localeController,
     themeController: themeController,
@@ -94,10 +112,12 @@ class MassManagerApp extends StatelessWidget {
                   child: DefaultTextStyle(
                     style: TextStyle(
                       color: p.textDark,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
                       decoration: TextDecoration.none,
                     ),
                     child: IconTheme(
-                      data: IconThemeData(color: p.textDark),
+                      data: IconThemeData(color: p.textDark, size: 22),
                       child: child ?? const SizedBox.shrink(),
                     ),
                   ),
@@ -131,6 +151,7 @@ class _AppEntryState extends State<AppEntry> {
   bool _checkingOnboarding = true;
   bool _showOnboarding = false;
   String? _notifUid;
+  int _profileRetry = 0;
 
   @override
   void initState() {
@@ -193,7 +214,7 @@ class _AppEntryState extends State<AppEntry> {
           }
 
           return FutureBuilder<AppUser>(
-            key: ValueKey('ensure-${user.uid}'),
+            key: ValueKey('ensure-${user.uid}-$_profileRetry'),
             future: _userService.ensureUserDoc(user),
             builder: (context, ensureSnapshot) {
               if (ensureSnapshot.connectionState != ConnectionState.done) {
@@ -203,7 +224,11 @@ class _AppEntryState extends State<AppEntry> {
               }
 
               if (ensureSnapshot.hasError || ensureSnapshot.data == null) {
-                return const MessSetupScreen();
+                return _ProfileErrorView(
+                  onRetry: () {
+                    if (mounted) setState(() => _profileRetry++);
+                  },
+                );
               }
 
               return StreamBuilder<AppUser?>(
@@ -222,6 +247,68 @@ class _AppEntryState extends State<AppEntry> {
             },
           );
         },
+      ),
+    );
+  }
+}
+
+class _ProfileErrorView extends StatelessWidget {
+  const _ProfileErrorView({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final s = AppStrings.of(context);
+    return Scaffold(
+      backgroundColor: AppColors.pageBackground,
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.cloud_off_outlined,
+                  size: 48, color: AppColors.primaryGreen),
+              const SizedBox(height: 16),
+              Text(
+                s.profileLoadFailed,
+                textAlign: TextAlign.center,
+                style: appFont(
+                  context: context,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                s.profileLoadFailedHint,
+                textAlign: TextAlign.center,
+                style: appFont(
+                  context: context,
+                  fontSize: 13,
+                  color: AppColors.textGrey,
+                  height: 1.4,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ElevatedButton(
+                onPressed: onRetry,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryGreen,
+                  foregroundColor: AppColors.onPrimary,
+                ),
+                child: Text(
+                  s.retry,
+                  style: appFont(
+                    context: context,
+                    color: AppColors.onPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

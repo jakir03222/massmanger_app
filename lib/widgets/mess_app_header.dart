@@ -23,15 +23,18 @@ class MessAppHeader extends StatelessWidget {
         : title!.trim();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 12, 0),
+      padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
               color: AppColors.featureGreenBg,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.primaryGreen.withValues(alpha: 0.12),
+              ),
             ),
             child: Icon(
               Icons.home_work_rounded,
@@ -72,7 +75,7 @@ class MessAppHeader extends StatelessWidget {
               ],
             ),
           ),
-          if (trailing != null) trailing!,
+          ?trailing,
         ],
       ),
     );

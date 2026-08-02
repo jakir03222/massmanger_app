@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/community_post.dart';
 import 'user_service.dart';
@@ -180,20 +181,32 @@ class CommunityPostService {
     if (trimmed.isEmpty) throw CommunityException('কমেন্ট লিখুন।');
 
     final profile = await _userService.getUser(user.uid);
-    final batch = _firestore.batch();
     final commentRef = _posts.doc(postId).collection('comments').doc();
-    batch.set(commentRef, {
-      'authorId': user.uid,
-      'authorName': profile?.name?.trim().isNotEmpty == true
-          ? profile!.name!.trim()
-          : (user.displayName ?? 'সদস্য'),
-      'authorPhotoUrl': profile?.photoUrl ?? user.photoURL,
-      'text': trimmed,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    batch.update(_posts.doc(postId), {
-      'commentCount': FieldValue.increment(1),
-    });
-    await batch.commit();
+    final postRef = _posts.doc(postId);
+
+    try {
+      await commentRef.set({
+        'authorId': user.uid,
+        'authorName': profile?.name?.trim().isNotEmpty == true
+            ? profile!.name!.trim()
+            : (user.displayName ?? 'সদস্য'),
+        'authorPhotoUrl': profile?.photoUrl ?? user.photoURL,
+        'text': trimmed,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      try {
+        await postRef.update({
+          'commentCount': FieldValue.increment(1),
+        });
+      } catch (e) {
+        debugPrint('[Community] commentCount update failed: $e');
+      }
+    } on FirebaseException catch (e) {
+      debugPrint('[Community] addComment FAIL ${e.code} ${e.message}');
+      if (e.code == 'permission-denied') {
+        throw CommunityException('কমেন্ট করার অনুমতি নেই।');
+      }
+      throw CommunityException('কমেন্ট যায়নি। আবার চেষ্টা করুন।');
+    }
   }
 }

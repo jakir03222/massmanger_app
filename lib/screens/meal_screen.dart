@@ -462,88 +462,60 @@ class _MealBodyState extends State<_MealBody> {
                       title: widget.mess.name,
                       subtitle: widget.mess.location,
                     ),
-                    const SizedBox(height: 16),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Text(
-                        s.mealList,
-                        style: appFont(
-                          context: context,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                    const SizedBox(height: 12),
+                    AppSectionHeader(
+                      title: s.mealList,
+                      subtitle: s.mealHint,
                     ),
                     const SizedBox(height: 10),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: InkWell(
-                        onTap: _pickDate,
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.card,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.borderGrey),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.calendar_today_outlined,
-                                size: 18,
-                                color: AppColors.primaryGreen,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  formatBnDate(_selectedDate),
-                                  style: appFont(
-                                    context: context,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                _isToday ? s.today : s.change,
-                                style: appFont(
-                                  context: context,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.primaryGreen,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                    AppCard(
+                      margin: AppSpace.pageH,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Text(
-                        s.mealHint,
-                        style: appFont(
-                          context: context,
-                          fontSize: 12,
-                          color: AppColors.textGrey,
-                        ),
+                      elevated: false,
+                      onTap: _pickDate,
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: AppColors.featureGreenBg,
+                              borderRadius: BorderRadius.circular(11),
+                            ),
+                            child: Icon(
+                              Icons.calendar_today_outlined,
+                              size: 18,
+                              color: AppColors.primaryGreen,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              formatBnDate(_selectedDate),
+                              style: appFont(
+                                context: context,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            _isToday ? s.today : s.change,
+                            style: appFont(
+                              context: context,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primaryGreen,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 14),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Text(
-                        _isAdmin ? s.addMemberMeal : s.addMeal,
-                        style: appFont(
-                          context: context,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                    AppSectionHeader(
+                      title: _isAdmin ? s.addMemberMeal : s.addMeal,
                     ),
                     const SizedBox(height: 10),
                     Padding(
@@ -572,62 +544,37 @@ class _MealBodyState extends State<_MealBody> {
                             enabled: !_adding,
                             onTap: () => _addType(MealType.rate),
                           ),
+                          _AddTypeChip(
+                            label: s.addGuestMeal,
+                            enabled: !_adding,
+                            onTap: () => _addType(MealType.guest),
+                          ),
                         ],
                       ),
                     ),
                     if (_isAdmin) ...[
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: SizedBox(
-                          width: double.infinity,
+                        padding: AppSpace.pageH,
+                        child: AppPrimaryButton(
+                          label: s.bulkAddMeals,
+                          icon: Icons.group_add_rounded,
                           height: 46,
-                          child: FilledButton.icon(
-                            onPressed: _adding ? null : _openBulkAdd,
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.primaryGreen,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                            ),
-                            icon: _adding
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Icon(Icons.group_add_rounded, size: 20),
-                            label: Text(
-                              s.bulkAddMeals,
-                              style: appFont(
-                                context: context,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
+                          loading: _adding,
+                          onPressed: _openBulkAdd,
                         ),
                       ),
                     ],
                     if (!_isAdmin) ...[
-                      const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Text(
-                          s.mealPendingHint,
-                          style: appFont(
-                            context: context,
-                            fontSize: 12,
-                            color: AppColors.textGrey,
-                          ),
-                        ),
+                      const SizedBox(height: 10),
+                      AppSoftBanner(
+                        text: s.mealPendingHint,
+                        tone: AppBannerTone.warning,
+                        icon: Icons.info_outline_rounded,
                       ),
                     ],
                     if (_isAdmin && widget.members.isNotEmpty) ...[
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
                       SizedBox(
                         height: 38,
                         child: ListView(
@@ -646,18 +593,9 @@ class _MealBodyState extends State<_MealBody> {
                       ),
                     ],
                     if (_isAdmin && pending.isNotEmpty) ...[
-                      const SizedBox(height: 20),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Text(
-                          s.mealRequests(pending.length),
-                          style: appFont(
-                            context: context,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.darkGreen,
-                          ),
-                        ),
+                      const SizedBox(height: 18),
+                      AppSectionHeader(
+                        title: s.mealRequests(pending.length),
                       ),
                       const SizedBox(height: 10),
                       ...pending.map(
@@ -670,18 +608,8 @@ class _MealBodyState extends State<_MealBody> {
                       ),
                     ],
                     if (!_isAdmin && myPending.isNotEmpty) ...[
-                      const SizedBox(height: 20),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Text(
-                          s.myPendingRequests,
-                          style: appFont(
-                            context: context,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
+                      const SizedBox(height: 18),
+                      AppSectionHeader(title: s.myPendingRequests),
                       const SizedBox(height: 10),
                       ...myPending.map(
                         (e) => _ListItemCard(
@@ -690,34 +618,15 @@ class _MealBodyState extends State<_MealBody> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 20),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Text(
-                        s.approvedMealList,
-                        style: appFont(
-                          context: context,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Text(
-                        s.approvedMealHint,
-                        style: appFont(
-                          context: context,
-                          fontSize: 12,
-                          color: AppColors.textGrey,
-                        ),
-                      ),
+                    const SizedBox(height: 18),
+                    AppSectionHeader(
+                      title: s.approvedMealList,
+                      subtitle: s.approvedMealHint,
                     ),
                     const SizedBox(height: 10),
                     if (approved.isEmpty)
                       Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        padding: AppSpace.pageH,
                         child: AppEmptyState(
                           icon: Icons.restaurant_outlined,
                           title: s.noMealsYetTitle,
@@ -739,24 +648,37 @@ class _MealBodyState extends State<_MealBody> {
             ),
             if (_isAdmin)
               Container(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                 decoration: BoxDecoration(
                   color: AppColors.card,
-                  border: Border(top: BorderSide(color: AppColors.borderGrey)),
-                ),
-                child: Text(
-                  s.mealDayTotals(
-                    fmt(morningCount),
-                    fmt(eveningCount),
-                    fmt(nightCount),
-                    fmt(rateTotal),
+                  border: Border(
+                    top: BorderSide(
+                      color: AppColors.borderGrey.withValues(alpha: 0.9),
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                  style: appFont(
-                    context: context,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primaryGreen,
+                ),
+                child: Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.featureGreenBg,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    s.mealDayTotals(
+                      fmt(morningCount),
+                      fmt(eveningCount),
+                      fmt(nightCount),
+                      fmt(rateTotal),
+                    ),
+                    textAlign: TextAlign.center,
+                    style: appFont(
+                      context: context,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.darkGreen,
+                    ),
                   ),
                 ),
               ),
@@ -1721,24 +1643,26 @@ class _AddTypeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.primaryGreen,
-      borderRadius: BorderRadius.circular(22),
+      color: enabled
+          ? AppColors.primaryGreen
+          : AppColors.primaryGreen.withValues(alpha: 0.45),
+      borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.add, size: 16, color: Colors.white),
+              const Icon(Icons.add_rounded, size: 16, color: Colors.white),
               const SizedBox(width: 4),
               Text(
                 label,
                 style: appFont(
                   context: context,
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                   color: Colors.white,
                 ),
               ),
@@ -1766,14 +1690,12 @@ class _PendingItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+    return AppCard(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E1),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFFFE082)),
-      ),
+      color: AppColors.updateOrangeBg,
+      borderColor: AppColors.statusOrange.withValues(alpha: 0.35),
+      elevated: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1781,6 +1703,7 @@ class _PendingItemCard extends StatelessWidget {
             entry.name,
             style: appFont(context: context, fontWeight: FontWeight.w700),
           ),
+          const SizedBox(height: 2),
           Text(
             entry.localizedDisplayLabel(bn: s.isBengali),
             style: appFont(
@@ -1790,6 +1713,7 @@ class _PendingItemCard extends StatelessWidget {
               color: AppColors.darkGreen,
             ),
           ),
+          const SizedBox(height: 2),
           Text(
             s.addedAt(formatDateTime(entry.createdAt)),
             style: appFont(
@@ -1798,21 +1722,24 @@ class _PendingItemCard extends StatelessWidget {
               color: AppColors.textGrey,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
                 child: OutlinedButton(
                   onPressed: busy ? null : onReject,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFC62828),
-                    side: const BorderSide(color: Color(0xFFC62828)),
+                    foregroundColor: AppColors.monthRed,
+                    side: BorderSide(color: AppColors.monthRed),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   child: Text(
                     s.reject,
                     style: appFont(
                       context: context,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -1824,6 +1751,9 @@ class _PendingItemCard extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryGreen,
                     elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   child: busy
                       ? const SizedBox(
@@ -1838,8 +1768,8 @@ class _PendingItemCard extends StatelessWidget {
                           s.accept,
                           style: appFont(
                             context: context,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.card,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
                           ),
                         ),
                 ),
@@ -1868,16 +1798,26 @@ class _ListItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderGrey),
-      ),
+    return AppCard(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      elevated: false,
       child: Row(
         children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: AppColors.featureGreenBg,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(
+              Icons.restaurant_rounded,
+              size: 18,
+              color: AppColors.primaryGreen,
+            ),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1889,15 +1829,17 @@ class _ListItemCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   entry.localizedDisplayLabel(bn: s.isBengali),
                   style: appFont(
                     context: context,
-                    fontSize: 14,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.primaryGreen,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   s.addedAt(formatDateTime(entry.createdAt)),
                   style: appFont(
@@ -1932,10 +1874,10 @@ class _ListItemCard extends StatelessWidget {
                     style: appFont(
                       context: context,
                       fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       color: entry.isPending
-                          ? const Color(0xFFF9A825)
-                          : const Color(0xFFC62828),
+                          ? AppColors.statusOrange
+                          : AppColors.monthRed,
                     ),
                   ),
               ],
@@ -1951,7 +1893,7 @@ class _ListItemCard extends StatelessWidget {
             if (onDelete != null)
               IconButton(
                 onPressed: onDelete,
-                icon: const Icon(Icons.delete_outline, color: Color(0xFFC62828)),
+                icon: Icon(Icons.delete_outline, color: AppColors.monthRed),
                 tooltip: s.delete,
               ),
           ],

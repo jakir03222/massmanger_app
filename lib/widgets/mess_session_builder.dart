@@ -7,6 +7,10 @@ import '../models/mess.dart';
 import '../services/mess_service.dart';
 import '../services/user_service.dart';
 import '../theme/app_colors.dart';
+import 'app_error_state.dart';
+
+// Re-export date/money helpers so existing screen imports keep compiling.
+export '../utils/date_formatters.dart';
 
 /// Resolves current user's messId + mess doc for live screens.
 class MessSessionBuilder extends StatelessWidget {
@@ -23,7 +27,12 @@ class MessSessionBuilder extends StatelessWidget {
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
-      return Center(child: Text(AppStrings.of(context).noLogin));
+      return Center(
+        child: Text(
+          AppStrings.of(context).noLogin,
+          style: appFont(context: context),
+        ),
+      );
     }
 
     final userService = UserService();
@@ -32,6 +41,9 @@ class MessSessionBuilder extends StatelessWidget {
     return StreamBuilder<AppUser?>(
       stream: userService.watchUser(uid),
       builder: (context, userSnap) {
+        if (userSnap.hasError) {
+          return AppErrorState(title: AppStrings.of(context).sessionLoadFailed);
+        }
         final appUser = userSnap.data;
         final messId = appUser?.messId;
         if (appUser == null || messId == null || messId.isEmpty) {
@@ -43,6 +55,11 @@ class MessSessionBuilder extends StatelessWidget {
         return StreamBuilder<Mess?>(
           stream: messService.watchMess(messId),
           builder: (context, messSnap) {
+            if (messSnap.hasError) {
+              return AppErrorState(
+                title: AppStrings.of(context).sessionLoadFailed,
+              );
+            }
             final mess = messSnap.data;
             if (mess == null) {
               return Center(
@@ -53,6 +70,11 @@ class MessSessionBuilder extends StatelessWidget {
             return StreamBuilder<List<MessMember>>(
               stream: messService.watchMembers(messId),
               builder: (context, membersSnap) {
+                if (membersSnap.hasError) {
+                  return AppErrorState(
+                    title: AppStrings.of(context).sessionLoadFailed,
+                  );
+                }
                 final members = membersSnap.data ?? [];
                 // If the current user was removed from the mess, don't crash —
                 // show a friendly notice and let them leave cleanly.
@@ -86,8 +108,7 @@ class _RemovedFromMessView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.info_outline,
-                color: AppColors.primaryGreen, size: 48),
+            Icon(Icons.info_outline, color: AppColors.primaryGreen, size: 48),
             const SizedBox(height: 16),
             Text(
               s.notInThisMess,
@@ -128,68 +149,4 @@ class _RemovedFromMessView extends StatelessWidget {
       ),
     );
   }
-}
-
-String formatBnDate(DateTime d) {
-  const months = [
-    'জানুয়ারি',
-    'ফেব্রুয়ারি',
-    'মার্চ',
-    'এপ্রিল',
-    'মে',
-    'জুন',
-    'জুলাই',
-    'আগস্ট',
-    'সেপ্টেম্বর',
-    'অক্টোবর',
-    'নভেম্বর',
-    'ডিসেম্বর',
-  ];
-  const en = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-  const bn = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-  var text = '${d.day} ${months[d.month - 1]} ${d.year}';
-  for (var i = 0; i < 10; i++) {
-    text = text.replaceAll(en[i], bn[i]);
-  }
-  return text;
-}
-
-String dateKey(DateTime d) =>
-    '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
-
-String yearMonthKey(DateTime d) =>
-    '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}';
-
-String formatTaka(num amount) {
-  final n = amount.round();
-  final s = n.toString();
-  final buf = StringBuffer();
-  for (var i = 0; i < s.length; i++) {
-    final fromEnd = s.length - i;
-    buf.write(s[i]);
-    if (fromEnd > 1 && fromEnd % 3 == 1) buf.write(',');
-  }
-  return '${buf.toString()}৳';
-}
-
-/// Bangladesh Standard Time (UTC+6).
-/// Pass [context] to use [AppStrings.formatDateTimeLocal]; otherwise Bangla.
-String formatDateTime(DateTime? d, [BuildContext? context]) {
-  if (context != null) {
-    return AppStrings.of(context).formatDateTimeLocal(d);
-  }
-  if (d == null) return '—';
-  final bd = d.toUtc().add(const Duration(hours: 6));
-  final datePart = formatBnDate(DateTime(bd.year, bd.month, bd.day));
-  var hour = bd.hour % 12;
-  if (hour == 0) hour = 12;
-  final minute = bd.minute.toString().padLeft(2, '0');
-  final period = bd.hour < 12 ? 'পূর্বাহ্ন' : 'অপরাহ্ন';
-  const en = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-  const bn = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
-  var time = '$hour:$minute';
-  for (var i = 0; i < 10; i++) {
-    time = time.replaceAll(en[i], bn[i]);
-  }
-  return '$datePart, $time $period';
 }

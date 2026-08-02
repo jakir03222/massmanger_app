@@ -6,6 +6,9 @@ import '../models/meal_entry.dart';
 import '../services/market_service.dart';
 import '../services/meal_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/format_qty.dart';
+import '../utils/mess_member_lookup.dart';
+import '../widgets/app_surface.dart';
 import '../widgets/mess_app_header.dart';
 import '../widgets/mess_session_builder.dart';
 
@@ -39,9 +42,6 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
     setState(() => _day = _day.add(Duration(days: delta)));
   }
 
-  String _fmtQty(double n) =>
-      n % 1 == 0 ? n.toInt().toString() : n.toStringAsFixed(1);
-
   @override
   Widget build(BuildContext context) {
     final day = dateKey(_day);
@@ -49,8 +49,7 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
 
     return MessSessionBuilder(
       builder: (context, appUser, mess, members) {
-        final matched = members.where((e) => e.uid == appUser.uid);
-        final isAdmin = matched.isNotEmpty && matched.first.isAdmin;
+        final isAdmin = members.isAdminUid(appUser.uid);
 
         return StreamBuilder<List<MealEntry>>(
           stream: _mealService.watchDayMeals(mess.id, day),
@@ -95,9 +94,8 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                 final dayMealRate = allMembersMealTotal == 0
                     ? 0.0
                     : allSpend / allMembersMealTotal;
-                final attendanceMembers = isAdmin
-                    ? members
-                    : members.where((m) => m.uid == appUser.uid).toList();
+                final attendanceMembers =
+                    members.visibleFor(uid: appUser.uid, isAdmin: isAdmin);
 
                 return ListView(
                   padding: const EdgeInsets.only(bottom: 20),
@@ -109,103 +107,65 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                       onPrev: () => _shiftDay(-1),
                       onNext: _isToday ? null : () => _shiftDay(1),
                     ),
-                    const SizedBox(height: 12),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Text(
-                        isAdmin ? s.dailyReportAll : s.myDailyReport,
-                        style: appFont(
-                          context: context,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                    const SizedBox(height: 14),
+                    AppSectionHeader(
+                      title: isAdmin ? s.dailyReportAll : s.myDailyReport,
+                      subtitle: isAdmin ? null : s.myDailyReportHint,
                     ),
-                    if (!isAdmin)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-                        child: Text(
-                          s.myDailyReportHint,
-                          style: appFont(
-                            context: context,
-                            fontSize: 12,
-                            color: AppColors.textGrey,
-                          ),
-                        ),
-                      ),
                     if (isAdmin) ...[
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 12),
                       _AdminMealRateCard(
                         totalMeals: allMembersMealTotal,
                         totalSpend: allSpend,
                         mealRate: dayMealRate,
-                        fmtMeals: _fmtQty,
+                        fmtMeals: formatQty,
                       ),
                     ],
-                    const SizedBox(height: 16),
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                    const SizedBox(height: 14),
+                    AppCard(
+                      margin: AppSpace.pageH,
                       padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.card,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.borderGrey),
-                      ),
+                      elevated: false,
                       child: Column(
                         children: [
-                          _kv(
-                            context,
-                            isAdmin ? s.todayMarketAdmin : s.myMarket,
-                            formatTaka(spend),
+                          AppKeyValueRow(
+                            label: isAdmin ? s.todayMarketAdmin : s.myMarket,
+                            value: formatTaka(spend),
                           ),
                           if (isAdmin)
-                            _kv(
-                              context,
-                              s.totalMealsAllMembers,
-                              _fmtQty(allMembersMealTotal),
+                            AppKeyValueRow(
+                              label: s.totalMealsAllMembers,
+                              value: formatQty(allMembersMealTotal),
                             ),
                           if (!isAdmin)
-                            _kv(
-                              context,
-                              s.myTotalMeals,
-                              _fmtQty(myMealTotal),
+                            AppKeyValueRow(
+                              label: s.myTotalMeals,
+                              value: formatQty(myMealTotal),
                             ),
-                          _kv(
-                            context,
-                            isAdmin ? s.morningMeals : s.myMorning,
-                            _fmtQty(morning),
+                          AppKeyValueRow(
+                            label: isAdmin ? s.morningMeals : s.myMorning,
+                            value: formatQty(morning),
                           ),
-                          _kv(
-                            context,
-                            isAdmin ? s.eveningMeals : s.myEvening,
-                            _fmtQty(evening),
+                          AppKeyValueRow(
+                            label: isAdmin ? s.eveningMeals : s.myEvening,
+                            value: formatQty(evening),
                           ),
-                          _kv(
-                            context,
-                            isAdmin ? s.nightMeals : s.myNight,
-                            _fmtQty(night),
+                          AppKeyValueRow(
+                            label: isAdmin ? s.nightMeals : s.myNight,
+                            value: formatQty(night),
                           ),
-                          _kv(
-                            context,
-                            isAdmin ? s.rateMeal : s.myRate,
-                            _fmtQty(rateTotal),
+                          AppKeyValueRow(
+                            label: isAdmin ? s.rateMeal : s.myRate,
+                            value: formatQty(rateTotal),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 20),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Text(
-                        isAdmin
-                            ? s.allMembersMealRateCalc
-                            : s.myAttendance,
-                        style: appFont(
-                          context: context,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
-                        ),
-                      ),
+                    AppSectionHeader(
+                      title: isAdmin
+                          ? s.allMembersMealRateCalc
+                          : s.myAttendance,
                     ),
                     const SizedBox(height: 10),
                     ...attendanceMembers.map((m) {
@@ -225,14 +185,10 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                       final memberMeals =
                           e.fold<double>(0, (s, x) => s + x.mealCount);
                       final memberCost = memberMeals * dayMealRate;
-                      return Container(
+                      return AppCard(
                         margin: const EdgeInsets.fromLTRB(20, 0, 20, 10),
                         padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppColors.card,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.borderGrey),
-                        ),
+                        elevated: false,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -246,10 +202,10 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                             const SizedBox(height: 4),
                             Text(
                               s.mealDayTotals(
-                                _fmtQty(mMorning),
-                                _fmtQty(mEvening),
-                                _fmtQty(mNight),
-                                _fmtQty(mRate),
+                                formatQty(mMorning),
+                                formatQty(mEvening),
+                                formatQty(mNight),
+                                formatQty(mRate),
                               ),
                               style: appFont(
                                 context: context,
@@ -261,7 +217,7 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                               const SizedBox(height: 6),
                               Text(
                                 s.totalMealsAndCost(
-                                  _fmtQty(memberMeals),
+                                  formatQty(memberMeals),
                                   formatTaka(memberCost),
                                 ),
                                 style: appFont(
@@ -278,38 +234,51 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
                     }),
                     if (markets.isNotEmpty) ...[
                       const SizedBox(height: 8),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Text(
-                          isAdmin ? s.dayShoppers : s.myMarketList,
-                          style: appFont(
-                            context: context,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                      AppSectionHeader(
+                        title: isAdmin ? s.dayShoppers : s.myMarketList,
                       ),
+                      const SizedBox(height: 8),
                       ...markets.map(
-                        (e) => ListTile(
-                          title: Text(
-                            e.shopperName,
-                            style: appFont(context: context),
+                        (e) => AppCard(
+                          margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
                           ),
-                          subtitle: e.dateKey.isNotEmpty
-                              ? Text(
-                                  e.dateKey,
-                                  style: appFont(
-                                    context: context,
-                                    fontSize: 11,
-                                    color: AppColors.textGrey,
-                                  ),
-                                )
-                              : null,
-                          trailing: Text(
-                            formatTaka(e.amount),
-                            style: appFont(
-                              context: context,
-                              fontWeight: FontWeight.w700,
-                            ),
+                          elevated: false,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      e.shopperName,
+                                      style: appFont(
+                                        context: context,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    if (e.dateKey.isNotEmpty)
+                                      Text(
+                                        e.dateKey,
+                                        style: appFont(
+                                          context: context,
+                                          fontSize: 11,
+                                          color: AppColors.textGrey,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              Text(
+                                formatTaka(e.amount),
+                                style: appFont(
+                                  context: context,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
@@ -321,25 +290,6 @@ class _DailyReportScreenState extends State<DailyReportScreen> {
           },
         );
       },
-    );
-  }
-
-  Widget _kv(BuildContext context, String k, String v) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Text(
-            k,
-            style: appFont(context: context, color: AppColors.textGrey),
-          ),
-          const Spacer(),
-          Text(
-            v,
-            style: appFont(context: context, fontWeight: FontWeight.w700),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -364,11 +314,7 @@ class _AdminMealRateCard extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.darkGreen, AppColors.primaryGreen],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppColors.primaryGreen,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -380,7 +326,7 @@ class _AdminMealRateCard extends StatelessWidget {
               context: context,
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: AppColors.card.withValues(alpha: 0.9),
+              color: Colors.white.withValues(alpha: 0.9),
             ),
           ),
           const SizedBox(height: 6),
@@ -390,7 +336,7 @@ class _AdminMealRateCard extends StatelessWidget {
               context: context,
               fontSize: 28,
               fontWeight: FontWeight.w800,
-              color: AppColors.card,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 4),
@@ -402,7 +348,7 @@ class _AdminMealRateCard extends StatelessWidget {
             style: appFont(
               context: context,
               fontSize: 12,
-              color: AppColors.card.withValues(alpha: 0.85),
+              color: Colors.white.withValues(alpha: 0.85),
             ),
           ),
         ],
@@ -424,41 +370,40 @@ class _DaySelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.borderGrey),
-        ),
-        child: Row(
-          children: [
-            IconButton(
-              onPressed: onPrev,
-              icon: const Icon(Icons.chevron_left),
+    return AppCard(
+      margin: AppSpace.pageH,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      elevated: false,
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: onPrev,
+            icon: Icon(
+              Icons.chevron_left_rounded,
+              color: AppColors.primaryGreen,
             ),
-            Expanded(
-              child: Text(
-                label,
-                textAlign: TextAlign.center,
-                style: appFont(
-                  context: context,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                ),
+          ),
+          Expanded(
+            child: Text(
+              label,
+              textAlign: TextAlign.center,
+              style: appFont(
+                context: context,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            IconButton(
-              onPressed: onNext,
-              icon: Icon(
-                Icons.chevron_right,
-                color: onNext == null ? AppColors.borderGrey : null,
-              ),
+          ),
+          IconButton(
+            onPressed: onNext,
+            icon: Icon(
+              Icons.chevron_right_rounded,
+              color: onNext == null
+                  ? AppColors.borderGrey
+                  : AppColors.primaryGreen,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

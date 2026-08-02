@@ -183,11 +183,12 @@ class _MarketListScreenState extends State<MarketListScreen> {
                   s.marketListTitle,
                   style: appFont(
                     context: context,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
                     color: AppColors.darkGreen,
                   ),
                 ),
+                const SizedBox(height: 2),
                 Text(
                   mess.name,
                   style: appFont(
@@ -196,7 +197,7 @@ class _MarketListScreenState extends State<MarketListScreen> {
                     color: AppColors.textGrey,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 if (isAdmin)
                   StreamBuilder<List<MarketEntry>>(
                     stream: _marketService.watchPendingMarkets(mess.id),
@@ -207,23 +208,10 @@ class _MarketListScreenState extends State<MarketListScreen> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            s.memberRequests(pending.length),
-                            style: appFont(
-                              context: context,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.darkGreen,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            s.marketPendingApproveHint,
-                            style: appFont(
-                              context: context,
-                              fontSize: 12,
-                              color: AppColors.textGrey,
-                            ),
+                          AppSectionHeader(
+                            title: s.memberRequests(pending.length),
+                            subtitle: s.marketPendingApproveHint,
+                            padding: EdgeInsets.zero,
                           ),
                           const SizedBox(height: 10),
                           ...pending.map(
@@ -236,7 +224,7 @@ class _MarketListScreenState extends State<MarketListScreen> {
                                   _reject(mess.id, appUser.uid, e),
                             ),
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 16),
                         ],
                       );
                     },
@@ -251,14 +239,9 @@ class _MarketListScreenState extends State<MarketListScreen> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            s.myRequests,
-                            style: appFont(
-                              context: context,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.darkGreen,
-                            ),
+                          AppSectionHeader(
+                            title: s.myRequests,
+                            padding: EdgeInsets.zero,
                           ),
                           const SizedBox(height: 10),
                           ...mine.map(
@@ -267,96 +250,104 @@ class _MarketListScreenState extends State<MarketListScreen> {
                               onTap: e.isPending ? () => _openEdit(e) : null,
                             ),
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 16),
                         ],
                       );
                     },
                   ),
-                Row(
-                  children: [
-                    _chip(s.thisMonth, MarketFilter.thisMonth),
-                    const SizedBox(width: 8),
-                    _chip(s.lastMonth, MarketFilter.lastMonth),
-                    const SizedBox(width: 8),
-                    _chip(s.all, MarketFilter.all),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                InkWell(
-                  onTap: _pickDateFilter,
-                  borderRadius: BorderRadius.circular(12),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: _dateFilter != null
-                            ? AppColors.primaryGreen
-                            : AppColors.borderGrey,
+                AppCard(
+                  padding: const EdgeInsets.all(4),
+                  elevated: false,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _chip(s.thisMonth, MarketFilter.thisMonth),
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
+                      Expanded(
+                        child: _chip(s.lastMonth, MarketFilter.lastMonth),
+                      ),
+                      Expanded(
+                        child: _chip(s.all, MarketFilter.all),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 10),
+                AppCard(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  elevated: false,
+                  borderColor: _dateFilter != null
+                      ? AppColors.primaryGreen.withValues(alpha: 0.45)
+                      : null,
+                  onTap: _pickDateFilter,
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: AppColors.featureGreenBg,
+                          borderRadius: BorderRadius.circular(11),
+                        ),
+                        child: Icon(
                           Icons.calendar_today_outlined,
                           size: 18,
                           color: AppColors.primaryGreen,
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                s.dateFilter,
-                                style: appFont(
-                                  context: context,
-                                  fontSize: 11,
-                                  color: AppColors.textGrey,
-                                ),
-                              ),
-                              Text(
-                                _dateFilter == null
-                                    ? s.allDatesMonthFilter
-                                    : formatBnDate(_dateFilter!),
-                                style: appFont(
-                                  context: context,
-                                  fontWeight: FontWeight.w700,
-                                  color: AppColors.textDark,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (_dateFilter != null)
-                          TextButton(
-                            onPressed: _clearDateFilter,
-                            child: Text(
-                              s.delete,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              s.dateFilter,
                               style: appFont(
                                 context: context,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFFC62828),
+                                fontSize: 11,
+                                color: AppColors.textGrey,
                               ),
                             ),
-                          )
-                        else
-                          Text(
-                            s.select,
+                            Text(
+                              _dateFilter == null
+                                  ? s.allDatesMonthFilter
+                                  : formatBnDate(_dateFilter!),
+                              style: appFont(
+                                context: context,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textDark,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_dateFilter != null)
+                        TextButton(
+                          onPressed: _clearDateFilter,
+                          child: Text(
+                            s.delete,
                             style: appFont(
                               context: context,
                               fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primaryGreen,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.monthRed,
                             ),
                           ),
-                      ],
-                    ),
+                        )
+                      else
+                        Text(
+                          s.select,
+                          style: appFont(
+                            context: context,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primaryGreen,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 if (isAdmin && members.isNotEmpty) ...[
@@ -387,7 +378,7 @@ class _MarketListScreenState extends State<MarketListScreen> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 StreamBuilder<List<MarketEntry>>(
                   stream: _marketService.watchApprovedMarkets(
                     mess.id,
@@ -410,12 +401,12 @@ class _MarketListScreenState extends State<MarketListScreen> {
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppColors.featureGreenBg,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
+                        AppCard(
+                          padding: const EdgeInsets.all(14),
+                          color: AppColors.featureGreenBg,
+                          borderColor:
+                              AppColors.primaryGreen.withValues(alpha: 0.15),
+                          elevated: false,
                           child: Column(
                             children: [
                               Row(
@@ -436,8 +427,8 @@ class _MarketListScreenState extends State<MarketListScreen> {
                                     style: appFont(
                                       context: context,
                                       fontSize: 18,
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.primaryGreen,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.darkGreen,
                                     ),
                                   ),
                                 ],
@@ -501,24 +492,18 @@ class _MarketListScreenState extends State<MarketListScreen> {
                             ),
                           )
                         else if (items.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 12,
-                            ),
-                            child: AppEmptyState(
-                              icon: Icons.shopping_bag_outlined,
-                              title: s.noMarketYetTitle,
-                              subtitle: isAdmin
-                                  ? (_dateFilter != null
-                                      ? s.noMarketOnDate
-                                      : (_memberFilterUid == null
-                                          ? s.noApprovedMarketYet
-                                          : s.noMarketForMember))
-                                  : (_dateFilter != null
-                                      ? s.noMyMarketOnDate
-                                      : s.noMyApprovedMarket),
-                            ),
+                          AppEmptyState(
+                            icon: Icons.shopping_bag_outlined,
+                            title: s.noMarketYetTitle,
+                            subtitle: isAdmin
+                                ? (_dateFilter != null
+                                    ? s.noMarketOnDate
+                                    : (_memberFilterUid == null
+                                        ? s.noApprovedMarketYet
+                                        : s.noMarketForMember))
+                                : (_dateFilter != null
+                                    ? s.noMyMarketOnDate
+                                    : s.noMyApprovedMarket),
                           )
                         else
                           ...items.map(
@@ -643,21 +628,22 @@ class _MarketListScreenState extends State<MarketListScreen> {
         _filter = value;
         _dateFilter = null;
       }),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primaryGreen : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: selected ? AppColors.primaryGreen : AppColors.borderGrey,
-          ),
+          color: selected ? AppColors.primaryGreen : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
         ),
+        alignment: Alignment.center,
         child: Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: appFont(
             context: context,
             fontSize: 12,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             color: selected ? Colors.white : AppColors.textGrey,
           ),
         ),
@@ -702,9 +688,11 @@ class _DueBadge extends StatelessWidget {
       margin: const EdgeInsets.only(left: 8),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF3E0),
+        color: AppColors.featureOrangeBg,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.actionOrange),
+        border: Border.all(
+          color: AppColors.actionOrange.withValues(alpha: 0.45),
+        ),
       ),
       child: Text(
         s.due,
@@ -772,14 +760,12 @@ class _PendingRequestCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
+    return AppCard(
+      margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E1),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFFFE082)),
-      ),
+      color: AppColors.updateOrangeBg,
+      borderColor: AppColors.statusOrange.withValues(alpha: 0.35),
+      elevated: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -837,14 +823,17 @@ class _PendingRequestCard extends StatelessWidget {
                 child: OutlinedButton(
                   onPressed: busy ? null : onReject,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFC62828),
-                    side: const BorderSide(color: Color(0xFFC62828)),
+                    foregroundColor: AppColors.monthRed,
+                    side: BorderSide(color: AppColors.monthRed),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   child: Text(
                     s.reject,
                     style: appFont(
                       context: context,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -856,6 +845,9 @@ class _PendingRequestCard extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryGreen,
                     elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   child: busy
                       ? const SizedBox(
@@ -870,8 +862,8 @@ class _PendingRequestCard extends StatelessWidget {
                           s.accept,
                           style: appFont(
                             context: context,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.card,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
                           ),
                         ),
                 ),

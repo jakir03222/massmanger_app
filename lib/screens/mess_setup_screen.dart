@@ -2,13 +2,67 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../config/feature_flags.dart';
 import '../l10n/app_strings.dart';
 import '../models/mess.dart';
+import '../services/auth_service.dart';
 import '../services/mess_service.dart';
 import '../theme/app_colors.dart';
 import '../widgets/mess_setup_banner.dart';
-import 'community/community_hub_screen.dart';
+
+Future<void> _confirmAndSignOut(BuildContext context) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) {
+      final ds = AppStrings.of(dialogContext);
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Text(
+          ds.logout,
+          style: appFont(context: dialogContext, fontWeight: FontWeight.w700),
+        ),
+        content: Text(
+          ds.logoutConfirm,
+          style: appFont(context: dialogContext),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(ds.no, style: appFont(context: dialogContext)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(
+              ds.yesLogout,
+              style: appFont(
+                context: dialogContext,
+                color: AppColors.monthRed,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+  if (confirmed != true) return;
+  if (!context.mounted) return;
+
+  try {
+    await AuthService().signOut();
+  } catch (_) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          AppStrings.of(context).logoutFailed,
+          style: appFont(context: context),
+        ),
+      ),
+    );
+  }
+}
 
 enum MessSetupMode { create, join }
 
@@ -261,43 +315,26 @@ class _MessSetupScreenState extends State<MessSetupScreen> {
                       onSubmit: _loading ? null : _submit,
                     ),
                     const SizedBox(height: 16),
-                    if (FeatureFlags.communityEnabled) ...[
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => const CommunityHubScreen(),
-                              ),
-                            );
-                          },
-                          icon: Icon(
-                            Icons.groups_rounded,
-                            color: AppColors.primaryGreen,
-                          ),
-                          label: Text(
-                            s.viewCommunityFindMess,
-                            style: appFont(
-                              context: context,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.primaryGreen,
-                            ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(
-                              color: AppColors.primaryGreen,
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
+                    const _InfoFooter(),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: _loading
+                          ? null
+                          : () => _confirmAndSignOut(context),
+                      icon: Icon(
+                        Icons.logout_rounded,
+                        size: 20,
+                        color: AppColors.monthRed,
+                      ),
+                      label: Text(
+                        s.logout,
+                        style: appFont(
+                          context: context,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.monthRed,
                         ),
                       ),
-                      const SizedBox(height: 16),
-                    ],
-                    const _InfoFooter(),
+                    ),
                   ],
                 ),
               ),
@@ -336,10 +373,11 @@ class _MessSetupHeader extends StatelessWidget {
           ),
           const Spacer(),
           IconButton(
-            onPressed: () {},
+            tooltip: s.logout,
+            onPressed: () => _confirmAndSignOut(context),
             icon: Icon(
-              Icons.notifications_outlined,
-              color: AppColors.headerIcon,
+              Icons.logout_rounded,
+              color: AppColors.monthRed,
             ),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),

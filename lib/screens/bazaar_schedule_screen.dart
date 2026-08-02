@@ -5,9 +5,12 @@ import '../models/bazaar_schedule.dart';
 import '../models/mess.dart';
 import '../services/bazaar_schedule_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/app_feedback.dart';
+import '../widgets/app_surface.dart';
 import '../widgets/bn_date_picker.dart';
 import '../widgets/mess_app_header.dart';
 import '../widgets/mess_session_builder.dart';
+import 'bazaar_swap_screen.dart';
 
 class BazaarScheduleScreen extends StatefulWidget {
   const BazaarScheduleScreen({super.key});
@@ -31,14 +34,7 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
       );
       if (!mounted) return;
       final strings = AppStrings.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            strings.scheduleApprovedSnack,
-            style: appFont(context: context),
-          ),
-        ),
-      );
+      showAppSnack(context, strings.scheduleApprovedSnack);
     } finally {
       if (mounted) setState(() => _busy.remove(s.id));
     }
@@ -58,14 +54,7 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
       );
       if (!mounted) return;
       final strings = AppStrings.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            strings.mealRejectedSnack,
-            style: appFont(context: context),
-          ),
-        ),
-      );
+      showAppSnack(context, strings.mealRejectedSnack);
     } finally {
       if (mounted) setState(() => _busy.remove(s.id));
     }
@@ -175,44 +164,52 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                       title: mess.name,
                       subtitle: mess.location,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Text(
-                        strings.bazaarDateStatus,
-                        style: appFont(
-                          context: context,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const BazaarSwapScreen(),
+                            ),
+                          );
+                        },
+                        icon: Icon(
+                          Icons.swap_horiz_rounded,
+                          color: AppColors.primaryGreen,
+                          size: 20,
                         ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Text(
-                        isAdmin
-                            ? strings.bazaarScheduleAdminHint
-                            : strings.bazaarScheduleMemberHint,
-                        style: appFont(
-                          context: context,
-                          fontSize: 12,
-                          color: AppColors.textGrey,
-                        ),
-                      ),
-                    ),
-                    if (isAdmin && pending.isNotEmpty) ...[
-                      const SizedBox(height: 18),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Text(
-                          strings.bazaarDateRequests(pending.length),
+                        label: Text(
+                          strings.bazaarSwap,
                           style: appFont(
                             context: context,
-                            fontSize: 15,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.darkGreen,
+                            color: AppColors.primaryGreen,
                           ),
                         ),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: AppColors.primaryGreen),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 10, horizontal: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          minimumSize: const Size(double.infinity, 44),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    AppSectionHeader(
+                      title: strings.bazaarDateStatus,
+                      subtitle: isAdmin
+                          ? strings.bazaarScheduleAdminHint
+                          : strings.bazaarScheduleMemberHint,
+                    ),
+                    if (isAdmin && pending.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      AppSectionHeader(
+                        title: strings.bazaarDateRequests(pending.length),
                       ),
                       const SizedBox(height: 10),
                       ...pending.map(
@@ -227,18 +224,8 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                       ),
                     ],
                     if (!isAdmin && myPending.isNotEmpty) ...[
-                      const SizedBox(height: 18),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Text(
-                          strings.myRequests,
-                          style: appFont(
-                            context: context,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
+                      const SizedBox(height: 16),
+                      AppSectionHeader(title: strings.myRequests),
                       const SizedBox(height: 10),
                       ...myPending.map(
                         (s) => _StatusCard(
@@ -248,28 +235,10 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 18),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Text(
-                        strings.bazaarStatusAllMembers,
-                        style: appFont(
-                          context: context,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-                      child: Text(
-                        strings.bazaarStatusHint,
-                        style: appFont(
-                          context: context,
-                          fontSize: 12,
-                          color: AppColors.textGrey,
-                        ),
-                      ),
+                    const SizedBox(height: 16),
+                    AppSectionHeader(
+                      title: strings.bazaarStatusAllMembers,
+                      subtitle: strings.bazaarStatusHint,
                     ),
                     if (approved.isNotEmpty) ...[
                       const SizedBox(height: 10),
@@ -289,7 +258,7 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                               child: _StatusCountChip(
                                 label: strings.upcoming,
                                 count: upcomingCount,
-                                color: const Color(0xFF1565C0),
+                                color: AppColors.actionBlueIcon,
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -307,17 +276,21 @@ class _BazaarScheduleScreenState extends State<BazaarScheduleScreen> {
                     const SizedBox(height: 10),
                     if (approved.isEmpty)
                       Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 32,
-                        ),
-                        child: Text(
-                          strings.noScheduledBazaarDates,
-                          textAlign: TextAlign.center,
-                          style: appFont(
-                            context: context,
-                            color: AppColors.textGrey,
-                          ),
+                        padding: AppSpace.pageH,
+                        child: AppEmptyState(
+                          icon: Icons.event_available_outlined,
+                          title: strings.noScheduledBazaarDates,
+                          subtitle: strings.noScheduledBazaarDatesBody,
+                          actionLabel:
+                              isAdmin ? strings.setDate : strings.requestDate,
+                          onAction: _requesting || me == null
+                              ? null
+                              : () => _requestFor(
+                                    messId: mess.id,
+                                    me: me,
+                                    members: members,
+                                    asAdmin: isAdmin,
+                                  ),
                         ),
                       )
                     else
@@ -502,14 +475,12 @@ class _PendingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+    return AppCard(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E1),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFFFE082)),
-      ),
+      color: AppColors.updateOrangeBg,
+      borderColor: AppColors.statusOrange.withValues(alpha: 0.35),
+      elevated: false,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -540,14 +511,17 @@ class _PendingCard extends StatelessWidget {
                 child: OutlinedButton(
                   onPressed: busy ? null : onReject,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFC62828),
-                    side: const BorderSide(color: Color(0xFFC62828)),
+                    foregroundColor: AppColors.monthRed,
+                    side: BorderSide(color: AppColors.monthRed),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   child: Text(
                     s.reject,
                     style: appFont(
                       context: context,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
@@ -559,6 +533,9 @@ class _PendingCard extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryGreen,
                     elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   child: busy
                       ? const SizedBox(
@@ -573,8 +550,8 @@ class _PendingCard extends StatelessWidget {
                           s.accept,
                           style: appFont(
                             context: context,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.card,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
                           ),
                         ),
                 ),
@@ -603,14 +580,10 @@ class _StatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = AppStrings.of(context);
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+    return AppCard(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 8),
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderGrey),
-      ),
+      elevated: false,
       child: Row(
         children: [
           Container(
@@ -618,7 +591,7 @@ class _StatusCard extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               color: AppColors.featureGreenBg,
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               Icons.shopping_bag_outlined,
@@ -653,7 +626,8 @@ class _StatusCard extends StatelessWidget {
                     style: appFont(
                       context: context,
                       fontSize: 11,
-                      color: const Color(0xFFF9A825),
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.statusOrange,
                     ),
                   )
                 else

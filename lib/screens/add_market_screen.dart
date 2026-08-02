@@ -5,6 +5,7 @@ import '../models/market_entry.dart';
 import '../models/mess.dart';
 import '../services/market_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_surface.dart';
 import '../widgets/bn_date_picker.dart';
 import '../widgets/mess_session_builder.dart';
 
@@ -360,20 +361,24 @@ class _AddMarketScreenState extends State<AddMarketScreen> {
         return Scaffold(
           backgroundColor: AppColors.pageBackground,
           appBar: AppBar(
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.pageBackground,
             elevation: 0,
-            foregroundColor: AppColors.darkGreen,
+            foregroundColor: AppColors.textDark,
             title: Text(
               _isEdit
                   ? s.editMarket
                   : (isAdmin ? s.addMarketFull : s.marketRequestTitle),
-              style: appFont(context: context, fontWeight: FontWeight.w700),
+              style: appFont(
+                context: context,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textDark,
+              ),
             ),
             actions: [
               if (_isEdit && isAdmin)
                 IconButton(
                   onPressed: busy ? null : () => _delete(mess.id),
-                  icon: const Icon(Icons.delete_outline, color: Color(0xFFC62828)),
+                  icon: Icon(Icons.delete_outline, color: AppColors.monthRed),
                   tooltip: s.deleteAdminOnlyTooltip,
                 ),
             ],
@@ -384,21 +389,11 @@ class _AddMarketScreenState extends State<AddMarketScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (!_isEdit && !isAdmin) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF8E1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFFFE082)),
-                    ),
-                    child: Text(
-                      s.memberMarketRequestHint,
-                      style: appFont(
-                        context: context,
-                        fontSize: 13,
-                        color: AppColors.textDark,
-                      ),
-                    ),
+                  AppSoftBanner(
+                    text: s.memberMarketRequestHint,
+                    tone: AppBannerTone.warning,
+                    icon: Icons.info_outline_rounded,
+                    margin: EdgeInsets.zero,
                   ),
                   const SizedBox(height: 14),
                 ],

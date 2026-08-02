@@ -1,17 +1,21 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/bazaar_schedule.dart';
+import 'month_lock_service.dart';
 import 'notification_service.dart';
 
 class BazaarScheduleService {
   BazaarScheduleService({
     FirebaseFirestore? firestore,
     NotificationService? notificationService,
+    MonthLockService? monthLockService,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _notifications = notificationService ?? NotificationService();
+        _notifications = notificationService ?? NotificationService(),
+        _locks = monthLockService ?? MonthLockService();
 
   final FirebaseFirestore _firestore;
   final NotificationService _notifications;
+  final MonthLockService _locks;
 
   CollectionReference<Map<String, dynamic>> _col(String messId) =>
       _firestore.collection('messes').doc(messId).collection('bazaar_schedules');
@@ -57,6 +61,7 @@ class BazaarScheduleService {
     required String yearMonth,
     required bool asAdmin,
   }) async {
+    await _locks.assertUnlocked(messId, yearMonth);
     final status = asAdmin
         ? BazaarScheduleStatus.approved
         : BazaarScheduleStatus.pending;
@@ -103,6 +108,15 @@ class BazaarScheduleService {
     required String adminUid,
   }) async {
     final snap = await _col(messId).doc(scheduleId).get();
+    final yearMonth = snap.data()?['yearMonth'] as String? ??
+        MonthLockService.yearMonthFromDateKey(
+          snap.data()?['startDateKey'] as String? ??
+              snap.data()?['dateKey'] as String? ??
+              '',
+        );
+    if (yearMonth.isNotEmpty) {
+      await _locks.assertUnlocked(messId, yearMonth);
+    }
     await _col(messId).doc(scheduleId).update({
       'status': BazaarScheduleStatus.approved.firestoreValue,
       'reviewedBy': adminUid,
@@ -156,6 +170,15 @@ class BazaarScheduleService {
     String? adminUid,
   }) async {
     final snap = await _col(messId).doc(scheduleId).get();
+    final yearMonth = snap.data()?['yearMonth'] as String? ??
+        MonthLockService.yearMonthFromDateKey(
+          snap.data()?['startDateKey'] as String? ??
+              snap.data()?['dateKey'] as String? ??
+              '',
+        );
+    if (yearMonth.isNotEmpty) {
+      await _locks.assertUnlocked(messId, yearMonth);
+    }
     final ownerUid = snap.data()?['uid'] as String?;
     await _col(messId).doc(scheduleId).delete();
     if (ownerUid != null && ownerUid != adminUid) {
@@ -175,6 +198,16 @@ class BazaarScheduleService {
     required String messId,
     required String scheduleId,
   }) async {
+    final snap = await _col(messId).doc(scheduleId).get();
+    final yearMonth = snap.data()?['yearMonth'] as String? ??
+        MonthLockService.yearMonthFromDateKey(
+          snap.data()?['startDateKey'] as String? ??
+              snap.data()?['dateKey'] as String? ??
+              '',
+        );
+    if (yearMonth.isNotEmpty) {
+      await _locks.assertUnlocked(messId, yearMonth);
+    }
     await _col(messId).doc(scheduleId).delete();
   }
 }

@@ -1,19 +1,18 @@
 import 'dart:typed_data';
 
 import 'package:excel/excel.dart';
+import 'package:intl/intl.dart';
 
 import '../models/mess.dart';
 import '../models/monthly_meal_chart.dart';
-import '../utils/bn_date_format.dart';
 
-/// Builds a polished, user-friendly month meal chart Excel (সকাল / বিকাল / রাত).
+/// Builds month meal chart Excel (Breakfast / Lunch / Dinner) — English labels.
 class MonthlyMealChartExcelService {
   MonthlyMealChartExcelService({MonthlyMealChartBuilder? builder})
       : _builder = builder ?? MonthlyMealChartBuilder();
 
   final MonthlyMealChartBuilder _builder;
 
-  // Brand / table palette
   static final _titleGreen = ExcelColor.fromHexString('FF2E7D32');
   static final _titleGreenDark = ExcelColor.fromHexString('FF1B5E20');
   static final _legendBg = ExcelColor.fromHexString('FFE8F5E9');
@@ -70,14 +69,14 @@ class MonthlyMealChartExcelService {
     final totalsRow = _dataStartRow + dayCount;
     final grandRow = totalsRow + 1;
     final bottomPadRow = grandRow + 1;
+    final monthLabel = DateFormat('MMMM yyyy').format(chart.month);
+    final dateFmt = DateFormat('EEEE, MMMM d, yyyy');
 
-    // ── Top padding ──────────────────────────────────────────────
     _fillRow(sheet, _topPadRow, lastCol, _padStyle());
 
-    // ── Title ────────────────────────────────────────────────────
     final title = messName != null && messName.trim().isNotEmpty
-        ? 'মিল চার্ট — ${messName.trim()} — ${chart.monthLabel}'
-        : 'মিল চার্ট — ${chart.monthLabel}';
+        ? 'Meal Chart — ${messName.trim()} — $monthLabel'
+        : 'Meal Chart — $monthLabel';
     sheet.merge(
       CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: _titleRow),
       CellIndex.indexByColumnRow(columnIndex: lastCol, rowIndex: _titleRow),
@@ -91,32 +90,22 @@ class MonthlyMealChartExcelService {
     );
     sheet.setRowHeight(_titleRow, 34);
 
-    // ── Legend ───────────────────────────────────────────────────
     sheet.merge(
       CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: _legendRow),
       CellIndex.indexByColumnRow(columnIndex: lastCol, rowIndex: _legendRow),
-      customValue: TextCellValue(
-        'সকাল  ·  বিকাল  ·  রাত',
-      ),
+      customValue: TextCellValue('B = Breakfast  ·  L = Lunch  ·  D = Dinner'),
     );
-    _styleCell(
-      sheet,
-      0,
-      _legendRow,
-      _legendStyle(),
-    );
+    _styleCell(sheet, 0, _legendRow, _legendStyle());
     sheet.setRowHeight(_legendRow, 22);
 
-    // ── Spacer ───────────────────────────────────────────────────
     _fillRow(sheet, _spacerRow, lastCol, _padStyle());
     sheet.setRowHeight(_spacerRow, 8);
 
-    // ── Member name header ─────────────────────────────────────────
     _setText(
       sheet,
       0,
       _nameHeaderRow,
-      'তারিখ',
+      'Date',
       _columnHeaderStyle(_headerYellow, darkText: true),
     );
     for (var i = 0; i < memberCount; i++) {
@@ -139,12 +128,11 @@ class MonthlyMealChartExcelService {
       sheet,
       lastCol,
       _nameHeaderRow,
-      'মোট মিল',
+      'Total Meal',
       _columnHeaderStyle(_totalOrangeDark, darkText: true),
     );
     sheet.setRowHeight(_nameHeaderRow, 26);
 
-    // ── সকাল / বিকাল / রাত sub-header ──────────────────────────────
     _setText(
       sheet,
       0,
@@ -155,20 +143,19 @@ class MonthlyMealChartExcelService {
     for (var i = 0; i < memberCount; i++) {
       final start = 1 + i * 3;
       final style = _columnHeaderStyle(_memberExcelColor(i), fontSize: 9);
-      _setText(sheet, start, _bldHeaderRow, 'সকাল', style);
-      _setText(sheet, start + 1, _bldHeaderRow, 'বিকাল', style);
-      _setText(sheet, start + 2, _bldHeaderRow, 'রাত', style);
+      _setText(sheet, start, _bldHeaderRow, 'B', style);
+      _setText(sheet, start + 1, _bldHeaderRow, 'L', style);
+      _setText(sheet, start + 2, _bldHeaderRow, 'D', style);
     }
     _setText(
       sheet,
       lastCol,
       _bldHeaderRow,
-      'মোট',
+      'Total',
       _columnHeaderStyle(_totalOrangeDark, darkText: true),
     );
     sheet.setRowHeight(_bldHeaderRow, 24);
 
-    // ── Daily rows ─────────────────────────────────────────────────
     for (var di = 0; di < dayCount; di++) {
       final rowData = chart.days[di];
       final row = _dataStartRow + di;
@@ -178,7 +165,7 @@ class MonthlyMealChartExcelService {
         sheet,
         0,
         row,
-        formatBnDayLabel(rowData.day),
+        dateFmt.format(rowData.day),
         _dateStyle(zebra),
       );
       sheet.setRowHeight(row, 21);
@@ -200,12 +187,11 @@ class MonthlyMealChartExcelService {
       );
     }
 
-    // ── Totals row (B/L/D breakdown) ─────────────────────────────
     _setText(
       sheet,
       0,
       totalsRow,
-      'মোট',
+      'Totals',
       _totalRowStyle(_totalsGold, darkText: true),
     );
     sheet.setRowHeight(totalsRow, 26);
@@ -225,12 +211,11 @@ class MonthlyMealChartExcelService {
       _totalRowStyle(_totalOrangeDark, darkText: true),
     );
 
-    // ── Grand total per person ─────────────────────────────────────
     _setText(
       sheet,
       0,
       grandRow,
-      'সর্বমোট',
+      'Total',
       _totalRowStyle(_titleGreen, whiteText: true),
     );
     sheet.setRowHeight(grandRow, 28);
@@ -255,18 +240,15 @@ class MonthlyMealChartExcelService {
       _totalRowStyle(_titleGreen, whiteText: true, fontSize: 12),
     );
 
-    // ── Bottom padding ─────────────────────────────────────────────
     _fillRow(sheet, bottomPadRow, lastCol, _padStyle());
     sheet.setRowHeight(bottomPadRow, 10);
 
-    // ── Column widths (breathing room) ─────────────────────────────
     sheet.setColumnWidth(0, 36);
     for (var c = 1; c < lastCol; c++) {
       sheet.setColumnWidth(c, 9);
     }
     sheet.setColumnWidth(lastCol, 14);
 
-    // Outer medium border around the whole table block
     _applyOuterBorder(sheet, lastCol, _nameHeaderRow, grandRow);
 
     final bytes = excel.encode();
@@ -414,9 +396,8 @@ class MonthlyMealChartExcelService {
   }
 
   ExcelColor _blendMemberWithZebra(int memberIndex, bool evenRow) {
-    if (evenRow) return _memberExcelColor(memberIndex);
-    // Slightly muted on zebra rows for readability
-    return _zebraGray;
+    // Keep each member's distinct color on every row.
+    return _memberExcelColor(memberIndex);
   }
 
   void _styleCell(Sheet sheet, int col, int row, CellStyle style) {
