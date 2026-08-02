@@ -13,10 +13,7 @@ class SplashBackground extends StatelessWidget {
       color: AppColors.splashBackground,
       child: Stack(
         fit: StackFit.expand,
-        children: [
-          const _DecorativeCircles(),
-          child,
-        ],
+        children: [const _DecorativeCircles(), child],
       ),
     );
   }
@@ -27,9 +24,7 @@ class _DecorativeCircles extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CustomPaint(
-      painter: _CirclePatternPainter(),
-    );
+    return CustomPaint(painter: _CirclePatternPainter());
   }
 }
 

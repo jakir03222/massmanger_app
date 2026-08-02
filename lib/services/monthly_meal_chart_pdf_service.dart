@@ -1,35 +1,39 @@
 import 'package:bangla_pdf/bangla_pdf.dart' as bn;
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../models/mess.dart';
 import '../models/monthly_meal_chart.dart';
-import '../utils/bn_date_format.dart';
 
-/// Smart meal chart PDF (সকাল / বিকাল / রাত) via bangla_pdf.
+/// Meal chart PDF only (2nd section / standalone) — Name, then B|L|D columns.
 class MonthlyMealChartPdfService {
   static pw.Font? _latinRegular;
   static pw.Font? _latinBold;
+  static pw.MemoryImage? _appLogo;
 
-  static const _green = PdfColor.fromInt(0xFF2E7D32);
-  static const _greenDark = PdfColor.fromInt(0xFF1B5E20);
-  static const _greenSoft = PdfColor.fromInt(0xFFE8F5E9);
-  static const _headerYellow = PdfColor.fromInt(0xFFFFF59D);
-  static const _totalsGold = PdfColor.fromInt(0xFFFFD54F);
-  static const _totalOrange = PdfColor.fromInt(0xFFFFCC80);
-  static const _zebra = PdfColor.fromInt(0xFFF5F5F5);
-  static const _border = PdfColor.fromInt(0xFF9E9E9E);
+  static const _appName = 'Mass Manager';
+  static const _headerYellow = PdfColor.fromInt(0xFFFFEB9C);
+  static const _totalsYellow = PdfColor.fromInt(0xFFFFD966);
+  static const _totalMealHeader = PdfColor.fromInt(0xFF1F4E79);
+  static const _totalMealCol = PdfColor.fromInt(0xFFFCE4D6);
+  static const _zebra = PdfColor.fromInt(0xFFF2F2F2);
+  static const _line = PdfColor.fromInt(0xFF9E9E9E);
   static const _textDark = PdfColor.fromInt(0xFF212121);
   static const _white = PdfColors.white;
+  static const _brandGreen = PdfColor.fromInt(0xFF2E7D32);
 
-  Future<void> _ensureFonts() async {
-    if (_latinRegular != null) return;
+  Future<void> _ensureAssets() async {
+    if (_latinRegular != null && _appLogo != null) return;
     final results = await Future.wait([
       rootBundle.load('assets/fonts/NotoSans-Regular.ttf'),
       rootBundle.load('assets/fonts/NotoSans-Bold.ttf'),
+      rootBundle.load('assets/images/app_icon.png'),
     ]);
     _latinRegular = pw.Font.ttf(results[0]);
     _latinBold = pw.Font.ttf(results[1]);
+    _appLogo = pw.MemoryImage(results[2].buffer.asUint8List());
   }
 
   pw.Widget _bnText(
@@ -63,110 +67,166 @@ class MonthlyMealChartPdfService {
     );
   }
 
-  Future<Uint8List> generate(
+  Future<List<pw.Page>> buildPages(
     MonthlyMealChart chart, {
     String? messName,
+    String? messLocation,
+    String? superAdminName,
   }) async {
-    await _ensureFonts();
+    await _ensureAssets();
 
-    final members = chart.members;
-    final memberCount = members.length;
-    final colCount = 1 + memberCount * 3 + 1;
+    final monthTitle =
+        'Month Of ${DateFormat('MMMM yyyy').format(chart.month)}';
+    final memberCount = chart.members.length;
+    final nameSize = memberCount > 10
+        ? 5.0
+        : memberCount > 7
+        ? 5.5
+        : 6.5;
+    final cellSize = memberCount > 10
+        ? 5.5
+        : memberCount > 7
+        ? 6.0
+        : 6.5;
 
-    final doc = pw.Document();
-    final title = messName != null && messName.trim().isNotEmpty
-        ? 'মিল চার্ট — ${messName.trim()} — ${chart.monthLabel}'
-        : 'মিল চার্ট — ${chart.monthLabel}';
-
-    doc.addPage(
+    return [
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4.landscape,
-        margin: const pw.EdgeInsets.fromLTRB(14, 14, 14, 16),
-        theme: pw.ThemeData.withFont(
-          base: _latinRegular!,
-          bold: _latinBold!,
-        ),
-        header: (context) => context.pageNumber == 1
-            ? pw.SizedBox()
-            : pw.Padding(
-                padding: const pw.EdgeInsets.only(bottom: 6),
-                child: pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 5,
-                  ),
-                  decoration: pw.BoxDecoration(
-                    color: _greenSoft,
-                    borderRadius: pw.BorderRadius.circular(4),
-                    border: pw.Border.all(color: _green, width: 0.5),
-                  ),
-                  child: _bnText(
-                    title,
-                    bold: true,
-                    fontSize: 8,
-                    color: _greenDark,
-                    align: pw.TextAlign.left,
-                  ),
-                ),
-              ),
+        margin: const pw.EdgeInsets.fromLTRB(12, 12, 12, 14),
+        theme: pw.ThemeData.withFont(base: _latinRegular!, bold: _latinBold!),
         footer: (context) => pw.Align(
           alignment: pw.Alignment.centerRight,
           child: _bnText(
-            'পৃষ্ঠা ${context.pageNumber}/${context.pagesCount}',
+            'Page ${context.pageNumber} of ${context.pagesCount}',
             fontSize: 7,
             color: PdfColors.grey700,
             align: pw.TextAlign.right,
           ),
         ),
         build: (context) => [
-          _titleBanner(title),
+          _brandHeader(messName: messName, messLocation: messLocation),
           pw.SizedBox(height: 6),
           pw.Container(
             width: double.infinity,
-            padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 8),
-            decoration: pw.BoxDecoration(
-              color: _greenSoft,
-              borderRadius: pw.BorderRadius.circular(4),
-              border: pw.Border.all(color: _border, width: 0.5),
+            padding: const pw.EdgeInsets.symmetric(vertical: 7),
+            color: _headerYellow,
+            child: _bnText(monthTitle, bold: true, fontSize: 12),
+          ),
+          pw.SizedBox(height: 6),
+          _buildTable(chart, nameSize: nameSize, cellSize: cellSize),
+          pw.SizedBox(height: 22),
+          _signatureBlock(superAdminName ?? ''),
+        ],
+      ),
+    ];
+  }
+
+  pw.Widget _brandHeader({String? messName, String? messLocation}) {
+    final name = messName?.trim() ?? '';
+    final location = messLocation?.trim() ?? '';
+    return pw.Container(
+      width: double.infinity,
+      padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: pw.BoxDecoration(
+        color: PdfColor.fromInt(0xFFE8F5E9),
+        borderRadius: pw.BorderRadius.circular(6),
+        border: pw.Border.all(color: _brandGreen, width: 0.8),
+      ),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        children: [
+          if (_appLogo != null)
+            pw.Container(
+              width: 32,
+              height: 32,
+              margin: const pw.EdgeInsets.only(right: 8),
+              child: pw.Image(_appLogo!, fit: pw.BoxFit.contain),
             ),
-            child: _bnText(
-              'সকাল  ·  বিকাল  ·  রাত',
-              bold: true,
-              fontSize: 8,
-              color: _greenDark,
+          pw.Expanded(
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                _bnText(
+                  _appName,
+                  bold: true,
+                  fontSize: 11,
+                  color: _brandGreen,
+                  align: pw.TextAlign.left,
+                ),
+                if (name.isNotEmpty)
+                  _bnText(
+                    name,
+                    bold: true,
+                    fontSize: 10,
+                    align: pw.TextAlign.left,
+                  ),
+                if (location.isNotEmpty)
+                  _bnText(
+                    location,
+                    fontSize: 7.5,
+                    color: PdfColors.grey700,
+                    align: pw.TextAlign.left,
+                  ),
+              ],
             ),
           ),
-          pw.SizedBox(height: 8),
-          _buildTable(chart, colCount),
         ],
       ),
     );
+  }
 
+  Future<Uint8List> generate(
+    MonthlyMealChart chart, {
+    String? messName,
+    String? messLocation,
+    String? superAdminName,
+  }) async {
+    final pages = await buildPages(
+      chart,
+      messName: messName,
+      messLocation: messLocation,
+      superAdminName: superAdminName,
+    );
+    final doc = pw.Document();
+    for (final page in pages) {
+      doc.addPage(page);
+    }
     return doc.save();
   }
 
-  pw.Widget _titleBanner(String title) {
-    return pw.Container(
-      width: double.infinity,
-      padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: pw.BoxDecoration(
-        color: _green,
-        borderRadius: pw.BorderRadius.circular(8),
-        border: pw.Border.all(color: _greenDark, width: 1.1),
-      ),
-      child: _bnText(
-        title,
-        bold: true,
-        fontSize: 13,
-        color: _white,
-      ),
+  Future<void> addToDocument(
+    pw.Document doc,
+    MonthlyMealChart chart, {
+    String? messName,
+    String? messLocation,
+    String? superAdminName,
+  }) async {
+    final pages = await buildPages(
+      chart,
+      messName: messName,
+      messLocation: messLocation,
+      superAdminName: superAdminName,
     );
+    for (final page in pages) {
+      doc.addPage(page);
+    }
   }
 
   PdfColor _memberColor(int i) {
-    final v = MonthlyMealChart.memberColorValues[
-        i % MonthlyMealChart.memberColorValues.length];
+    final v = MonthlyMealChart
+        .memberColorValues[i % MonthlyMealChart.memberColorValues.length];
     return PdfColor.fromInt(v);
+  }
+
+  /// Same user color on every row (optional slight darken on odd rows).
+  PdfColor _memberRowColor(int memberIndex, {required bool oddRow}) {
+    final base = _memberColor(memberIndex);
+    if (!oddRow) return base;
+    return PdfColor(
+      (base.red * 0.92).clamp(0.0, 1.0),
+      (base.green * 0.92).clamp(0.0, 1.0),
+      (base.blue * 0.92).clamp(0.0, 1.0),
+    );
   }
 
   pw.Widget _cell(
@@ -179,7 +239,7 @@ class MonthlyMealChartPdfService {
   }) {
     return pw.Container(
       color: bg,
-      padding: const pw.EdgeInsets.symmetric(horizontal: 1.5, vertical: 3),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 1, vertical: 2.5),
       alignment: align == pw.TextAlign.left
           ? pw.Alignment.centerLeft
           : pw.Alignment.center,
@@ -194,145 +254,265 @@ class MonthlyMealChartPdfService {
     );
   }
 
-  pw.Widget _buildTable(MonthlyMealChart chart, int colCount) {
+  /// Excel-style: Name over each member, then B|L|D columns, then day values.
+  /// Only used by the meal-chart PDF (2nd section / standalone meal chart).
+  pw.Widget _buildTable(
+    MonthlyMealChart chart, {
+    required double nameSize,
+    required double cellSize,
+  }) {
     final members = chart.members;
     final memberCount = members.length;
+    // Date | B L D × members | Total Meal
+    final colCount = 1 + (memberCount * 3) + 1;
 
     final widths = <int, pw.TableColumnWidth>{
-      0: const pw.FixedColumnWidth(78),
+      0: const pw.FixedColumnWidth(118),
     };
     for (var c = 1; c < colCount - 1; c++) {
       widths[c] = const pw.FlexColumnWidth(1);
     }
-    widths[colCount - 1] = const pw.FixedColumnWidth(28);
+    widths[colCount - 1] = const pw.FixedColumnWidth(34);
 
-    final rows = <pw.TableRow>[
-      // Member names — name in first of 3 cols
-      pw.TableRow(
-        children: [
-          _cell('তারিখ', bg: _headerYellow, bold: true, fontSize: 7),
-          for (var i = 0; i < memberCount; i++) ...[
+    final dateFmt = DateFormat('EEEE, MMMM d, yyyy');
+    const bldLabels = ['B', 'L', 'D'];
+
+    // Name row: one block per member spanning B+L+D width (Excel merge look).
+    final nameHeader = pw.Table(
+      border: const pw.TableBorder(
+        top: pw.BorderSide(color: _line, width: 0.6),
+        left: pw.BorderSide(color: _line, width: 0.6),
+        right: pw.BorderSide(color: _line, width: 0.6),
+        verticalInside: pw.BorderSide(color: _line, width: 0.35),
+      ),
+      columnWidths: {
+        0: const pw.FixedColumnWidth(118),
+        for (var i = 0; i < memberCount; i++)
+          i + 1: const pw.FlexColumnWidth(3),
+        memberCount + 1: const pw.FixedColumnWidth(34),
+      },
+      children: [
+        pw.TableRow(
+          children: [
+            _cell('Date', bg: _headerYellow, bold: true, fontSize: 7),
+            for (var i = 0; i < memberCount; i++)
+              pw.Container(
+                color: _memberColor(i),
+                padding: const pw.EdgeInsets.symmetric(
+                  vertical: 3,
+                  horizontal: 2,
+                ),
+                alignment: pw.Alignment.center,
+                child: _bnText(
+                  members[i].name,
+                  bold: true,
+                  fontSize: nameSize,
+                  softWrap: true,
+                ),
+              ),
             _cell(
-              members[i].name,
-              bg: _memberColor(i),
+              'Total Meal',
+              bg: _totalMealHeader,
               bold: true,
               fontSize: 6,
+              textColor: _white,
             ),
-            _cell('', bg: _memberColor(i)),
-            _cell('', bg: _memberColor(i)),
           ],
-          _cell('মোট', bg: _totalOrange, bold: true, fontSize: 7),
-        ],
-      ),
-      // সকাল বিকাল রাত
+        ),
+      ],
+    );
+
+    final rows = <pw.TableRow>[
+      // B | L | D under each member name (separate columns)
       pw.TableRow(
         children: [
-          _cell('', bg: _headerYellow),
-          for (var i = 0; i < memberCount; i++) ...[
-            _cell('সকাল', bg: _memberColor(i), bold: true, fontSize: 5.5),
-            _cell('বিকাল', bg: _memberColor(i), bold: true, fontSize: 5.5),
-            _cell('রাত', bg: _memberColor(i), bold: true, fontSize: 5.5),
-          ],
-          _cell('মিল', bg: _totalOrange, bold: true, fontSize: 6),
+          _cell('', bg: _headerYellow, fontSize: 6),
+          for (var i = 0; i < memberCount; i++)
+            for (final label in bldLabels)
+              _cell(
+                label,
+                bg: _memberColor(i),
+                bold: true,
+                fontSize: 6.5,
+              ),
+          _cell(
+            'Total',
+            bg: _totalMealHeader,
+            bold: true,
+            fontSize: 6,
+            textColor: _white,
+          ),
         ],
       ),
     ];
 
     for (var di = 0; di < chart.days.length; di++) {
       final dayRow = chart.days[di];
-      final zebra = di.isOdd;
-      final dateBg = zebra ? _zebra : _white;
+      final odd = di.isOdd;
       final cells = <pw.Widget>[
         _cell(
-          formatBnDayShort(dayRow.day),
-          bg: dateBg,
-          fontSize: 6,
+          dateFmt.format(dayRow.day),
+          bg: odd ? _zebra : _white,
+          fontSize: cellSize,
           align: pw.TextAlign.left,
         ),
       ];
       for (var i = 0; i < memberCount; i++) {
-        final bld = dayRow.byUid[members[i].uid] ?? const MealBld();
-        final bg = zebra ? _zebra : _memberColor(i);
-        cells.add(_cell(MonthlyMealChart.formatQty(bld.b), bg: bg));
-        cells.add(_cell(MonthlyMealChart.formatQty(bld.l), bg: bg));
-        cells.add(_cell(MonthlyMealChart.formatQty(bld.d), bg: bg));
+        final meal = dayRow.byUid[members[i].uid] ?? const MealBld();
+        final bg = _memberRowColor(i, oddRow: odd);
+        cells
+          ..add(_cell(
+            MonthlyMealChart.formatQty(meal.b),
+            bg: bg,
+            fontSize: cellSize,
+          ))
+          ..add(_cell(
+            MonthlyMealChart.formatQty(meal.l),
+            bg: bg,
+            fontSize: cellSize,
+          ))
+          ..add(_cell(
+            MonthlyMealChart.formatQty(meal.d),
+            bg: bg,
+            fontSize: cellSize,
+          ));
       }
       cells.add(
         _cell(
           MonthlyMealChart.formatQty(dayRow.dayTotal),
-          bg: _totalOrange,
+          bg: _totalMealCol,
           bold: dayRow.dayTotal > 0,
+          fontSize: cellSize,
         ),
       );
       rows.add(pw.TableRow(children: cells));
     }
 
-    // Column totals
+    // B / L / D totals in separate columns
     rows.add(
       pw.TableRow(
         children: [
-          _cell('মোট', bg: _totalsGold, bold: true, fontSize: 7),
+          _cell('Totals', bg: _totalsYellow, bold: true, fontSize: 7),
           for (var i = 0; i < memberCount; i++) ...[
             _cell(
               MonthlyMealChart.formatQtyOrZero(chart.memberB[i]),
               bg: _memberColor(i),
               bold: true,
+              fontSize: cellSize,
             ),
             _cell(
               MonthlyMealChart.formatQtyOrZero(chart.memberL[i]),
               bg: _memberColor(i),
               bold: true,
+              fontSize: cellSize,
             ),
             _cell(
               MonthlyMealChart.formatQtyOrZero(chart.memberD[i]),
               bg: _memberColor(i),
               bold: true,
+              fontSize: cellSize,
             ),
           ],
           _cell(
             MonthlyMealChart.formatQtyOrZero(chart.grandTotal),
-            bg: _totalOrange,
+            bg: _totalMealCol,
             bold: true,
+            fontSize: cellSize,
           ),
         ],
       ),
     );
 
-    // Person totals
-    rows.add(
-      pw.TableRow(
-        children: [
-          _cell(
-            'সর্বমোট',
-            bg: _green,
-            bold: true,
-            fontSize: 7,
-            textColor: _white,
-          ),
-          for (var i = 0; i < memberCount; i++) ...[
+    // Person total — one block under each member (spans B+L+D visually)
+    final personTotalRow = pw.Table(
+      border: const pw.TableBorder(
+        bottom: pw.BorderSide(color: _line, width: 0.6),
+        left: pw.BorderSide(color: _line, width: 0.6),
+        right: pw.BorderSide(color: _line, width: 0.6),
+        top: pw.BorderSide(color: _line, width: 0.35),
+        verticalInside: pw.BorderSide(color: _line, width: 0.35),
+      ),
+      columnWidths: {
+        0: const pw.FixedColumnWidth(118),
+        for (var i = 0; i < memberCount; i++)
+          i + 1: const pw.FlexColumnWidth(3),
+        memberCount + 1: const pw.FixedColumnWidth(34),
+      },
+      children: [
+        pw.TableRow(
+          children: [
+            _cell('Total', bg: _totalsYellow, bold: true, fontSize: 7),
+            for (var i = 0; i < memberCount; i++)
+              _cell(
+                MonthlyMealChart.formatQtyOrZero(chart.personTotal(i)),
+                bg: _memberColor(i),
+                bold: true,
+                fontSize: cellSize,
+              ),
             _cell(
-              MonthlyMealChart.formatQtyOrZero(chart.personTotal(i)),
-              bg: _greenDark,
+              MonthlyMealChart.formatQtyOrZero(chart.grandTotal),
+              bg: _totalMealCol,
               bold: true,
-              textColor: _white,
+              fontSize: 7,
             ),
-            _cell('', bg: _greenDark),
-            _cell('', bg: _greenDark),
           ],
-          _cell(
-            MonthlyMealChart.formatQtyOrZero(chart.grandTotal),
-            bg: _green,
-            bold: true,
-            textColor: _white,
-          ),
-        ],
-      ),
+        ),
+      ],
     );
 
-    return pw.Table(
-      border: pw.TableBorder.all(color: _border, width: 0.5),
-      columnWidths: widths,
-      children: rows,
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        _bnText(
+          'B = Breakfast  ·  L = Lunch  ·  D = Dinner',
+          fontSize: 7,
+          color: PdfColors.grey700,
+        ),
+        pw.SizedBox(height: 4),
+        nameHeader,
+        pw.Table(
+          border: const pw.TableBorder(
+            left: pw.BorderSide(color: _line, width: 0.6),
+            right: pw.BorderSide(color: _line, width: 0.6),
+            horizontalInside: pw.BorderSide(color: _line, width: 0.35),
+            verticalInside: pw.BorderSide(color: _line, width: 0.35),
+          ),
+          columnWidths: widths,
+          children: rows,
+        ),
+        personTotalRow,
+      ],
     );
+  }
+
+  pw.Widget _signatureBlock(String superAdminName) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.end,
+      children: [
+        pw.Container(
+          width: 200,
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: [
+              pw.SizedBox(height: 28),
+              pw.Container(width: 160, height: 1, color: PdfColors.black),
+              pw.SizedBox(height: 5),
+              _bnText('Super Admin Signature', bold: true, fontSize: 9),
+              if (superAdminName.isNotEmpty) ...[
+                pw.SizedBox(height: 2),
+                _bnText(superAdminName, fontSize: 8, color: PdfColors.grey800),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  static String? resolveSuperAdminName(List<MessMember> members) {
+    for (final m in members) {
+      if (m.isSuperAdmin) return m.name;
+    }
+    return null;
   }
 }

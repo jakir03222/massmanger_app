@@ -15,7 +15,7 @@ class PdfDownloadResult {
   final bool savedToDownloads;
 }
 
-/// Saves report files to the device Downloads/Files location.
+/// Saves report files and opens them with a reliable local path.
 class PdfDownloadService {
   Future<PdfDownloadResult> saveAndOpen({
     required Uint8List bytes,
@@ -53,27 +53,35 @@ class PdfDownloadService {
         ? filename.substring(0, filename.length - ext.length - 1)
         : filename;
 
-    // Saves into public Downloads on Android; Files/Documents on iOS/desktop.
-    final savedPath = await FileSaver.instance.saveFile(
-      name: safeName,
-      bytes: bytes,
-      fileExtension: ext,
-      mimeType: mimeType,
-    );
+    // Always write a local copy first so OpenFilex has a real filesystem path.
+    final dir = await getTemporaryDirectory();
+    final localFile = File('${dir.path}/$safeName.$ext');
+    await localFile.writeAsBytes(bytes, flush: true);
+    final localPath = localFile.path;
 
-    var path = savedPath.trim();
-    var savedToDownloads = path.isNotEmpty;
-
-    // Fallback: app documents directory if plugin returns empty.
-    if (path.isEmpty) {
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File('${dir.path}/$safeName.$ext');
-      await file.writeAsBytes(bytes, flush: true);
-      path = file.path;
+    var savedToDownloads = false;
+    try {
+      final savedPath = await FileSaver.instance.saveFile(
+        name: safeName,
+        bytes: bytes,
+        fileExtension: ext,
+        mimeType: mimeType,
+      );
+      savedToDownloads = savedPath.trim().isNotEmpty;
+    } catch (_) {
+      // Downloads folder save failed — local temp file still works.
       savedToDownloads = false;
     }
 
-    await OpenFilex.open(path);
-    return PdfDownloadResult(path: path, savedToDownloads: savedToDownloads);
+    try {
+      await OpenFilex.open(localPath);
+    } catch (_) {
+      // Ignore open errors; file is still saved.
+    }
+
+    return PdfDownloadResult(
+      path: localPath,
+      savedToDownloads: savedToDownloads,
+    );
   }
 }

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../l10n/app_strings.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
+import '../utils/form_validators.dart';
+import '../widgets/app_surface.dart';
 import 'email_login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -70,130 +72,124 @@ class _RegisterScreenState extends State<RegisterScreen> {
           s.registerTitle,
           style: appFont(
             context: context,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             color: AppColors.textDark,
           ),
         ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  s.registerSubtitle,
-                  style: appFont(
-                    context: context,
-                    fontSize: 15,
-                    color: AppColors.textGrey,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                _Field(
-                  controller: _nameController,
-                  label: s.name,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return s.nameRequired;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                _Field(
-                  controller: _emailController,
-                  label: s.email,
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    final v = value?.trim() ?? '';
-                    if (v.isEmpty) return s.emailRequired;
-                    if (!v.contains('@')) return s.emailInvalid;
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                _Field(
-                  controller: _passwordController,
-                  label: s.password,
-                  obscureText: _obscurePassword,
-                  suffixIcon: IconButton(
-                    onPressed: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      color: AppColors.textGrey,
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.length < 6) {
-                      return s.passwordMinLength;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                _Field(
-                  controller: _confirmController,
-                  label: s.confirmPassword,
-                  obscureText: _obscureConfirm,
-                  suffixIcon: IconButton(
-                    onPressed: () =>
-                        setState(() => _obscureConfirm = !_obscureConfirm),
-                    icon: Icon(
-                      _obscureConfirm
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      color: AppColors.textGrey,
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value != _passwordController.text) {
-                      return s.passwordMismatch;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 28),
-                SizedBox(
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: _loading ? null : _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryGreen,
-                      disabledBackgroundColor:
-                          AppColors.primaryGreen.withValues(alpha: 0.5),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                AppCard(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        s.registerSubtitle,
+                        style: appFont(
+                          context: context,
+                          fontSize: 14,
+                          color: AppColors.textGrey,
+                          height: 1.4,
+                        ),
                       ),
-                    ),
-                    child: _loading
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(
-                            s.registerAction,
-                            style: appFont(
-                              context: context,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.card,
-                            ),
+                      const SizedBox(height: 20),
+                      AppTextField(
+                        controller: _nameController,
+                        label: s.name,
+                        textInputAction: TextInputAction.next,
+                        prefixIcon: Icon(
+                          Icons.person_outline_rounded,
+                          color: AppColors.textGrey,
+                        ),
+                        validator: (value) =>
+                            FormValidators.requiredName(value, s.nameRequired),
+                      ),
+                      const SizedBox(height: 14),
+                      AppTextField(
+                        controller: _emailController,
+                        label: s.email,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        prefixIcon: Icon(
+                          Icons.email_outlined,
+                          color: AppColors.textGrey,
+                        ),
+                        validator: (value) => FormValidators.email(
+                          value,
+                          emptyMessage: s.emailRequired,
+                          invalidMessage: s.emailInvalid,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      AppTextField(
+                        controller: _passwordController,
+                        label: s.password,
+                        obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.next,
+                        prefixIcon: Icon(
+                          Icons.lock_outline_rounded,
+                          color: AppColors.textGrey,
+                        ),
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
                           ),
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            color: AppColors.textGrey,
+                          ),
+                        ),
+                        validator: (value) => FormValidators.passwordMin(
+                          value,
+                          s.passwordMinLength,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      AppTextField(
+                        controller: _confirmController,
+                        label: s.confirmPassword,
+                        obscureText: _obscureConfirm,
+                        textInputAction: TextInputAction.done,
+                        prefixIcon: Icon(
+                          Icons.lock_outline_rounded,
+                          color: AppColors.textGrey,
+                        ),
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(
+                            () => _obscureConfirm = !_obscureConfirm,
+                          ),
+                          icon: Icon(
+                            _obscureConfirm
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            color: AppColors.textGrey,
+                          ),
+                        ),
+                        validator: (value) => FormValidators.passwordMatch(
+                          value,
+                          _passwordController.text,
+                          s.passwordMismatch,
+                        ),
+                      ),
+                      const SizedBox(height: 22),
+                      AppPrimaryButton(
+                        label: s.registerAction,
+                        loading: _loading,
+                        onPressed: _submit,
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 TextButton(
                   onPressed: _loading
                       ? null
@@ -209,7 +205,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     style: appFont(
                       context: context,
                       fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                       color: AppColors.primaryGreen,
                     ),
                   ),
@@ -217,54 +213,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _Field extends StatelessWidget {
-  const _Field({
-    required this.controller,
-    required this.label,
-    this.obscureText = false,
-    this.keyboardType,
-    this.suffixIcon,
-    this.validator,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final bool obscureText;
-  final TextInputType? keyboardType;
-  final Widget? suffixIcon;
-  final String? Function(String?)? validator;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      validator: validator,
-      style: appFont(context: context, color: AppColors.textDark),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: appFont(context: context, color: AppColors.textGrey),
-        filled: true,
-        fillColor: Colors.white,
-        suffixIcon: suffixIcon,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.borderGrey),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.borderGrey),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.primaryGreen, width: 1.5),
         ),
       ),
     );

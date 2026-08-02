@@ -1,4 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'approval_status.dart';
+import '../utils/firestore_parsers.dart';
 
 enum BazaarScheduleStatus {
   pending,
@@ -6,40 +7,25 @@ enum BazaarScheduleStatus {
   rejected;
 
   static BazaarScheduleStatus fromString(String? value) {
-    switch (value) {
-      case 'pending':
+    switch (ApprovalStatus.fromString(value)) {
+      case ApprovalStatus.pending:
         return BazaarScheduleStatus.pending;
-      case 'rejected':
+      case ApprovalStatus.rejected:
         return BazaarScheduleStatus.rejected;
-      case 'approved':
-      default:
+      case ApprovalStatus.approved:
         return BazaarScheduleStatus.approved;
     }
   }
 
   String get firestoreValue => name;
 
-  String get bnLabel {
-    switch (this) {
-      case BazaarScheduleStatus.pending:
-        return 'অপেক্ষমাণ';
-      case BazaarScheduleStatus.approved:
-        return 'নির্ধারিত';
-      case BazaarScheduleStatus.rejected:
-        return 'বাতিল';
-    }
-  }
+  String get bnLabel => label(bn: true);
 
-  String label({required bool bn}) {
-    switch (this) {
-      case BazaarScheduleStatus.pending:
-        return bn ? 'অপেক্ষমাণ' : 'Pending';
-      case BazaarScheduleStatus.approved:
-        return bn ? 'নির্ধারিত' : 'Scheduled';
-      case BazaarScheduleStatus.rejected:
-        return bn ? 'বাতিল' : 'Rejected';
-    }
-  }
+  String label({required bool bn}) => ApprovalStatus.values[index].label(
+        bn: bn,
+        approvedBn: 'নির্ধারিত',
+        approvedEn: 'Scheduled',
+      );
 }
 
 /// Accept এর পর তারিখ অনুযায়ী চলমান স্ট্যাটাস (৩টি)।
@@ -125,22 +111,20 @@ class BazaarSchedule {
   }
 
   factory BazaarSchedule.fromMap(String id, Map<String, dynamic> data) {
-    final createdRaw = data['createdAt'];
-    final reviewedRaw = data['reviewedAt'];
-    final legacyDate = data['dateKey'] as String? ?? '';
-    final start = data['startDateKey'] as String? ?? legacyDate;
-    final end = data['endDateKey'] as String? ?? start;
+    final legacyDate = readString(data['dateKey']);
+    final start = readString(data['startDateKey'], legacyDate);
+    final end = readString(data['endDateKey'], start);
     return BazaarSchedule(
       id: id,
-      uid: data['uid'] as String? ?? '',
-      memberName: data['memberName'] as String? ?? 'সদস্য',
+      uid: readString(data['uid']),
+      memberName: readString(data['memberName'], 'সদস্য'),
       startDateKey: start,
       endDateKey: end,
-      yearMonth: data['yearMonth'] as String? ?? '',
+      yearMonth: readString(data['yearMonth']),
       status: BazaarScheduleStatus.fromString(data['status'] as String?),
-      createdAt: createdRaw is Timestamp ? createdRaw.toDate() : null,
+      createdAt: readTimestamp(data['createdAt']),
       reviewedBy: data['reviewedBy'] as String?,
-      reviewedAt: reviewedRaw is Timestamp ? reviewedRaw.toDate() : null,
+      reviewedAt: readTimestamp(data['reviewedAt']),
     );
   }
 }

@@ -34,6 +34,63 @@ class NotificationService {
   CollectionReference<Map<String, dynamic>> _inbox(String uid) =>
       _firestore.collection('users').doc(uid).collection('notifications');
 
+  Stream<List<Map<String, dynamic>>> watchInbox(String uid, {int limit = 50}) {
+    return _inbox(uid)
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map(
+          (snap) => snap.docs
+              .map((d) => {'id': d.id, ...d.data()})
+              .toList(),
+        );
+  }
+
+  Stream<int> watchUnreadCount(String uid) {
+    return _inbox(uid)
+        .where('read', isEqualTo: false)
+        .limit(40)
+        .snapshots()
+        .map((snap) => snap.docs.length);
+  }
+
+  Future<void> markRead(String uid, String notificationId) async {
+    await _inbox(uid).doc(notificationId).set(
+      {'read': true},
+      SetOptions(merge: true),
+    );
+  }
+
+  Future<void> markAllRead(String uid) async {
+    final snap =
+        await _inbox(uid).where('read', isEqualTo: false).limit(100).get();
+    if (snap.docs.isEmpty) return;
+    final batch = _firestore.batch();
+    for (final d in snap.docs) {
+      batch.set(d.reference, {'read': true}, SetOptions(merge: true));
+    }
+    await batch.commit();
+  }
+
+  Future<void> deleteNotification(String uid, String notificationId) async {
+    await _inbox(uid).doc(notificationId).delete();
+  }
+
+  /// Deletes all inbox notifications for [uid] (batched, up to 400).
+  Future<void> deleteAllNotifications(String uid) async {
+    // Multiple passes in case inbox is large.
+    for (var i = 0; i < 4; i++) {
+      final snap = await _inbox(uid).limit(100).get();
+      if (snap.docs.isEmpty) return;
+      final batch = _firestore.batch();
+      for (final d in snap.docs) {
+        batch.delete(d.reference);
+      }
+      await batch.commit();
+      if (snap.docs.length < 100) return;
+    }
+  }
+
   Future<void> initForUser(String uid) async {
     if (_uid == uid) return;
     await dispose();

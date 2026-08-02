@@ -140,9 +140,9 @@ class MonthClosedBanner extends StatelessWidget {
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFEBEE),
+        color: AppColors.monthRed.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.monthRed.withValues(alpha: 0.25)),
+        border: Border.all(color: AppColors.monthRed.withValues(alpha: 0.22)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

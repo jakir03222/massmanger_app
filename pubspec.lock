@@ -289,6 +289,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.9.0"
+  firebase_crashlytics:
+    dependency: "direct main"
+    description:
+      name: firebase_crashlytics
+      sha256: "2d9c791abef1cfd66c2572f5a4e172aa9f43476961af49742b1511dd327611df"
+      url: "https://pub.dev"
+    source: hosted
+    version: "5.2.4"
+  firebase_crashlytics_platform_interface:
+    dependency: transitive
+    description:
+      name: firebase_crashlytics_platform_interface
+      sha256: c219e98e36d0b30a776cfed41f7064af0e1f341674f9cbb42fe5ab37eff43874
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.8.25"
   firebase_messaging:
     dependency: "direct main"
     description:
@@ -425,10 +441,10 @@ packages:
     dependency: transitive
     description:
       name: google_sign_in_android
-      sha256: a01d4fd5a0e4eb0c1961434a0289a436abf9225b0933963c8e4e5ed88c26e40b
+      sha256: "57782125965ca87b03d42a147d40b046f1fd6a09141a58913e1b86671a5ef22e"
       url: "https://pub.dev"
     source: hosted
-    version: "7.2.15"
+    version: "7.2.16"
   google_sign_in_ios:
     dependency: transitive
     description:
@@ -875,7 +891,7 @@ packages:
     source: hosted
     version: "0.7.11"
   timezone:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: timezone
       sha256: "981d1020d6ef8fe1e7b3de5054e5b25579ae7c403d7734adc508ffc47668e9cb"

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../l10n/app_strings.dart';
 import '../services/auth_service.dart';
 import '../theme/app_colors.dart';
+import '../widgets/app_surface.dart';
 import 'register_screen.dart';
 
 class EmailLoginScreen extends StatefulWidget {
@@ -59,6 +60,9 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
       builder: (context) {
         final ds = AppStrings.of(context);
         return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Text(
             ds.passwordResetTitle,
             style: appFont(context: context, fontWeight: FontWeight.w700),
@@ -68,21 +72,13 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
             children: [
               Text(
                 ds.passwordResetBody,
-                style: appFont(context: context, fontSize: 13),
+                style: appFont(context: context, fontSize: 13, height: 1.4),
               ),
               const SizedBox(height: 14),
-              TextField(
+              AppTextField(
                 controller: controller,
+                label: ds.email,
                 keyboardType: TextInputType.emailAddress,
-                autofocus: true,
-                style: appFont(context: context),
-                decoration: InputDecoration(
-                  labelText: ds.email,
-                  labelStyle: appFont(context: context),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
               ),
             ],
           ),
@@ -97,7 +93,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                 ds.sendLink,
                 style: appFont(
                   context: context,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                   color: AppColors.primaryGreen,
                 ),
               ),
@@ -142,112 +138,103 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
           s.emailLoginTitle,
           style: appFont(
             context: context,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             color: AppColors.textDark,
           ),
         ),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  s.emailLoginSubtitle,
-                  style: appFont(
-                    context: context,
-                    fontSize: 15,
-                    color: AppColors.textGrey,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 28),
-                _AuthTextField(
-                  controller: _emailController,
-                  label: s.email,
-                  keyboardType: TextInputType.emailAddress,
-                  validator: (value) {
-                    final v = value?.trim() ?? '';
-                    if (v.isEmpty) return s.emailRequired;
-                    if (!v.contains('@')) return s.emailInvalid;
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                _AuthTextField(
-                  controller: _passwordController,
-                  label: s.password,
-                  obscureText: _obscurePassword,
-                  suffixIcon: IconButton(
-                    onPressed: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      color: AppColors.textGrey,
-                    ),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return s.passwordRequired;
-                    }
-                    return null;
-                  },
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: _loading ? null : _forgotPassword,
-                    child: Text(
-                      s.forgotPassword,
-                      style: appFont(
-                        context: context,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.primaryGreen,
+                AppCard(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        s.emailLoginSubtitle,
+                        style: appFont(
+                          context: context,
+                          fontSize: 14,
+                          color: AppColors.textGrey,
+                          height: 1.4,
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                SizedBox(
-                  height: 52,
-                  child: ElevatedButton(
-                    onPressed: _loading ? null : _submit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryGreen,
-                      disabledBackgroundColor:
-                          AppColors.primaryGreen.withValues(alpha: 0.5),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                      const SizedBox(height: 20),
+                      AppTextField(
+                        controller: _emailController,
+                        label: s.email,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        prefixIcon: Icon(
+                          Icons.email_outlined,
+                          color: AppColors.textGrey,
+                        ),
+                        validator: (value) {
+                          final v = value?.trim() ?? '';
+                          if (v.isEmpty) return s.emailRequired;
+                          if (!v.contains('@')) return s.emailInvalid;
+                          return null;
+                        },
                       ),
-                    ),
-                    child: _loading
-                        ? const SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              color: Colors.white,
-                            ),
-                          )
-                        : Text(
-                            s.loginAction,
+                      const SizedBox(height: 14),
+                      AppTextField(
+                        controller: _passwordController,
+                        label: s.password,
+                        obscureText: _obscurePassword,
+                        textInputAction: TextInputAction.done,
+                        onFieldSubmitted: (_) => _submit(),
+                        prefixIcon: Icon(
+                          Icons.lock_outline_rounded,
+                          color: AppColors.textGrey,
+                        ),
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            color: AppColors.textGrey,
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return s.passwordRequired;
+                          }
+                          return null;
+                        },
+                      ),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _loading ? null : _forgotPassword,
+                          child: Text(
+                            s.forgotPassword,
                             style: appFont(
                               context: context,
-                              fontSize: 15,
+                              fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.card,
+                              color: AppColors.primaryGreen,
                             ),
                           ),
+                        ),
+                      ),
+                      AppPrimaryButton(
+                        label: s.loginAction,
+                        loading: _loading,
+                        onPressed: _submit,
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 TextButton(
                   onPressed: _loading
                       ? null
@@ -263,7 +250,7 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
                     style: appFont(
                       context: context,
                       fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                       color: AppColors.primaryGreen,
                     ),
                   ),
@@ -271,54 +258,6 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AuthTextField extends StatelessWidget {
-  const _AuthTextField({
-    required this.controller,
-    required this.label,
-    this.obscureText = false,
-    this.keyboardType,
-    this.suffixIcon,
-    this.validator,
-  });
-
-  final TextEditingController controller;
-  final String label;
-  final bool obscureText;
-  final TextInputType? keyboardType;
-  final Widget? suffixIcon;
-  final String? Function(String?)? validator;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      obscureText: obscureText,
-      keyboardType: keyboardType,
-      validator: validator,
-      style: appFont(context: context, color: AppColors.textDark),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: appFont(context: context, color: AppColors.textGrey),
-        filled: true,
-        fillColor: Colors.white,
-        suffixIcon: suffixIcon,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.borderGrey),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.borderGrey),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.primaryGreen, width: 1.5),
         ),
       ),
     );

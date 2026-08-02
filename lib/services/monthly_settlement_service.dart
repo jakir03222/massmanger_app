@@ -4,7 +4,7 @@ import '../models/market_entry.dart';
 import '../models/mess.dart';
 import '../models/mess_bill.dart';
 import '../models/monthly_settlement.dart';
-import '../widgets/mess_session_builder.dart' show yearMonthKey;
+import '../utils/date_formatters.dart' show yearMonthKey;
 import 'market_service.dart';
 import 'meal_service.dart';
 import 'mess_bill_service.dart';
@@ -64,22 +64,36 @@ class MonthlySettlementService {
     final eidBills =
         bills.where((b) => b.type == MessBillType.eidBonus).toList();
 
-    final totalFixedBills =
-        cookBills.fold<double>(0, (sum, bill) => sum + bill.amount);
-    final totalEidPool =
-        eidBills.fold<double>(0, (sum, bill) => sum + bill.amount);
     final totalMarketSpend =
         markets.fold<double>(0, (sum, entry) => sum + entry.amount);
     final totalMeals =
         mealCounts.values.fold<double>(0, (sum, count) => sum + count);
     final mealRate = totalMeals == 0 ? 0.0 : totalMarketSpend / totalMeals;
 
-    final memberCount = members.isEmpty ? 1 : members.length;
-    final cookShare = totalFixedBills / memberCount;
-    final eidShare = totalEidPool / memberCount;
-
+    final allUids = members.map((m) => m.uid).toList();
     final sortedMembers = [...members]
       ..sort((a, b) => a.name.compareTo(b.name));
+
+    // Per-member bill shares — only marked assignees get a share.
+    final cookByUid = <String, double>{for (final uid in allUids) uid: 0};
+    final eidByUid = <String, double>{for (final uid in allUids) uid: 0};
+
+    for (final bill in cookBills) {
+      final assignees = bill.assigneeUids(allMemberUids: allUids);
+      if (assignees.isEmpty) continue;
+      final share = bill.amount / assignees.length;
+      for (final uid in assignees) {
+        cookByUid[uid] = (cookByUid[uid] ?? 0) + share;
+      }
+    }
+    for (final bill in eidBills) {
+      final assignees = bill.assigneeUids(allMemberUids: allUids);
+      if (assignees.isEmpty) continue;
+      final share = bill.amount / assignees.length;
+      for (final uid in assignees) {
+        eidByUid[uid] = (eidByUid[uid] ?? 0) + share;
+      }
+    }
 
     var totalConsumeMeal = 0.0;
     var totalCostOfMeal = 0.0;
@@ -95,12 +109,12 @@ class MonthlySettlementService {
     for (final member in sortedMembers) {
       final consumeMeal = mealCounts[member.uid] ?? 0;
       final costOfMeal = consumeMeal * mealRate;
-      final cookCost = cookShare;
+      final cookCost = cookByUid[member.uid] ?? 0;
       final due = costOfMeal + cookCost;
       final depositMoney = markets
           .where((entry) => entry.shopperUid == member.uid)
           .fold<double>(0, (sum, entry) => sum + entry.amount);
-      final eidBonus = eidShare;
+      final eidBonus = eidByUid[member.uid] ?? 0;
       final cost = due - eidBonus;
       final net = depositMoney - cost;
 

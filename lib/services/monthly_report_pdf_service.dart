@@ -1,45 +1,52 @@
 import 'package:bangla_pdf/bangla_pdf.dart' as bn;
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../models/monthly_meal_chart.dart';
 import '../models/monthly_settlement.dart';
-import '../utils/bn_date_format.dart';
+import 'monthly_meal_chart_pdf_service.dart';
 
-/// Smart monthly settlement PDF — Bangla via [bangla_pdf] (Kalpurush).
+/// Mess statement PDF — full settlement table matching classic Excel layout
+/// + Super Admin signature area.
 class MonthlyReportPdfService {
   static pw.Font? _latinRegular;
   static pw.Font? _latinBold;
+  static pw.MemoryImage? _appLogo;
 
-  static const _green = PdfColor.fromInt(0xFF2E7D32);
-  static const _greenDark = PdfColor.fromInt(0xFF1B5E20);
-  static const _greenSoft = PdfColor.fromInt(0xFFE8F5E9);
-  static const _headerBg = PdfColor.fromInt(0xFFFFF59D);
-  static const _totalBg = PdfColor.fromInt(0xFFFFD54F);
-  static const _zebra = PdfColor.fromInt(0xFFF5F5F5);
-  static const _payableBg = PdfColor.fromInt(0xFFFCE4E4);
-  static const _receivableBg = PdfColor.fromInt(0xFFE6F4EA);
-  static const _border = PdfColor.fromInt(0xFF9E9E9E);
+  static const _appName = 'Mass Manager';
+  static const _peach = PdfColor.fromInt(0xFFFCE4D6);
+  static const _netColBg = PdfColor.fromInt(0xFFFCE4EC);
+  static const _payableBg = PdfColor.fromInt(0xFFFFC7CE);
+  static const _payableText = PdfColor.fromInt(0xFF9C0006);
+  static const _receivableBg = PdfColor.fromInt(0xFFC6EFCE);
+  static const _receivableText = PdfColor.fromInt(0xFF006100);
+  static const _titleRed = PdfColor.fromInt(0xFFC00000);
+  static const _border = PdfColors.black;
   static const _textDark = PdfColor.fromInt(0xFF212121);
+  static const _zebra = PdfColor.fromInt(0xFFFFF8F5);
+  static const _brandGreen = PdfColor.fromInt(0xFF2E7D32);
 
-  Future<void> _ensureFonts() async {
-    if (_latinRegular != null) return;
+  Future<void> _ensureAssets() async {
+    if (_latinRegular != null && _appLogo != null) return;
     final results = await Future.wait([
       rootBundle.load('assets/fonts/NotoSans-Regular.ttf'),
       rootBundle.load('assets/fonts/NotoSans-Bold.ttf'),
+      rootBundle.load('assets/images/app_icon.png'),
     ]);
     _latinRegular = pw.Font.ttf(results[0]);
     _latinBold = pw.Font.ttf(results[1]);
+    _appLogo = pw.MemoryImage(results[2].buffer.asUint8List());
   }
 
-  /// bangla_pdf Text — Kalpurush for Bangla, Noto Sans for English/digits.
   pw.Widget _bnText(
     String text, {
     double fontSize = 8,
     bool bold = false,
     PdfColor? color,
     pw.TextAlign align = pw.TextAlign.left,
-    bool? softWrap,
+    bool softWrap = true,
   }) {
     final c = color ?? _textDark;
     final weight = bold ? pw.FontWeight.bold : pw.FontWeight.normal;
@@ -64,170 +71,170 @@ class MonthlyReportPdfService {
     );
   }
 
-  Future<Uint8List> generate(MonthlySettlementReport report) async {
-    await _ensureFonts();
+  Future<Uint8List> generate(
+    MonthlySettlementReport report, {
+    MonthlyMealChart? mealChart,
+    bool includeMealChart = true,
+  }) async {
+    await _ensureAssets();
+
+    final monthName = DateFormat('MMMM yyyy').format(report.month);
+    final title = 'Invoice Report for the Month of $monthName.';
+    final superAdminName = _superAdminName(report);
+    final members = report.members.map((m) => m.member).toList();
 
     final doc = pw.Document();
-    final monthLabel = formatBnMonthTitle(report.month);
-
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4.landscape,
-        margin: const pw.EdgeInsets.fromLTRB(18, 18, 18, 20),
+        margin: const pw.EdgeInsets.fromLTRB(18, 16, 18, 18),
         theme: pw.ThemeData.withFont(
           base: _latinRegular!,
           bold: _latinBold!,
         ),
-        header: (context) => context.pageNumber == 1
-            ? pw.SizedBox()
-            : pw.Padding(
-                padding: const pw.EdgeInsets.only(bottom: 8),
-                child: pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: pw.BoxDecoration(
-                    color: _greenSoft,
-                    borderRadius: pw.BorderRadius.circular(4),
-                    border: pw.Border.all(color: _green, width: 0.6),
-                  ),
-                  child: _bnText(
-                    'মাসিক হিসাব — ${report.mess.name} — $monthLabel',
-                    bold: true,
-                    fontSize: 9,
-                    color: _greenDark,
-                  ),
-                ),
-              ),
         footer: (context) => pw.Container(
           alignment: pw.Alignment.centerRight,
           margin: const pw.EdgeInsets.only(top: 6),
           child: _bnText(
-            'পৃষ্ঠা ${context.pageNumber}/${context.pagesCount}',
+            'Page ${context.pageNumber} of ${context.pagesCount}',
             fontSize: 8,
             color: PdfColors.grey700,
           ),
         ),
         build: (context) => [
-          _buildTitle(report, monthLabel),
+          _brandHeader(
+            messName: report.mess.name,
+            messLocation: report.mess.location,
+          ),
           pw.SizedBox(height: 10),
-          _buildSummaryStrip(report),
+          pw.Center(
+            child: _bnText(
+              title,
+              bold: true,
+              fontSize: 15,
+              color: _titleRed,
+              align: pw.TextAlign.center,
+            ),
+          ),
           pw.SizedBox(height: 10),
           _buildStatementTable(report),
-          pw.SizedBox(height: 12),
+          pw.SizedBox(height: 10),
           _buildNote(report),
+          pw.SizedBox(height: 28),
+          _buildSignatureBlock(superAdminName),
         ],
       ),
     );
+
+    // All-member meal chart (B/L/D) after the statement.
+    if (includeMealChart && members.isNotEmpty) {
+      try {
+        final chart = mealChart ??
+            await MonthlyMealChartBuilder().buildForMess(
+              messId: report.mess.id,
+              members: members,
+              month: report.month,
+            );
+        await MonthlyMealChartPdfService().addToDocument(
+          doc,
+          chart,
+          messName: report.mess.name,
+          messLocation: report.mess.location,
+          superAdminName: superAdminName,
+        );
+      } catch (_) {
+        // Invoice statement still downloads even if meal chart fails.
+      }
+    }
 
     return doc.save();
   }
 
-  pw.Widget _buildTitle(
-    MonthlySettlementReport report,
-    String monthLabel,
-  ) {
+  pw.Widget _brandHeader({
+    required String messName,
+    String messLocation = '',
+  }) {
+    final location = messLocation.trim();
     return pw.Container(
       width: double.infinity,
-      padding: const pw.EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: pw.BoxDecoration(
-        color: _green,
-        borderRadius: pw.BorderRadius.circular(8),
-        border: pw.Border.all(color: _greenDark, width: 1.2),
+        color: PdfColor.fromInt(0xFFE8F5E9),
+        borderRadius: pw.BorderRadius.circular(6),
+        border: pw.Border.all(color: _brandGreen, width: 0.8),
       ),
-      child: pw.Column(
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
-          _bnText(
-            'মাসিক হিসাব',
-            bold: true,
-            fontSize: 16,
-            color: PdfColors.white,
-            align: pw.TextAlign.center,
-          ),
-          pw.SizedBox(height: 3),
-          _bnText(
-            '${report.mess.name} — $monthLabel',
-            bold: true,
-            fontSize: 12,
-            color: PdfColors.white,
-            align: pw.TextAlign.center,
-          ),
-          if (report.mess.location.isNotEmpty) ...[
-            pw.SizedBox(height: 3),
-            _bnText(
-              report.mess.location,
-              fontSize: 9,
-              color: PdfColors.white,
-              align: pw.TextAlign.center,
+          if (_appLogo != null)
+            pw.Container(
+              width: 36,
+              height: 36,
+              margin: const pw.EdgeInsets.only(right: 10),
+              child: pw.Image(_appLogo!, fit: pw.BoxFit.contain),
             ),
-          ],
+          pw.Expanded(
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                _bnText(
+                  _appName,
+                  bold: true,
+                  fontSize: 13,
+                  color: _brandGreen,
+                ),
+                if (messName.trim().isNotEmpty) ...[
+                  pw.SizedBox(height: 2),
+                  _bnText(
+                    messName.trim(),
+                    bold: true,
+                    fontSize: 11,
+                  ),
+                ],
+                if (location.isNotEmpty)
+                  _bnText(
+                    location,
+                    fontSize: 8,
+                    color: PdfColors.grey700,
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  pw.Widget _buildSummaryStrip(MonthlySettlementReport report) {
-    pw.Widget chip(String label, String value) {
-      return pw.Expanded(
-        child: pw.Container(
-          margin: const pw.EdgeInsets.symmetric(horizontal: 3),
-          padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 7),
-          decoration: pw.BoxDecoration(
-            color: _greenSoft,
-            borderRadius: pw.BorderRadius.circular(6),
-            border: pw.Border.all(color: _border, width: 0.5),
-          ),
-          child: pw.Column(
-            children: [
-              _bnText(
-                label,
-                fontSize: 7,
-                color: _greenDark,
-                align: pw.TextAlign.center,
-              ),
-              pw.SizedBox(height: 2),
-              _bnText(
-                value,
-                bold: true,
-                fontSize: 10,
-                color: _greenDark,
-                align: pw.TextAlign.center,
-                softWrap: false,
-              ),
-            ],
-          ),
-        ),
-      );
+  String _superAdminName(MonthlySettlementReport report) {
+    for (final row in report.members) {
+      if (row.member.isSuperAdmin) return row.member.name;
     }
-
-    return pw.Row(
-      children: [
-        chip('মোট মিল', _meals(report.totalConsumeMeal)),
-        chip('মিল রেট', '${_money(report.mealRate)} ৳'),
-        chip('মোট বাজার', '${_money(report.totalDeposit)} ৳'),
-        chip('মাসিক বিল', '${_money(report.totalCookCost)} ৳'),
-        chip('নেট', '${_money(report.totalNet)} ৳'),
-      ],
-    );
+    final createdBy = report.mess.createdBy;
+    if (createdBy != null && createdBy.isNotEmpty) {
+      for (final row in report.members) {
+        if (row.member.uid == createdBy) return row.member.name;
+      }
+    }
+    return '';
   }
 
   pw.Widget _buildStatementTable(MonthlySettlementReport report) {
     return pw.Table(
       border: pw.TableBorder.all(color: _border, width: 0.7),
-      columnWidths: {
-        0: const pw.FlexColumnWidth(0.45),
-        1: const pw.FlexColumnWidth(1.5),
-        2: const pw.FlexColumnWidth(0.85),
-        3: const pw.FlexColumnWidth(0.85),
-        4: const pw.FlexColumnWidth(0.95),
-        5: const pw.FlexColumnWidth(0.85),
-        6: const pw.FlexColumnWidth(0.9),
-        7: const pw.FlexColumnWidth(0.95),
-        8: const pw.FlexColumnWidth(0.8),
-        9: const pw.FlexColumnWidth(0.95),
-        10: const pw.FlexColumnWidth(1.15),
-        11: const pw.FlexColumnWidth(0.9),
+      defaultVerticalAlignment: pw.TableCellVerticalAlignment.middle,
+      columnWidths: const {
+        0: pw.FlexColumnWidth(0.4),
+        1: pw.FlexColumnWidth(1.45),
+        2: pw.FlexColumnWidth(0.95),
+        3: pw.FlexColumnWidth(0.85),
+        4: pw.FlexColumnWidth(0.95),
+        5: pw.FlexColumnWidth(0.85),
+        6: pw.FlexColumnWidth(0.9),
+        7: pw.FlexColumnWidth(0.95),
+        8: pw.FlexColumnWidth(0.8),
+        9: pw.FlexColumnWidth(0.95),
+        10: pw.FlexColumnWidth(1.15),
+        11: pw.FlexColumnWidth(0.85),
       },
       children: [
         _headerRow(),
@@ -244,23 +251,23 @@ class MonthlyReportPdfService {
           bold: true,
           align: pw.TextAlign.center,
           fontSize: 7,
-          background: _headerBg,
-          softWrap: false,
+          background: _peach,
+          softWrap: true,
         );
     return pw.TableRow(
       children: [
-        h('ক্রম'),
-        h('নাম'),
-        h('মোট মিল'),
-        h('মিল রেট'),
-        h('খাবার খরচ'),
-        h('কুক খরচ'),
-        h('মোট বকেয়া'),
-        h('জমা টাকা'),
-        h('ঈদ বোনাস'),
-        h('মোট খরচ'),
-        h('নেট পাবে/দিবে'),
-        h('মন্তব্য'),
+        h('SL'),
+        h('Name'),
+        h('Consume meal\nfor the month'),
+        h('Meal rate\n(TK)'),
+        h('Cost of meal'),
+        h('Cook cost'),
+        h('Total Due'),
+        h('Deposit Money'),
+        h('Eid Bonus'),
+        h('Total Cost'),
+        h('Net Payable/\nReceivable'),
+        h('Remarks'),
       ],
     );
   }
@@ -268,11 +275,12 @@ class MonthlyReportPdfService {
   pw.TableRow _memberRow(MemberMonthlySettlement row, {required bool zebra}) {
     final net = row.netPayableReceivable;
     final isPayable = net < 0;
-    final remark = net > 0
-        ? 'পাবে'
-        : net < 0
-            ? 'দিবে'
-            : 'সমান';
+    final isReceivable = net > 0;
+    final remark = isReceivable
+        ? 'Receivable'
+        : isPayable
+            ? 'Payable'
+            : 'Settled';
     final bg = zebra ? _zebra : null;
 
     return pw.TableRow(
@@ -292,53 +300,57 @@ class MonthlyReportPdfService {
         ),
         _cell(
           _money(row.mealRate),
-          align: pw.TextAlign.right,
+          align: pw.TextAlign.center,
           background: bg,
           softWrap: false,
         ),
         _cell(
           _money(row.costOfMeal),
-          align: pw.TextAlign.right,
+          align: pw.TextAlign.center,
           background: bg,
           softWrap: false,
         ),
         _cell(
           _money(row.cookCost),
-          align: pw.TextAlign.right,
+          align: pw.TextAlign.center,
           background: bg,
           softWrap: false,
         ),
         _cell(
           _money(row.totalDue),
-          align: pw.TextAlign.right,
+          align: pw.TextAlign.center,
           background: bg,
           softWrap: false,
         ),
         _cell(
           _money(row.depositMoney),
-          align: pw.TextAlign.right,
+          align: pw.TextAlign.center,
           background: bg,
           softWrap: false,
         ),
         _cell(
-          row.eidBonus == 0 ? '—' : _money(row.eidBonus),
-          align: pw.TextAlign.right,
+          row.eidBonus == 0 ? '' : _money(row.eidBonus),
+          align: pw.TextAlign.center,
           background: bg,
           softWrap: false,
         ),
         _cell(
           _money(row.totalCost),
           bold: true,
-          align: pw.TextAlign.right,
+          align: pw.TextAlign.center,
           background: bg,
           softWrap: false,
         ),
         _cell(
           _money(net),
           bold: true,
-          align: pw.TextAlign.right,
-          color: isPayable ? PdfColors.red800 : PdfColors.green800,
-          background: isPayable ? _payableBg : _receivableBg,
+          align: pw.TextAlign.center,
+          color: isPayable
+              ? _payableText
+              : (isReceivable ? _receivableText : _textDark),
+          background: isPayable
+              ? _payableBg
+              : (isReceivable ? _receivableBg : _netColBg),
           softWrap: false,
         ),
         _cell(
@@ -346,10 +358,11 @@ class MonthlyReportPdfService {
           bold: true,
           align: pw.TextAlign.center,
           color: isPayable
-              ? PdfColors.red800
-              : (net > 0 ? PdfColors.green800 : _textDark),
+              ? _payableText
+              : (isReceivable ? _receivableText : _textDark),
           background: bg,
           softWrap: false,
+          fontSize: 7,
         ),
       ],
     );
@@ -359,121 +372,172 @@ class MonthlyReportPdfService {
     final net = report.totalNet;
     return pw.TableRow(
       children: [
-        _cell('', bold: true, background: _totalBg),
+        _cell('', bold: true, background: _peach),
         _cell(
-          'সর্বমোট',
+          'TOTAL',
           bold: true,
           align: pw.TextAlign.center,
-          background: _totalBg,
+          background: _peach,
           fontSize: 8.5,
         ),
         _cell(
           _meals(report.totalConsumeMeal),
           bold: true,
           align: pw.TextAlign.center,
-          background: _totalBg,
+          background: _peach,
           softWrap: false,
         ),
-        _cell('', bold: true, background: _totalBg),
+        _cell('', bold: true, background: _peach),
         _cell(
           _money(report.totalCostOfMeal),
           bold: true,
-          align: pw.TextAlign.right,
-          background: _totalBg,
+          align: pw.TextAlign.center,
+          background: _peach,
           softWrap: false,
         ),
         _cell(
           _money(report.totalCookCost),
           bold: true,
-          align: pw.TextAlign.right,
-          background: _totalBg,
+          align: pw.TextAlign.center,
+          background: _peach,
           softWrap: false,
         ),
         _cell(
           _money(report.totalDue),
           bold: true,
-          align: pw.TextAlign.right,
-          background: _totalBg,
+          align: pw.TextAlign.center,
+          background: _peach,
           softWrap: false,
         ),
         _cell(
           _money(report.totalDeposit),
           bold: true,
-          align: pw.TextAlign.right,
-          background: _totalBg,
+          align: pw.TextAlign.center,
+          background: _peach,
           softWrap: false,
         ),
         _cell(
-          report.totalEidBonus == 0 ? '—' : _money(report.totalEidBonus),
+          report.totalEidBonus == 0 ? '' : _money(report.totalEidBonus),
           bold: true,
-          align: pw.TextAlign.right,
-          background: _totalBg,
+          align: pw.TextAlign.center,
+          background: _peach,
           softWrap: false,
         ),
         _cell(
           _money(report.totalCost),
           bold: true,
-          align: pw.TextAlign.right,
-          background: _totalBg,
+          align: pw.TextAlign.center,
+          background: _peach,
           softWrap: false,
         ),
         _cell(
           _money(net),
           bold: true,
-          align: pw.TextAlign.right,
-          color: net < 0 ? PdfColors.red800 : PdfColors.green800,
-          background: _totalBg,
+          align: pw.TextAlign.center,
+          color: net < 0 ? _payableText : (net > 0 ? _receivableText : _textDark),
+          background: _peach,
           softWrap: false,
         ),
-        _cell('', bold: true, background: _totalBg),
+        _cell('', bold: true, background: _peach),
       ],
     );
   }
 
   pw.Widget _buildNote(MonthlySettlementReport report) {
     final billLines = report.fixedBills
-        .map((b) => '${b.type.bnLabel}: ${_money(b.amount)} ৳')
+        .map((b) => '${b.type.label(bn: false)}: ${_money(b.amount)} TK')
         .join('  •  ');
 
     return pw.Container(
       width: double.infinity,
-      padding: const pw.EdgeInsets.all(10),
+      padding: const pw.EdgeInsets.all(8),
       decoration: pw.BoxDecoration(
-        color: _greenSoft,
-        borderRadius: pw.BorderRadius.circular(6),
-        border: pw.Border.all(color: _border, width: 0.6),
+        border: pw.Border.all(color: PdfColors.grey400, width: 0.6),
+        borderRadius: pw.BorderRadius.circular(4),
       ),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
+          _bnText('Calculation notes', bold: true, fontSize: 8),
+          pw.SizedBox(height: 3),
           _bnText(
-            'হিসাবের নিয়ম',
-            bold: true,
-            fontSize: 9,
-            color: _greenDark,
-          ),
-          pw.SizedBox(height: 4),
-          _bnText(
-            'মিল রেট = মোট বাজার (${_money(report.totalCostOfMeal)} ৳) ÷ মোট মিল (${_meals(report.totalConsumeMeal)}) = ${_money(report.mealRate)} ৳',
-            fontSize: 8,
+            'Meal rate = Total bazaar (${_money(report.totalCostOfMeal)} TK) ÷ Total meals (${_meals(report.totalConsumeMeal)}) = ${_money(report.mealRate)} TK',
+            fontSize: 7.5,
           ),
           _bnText(
-            'খাবার খরচ = মিল × রেট  ·  কুক খরচ = মাসিক বিলের সমান ভাগ (ঈদ বোনাস ছাড়া)  ·  মোট বকেয়া = খাবার খরচ + কুক খরচ',
-            fontSize: 8,
+            'Cost of meal = Meals × Rate  ·  Total Due = Cost of meal + Cook cost  ·  Total Cost = Total Due − Eid Bonus  ·  Net = Deposit − Total Cost',
+            fontSize: 7.5,
           ),
           _bnText(
-            'জমা টাকা = অনুমোদিত বাজার জমা  ·  নেট = জমা − মোট খরচ  ·  ধনাত্মক = পাবে, ঋণাত্মক = দিবে',
-            fontSize: 8,
+            'Positive Net = Receivable  ·  Negative Net = Payable',
+            fontSize: 7.5,
           ),
           if (billLines.isNotEmpty) ...[
-            pw.SizedBox(height: 4),
+            pw.SizedBox(height: 3),
             _bnText(
-              'এই মাসের মাসিক বিল — $billLines  (মোট: ${_money(report.totalCookCost)} ৳)',
-              fontSize: 8,
+              'Monthly bills — $billLines  (Cook total: ${_money(report.totalCookCost)} TK)',
+              fontSize: 7.5,
             ),
           ],
         ],
       ),
+    );
+  }
+
+  pw.Widget _buildSignatureBlock(String superAdminName) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: pw.CrossAxisAlignment.end,
+      children: [
+        pw.Expanded(
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              _bnText(
+                'Generated: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+                fontSize: 7.5,
+                color: PdfColors.grey700,
+              ),
+              pw.SizedBox(height: 2),
+              _bnText(
+                'Mass Manager',
+                fontSize: 7.5,
+                color: PdfColors.grey700,
+              ),
+            ],
+          ),
+        ),
+        pw.Container(
+          width: 220,
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: [
+              pw.SizedBox(height: 36),
+              pw.Container(
+                width: 180,
+                height: 1,
+                color: _border,
+              ),
+              pw.SizedBox(height: 6),
+              _bnText(
+                'Super Admin Signature',
+                bold: true,
+                fontSize: 9,
+                align: pw.TextAlign.center,
+              ),
+              if (superAdminName.isNotEmpty) ...[
+                pw.SizedBox(height: 3),
+                _bnText(
+                  superAdminName,
+                  fontSize: 8,
+                  align: pw.TextAlign.center,
+                  color: PdfColors.grey800,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -507,6 +571,5 @@ class MonthlyReportPdfService {
 
   String _money(double n) => n.toStringAsFixed(2);
 
-  String _meals(double n) =>
-      n % 1 == 0 ? n.toInt().toString() : n.toStringAsFixed(1);
+  String _meals(double n) => n.toStringAsFixed(1);
 }

@@ -22,6 +22,7 @@ abstract final class AppColors {
 
   static Color get primaryGreen => _palette.primary;
   static Color get darkGreen => _palette.darkPrimary;
+  static Color get onPrimary => _palette.onPrimary;
   static Color get bannerGreen => _palette.banner;
   static Color get pageBackground => _palette.pageBackground;
   static Color get textDark => _palette.textDark;
@@ -54,4 +55,7 @@ abstract final class AppColors {
       _palette.brightness == Brightness.dark
           ? _palette.inputBackground
           : const Color(0xFFFFFFFF);
+
+  /// Readable text/icon color for a filled background.
+  static Color on(Color background) => AppThemePalette.contrastOn(background);
 }

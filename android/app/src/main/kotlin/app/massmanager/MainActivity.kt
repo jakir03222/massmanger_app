@@ -1,4 +1,4 @@
-package com.example.massmanager
+package app.massmanager
 
 import android.os.Bundle
 import android.view.WindowManager
